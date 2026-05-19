@@ -277,7 +277,7 @@ def send_email():
         app.logger.error(f"send_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
     
-    
+
 
 @app.route("/list_emails", methods=["GET"])
 def list_emails():
@@ -287,38 +287,89 @@ def list_emails():
 
     max_results = request.args.get("max_results", 10, type=int)
     query = request.args.get("q", "")
+    page_token = request.args.get("page_token")
 
-    result = (
-        service.users()
-        .messages()
-        .list(userId="me", maxResults=max_results, q=query)
-        .execute()
-    )
-    messages = result.get("messages", [])
-
-    email_list = []
-    for m in messages:
-        msg = (
+    try:
+        list_request = (
             service.users()
             .messages()
-            .get(
+            .list(
                 userId="me",
-                id=m["id"],
-                format="metadata",
-                metadataHeaders=["Subject", "From", "Date"],
+                maxResults=max_results,
+                q=query,
+                pageToken=page_token,
+                fields="messages/id,nextPageToken,resultSizeEstimate",
             )
-            .execute()
         )
-        headers = msg.get("payload", {}).get("headers", [])
-        email_list.append({
-            "id": m["id"],
-            "subject": next((h["value"] for h in headers if h["name"] == "Subject"), ""),
-            "from": next((h["value"] for h in headers if h["name"] == "From"), ""),
-            "date": next((h["value"] for h in headers if h["name"] == "Date"), ""),
+
+        result = list_request.execute()
+        messages = result.get("messages", [])
+
+        if not messages:
+            return jsonify({
+                "emails": [],
+                "nextPageToken": result.get("nextPageToken"),
+                "resultSizeEstimate": result.get("resultSizeEstimate", 0),
+            })
+
+        email_map = {}
+
+        def batch_callback(request_id, response, exception):
+            if exception is not None:
+                email_map[request_id] = {
+                    "id": request_id,
+                    "subject": "",
+                    "from": "",
+                    "date": "",
+                }
+                return
+
+            headers = response.get("payload", {}).get("headers", [])
+
+            def get_header(name):
+                return next(
+                    (h.get("value", "") for h in headers if h.get("name", "").lower() == name.lower()),
+                    "",
+                )
+
+            email_map[request_id] = {
+                "id": response.get("id", request_id),
+                "subject": get_header("Subject"),
+                "from": get_header("From"),
+                "date": get_header("Date"),
+            }
+
+        batch = service.new_batch_http_request()
+
+        for m in messages:
+            msg_id = m["id"]
+            batch.add(
+                service.users().messages().get(
+                    userId="me",
+                    id=msg_id,
+                    format="metadata",
+                    metadataHeaders=["Subject", "From", "Date"],
+                    fields="id,payload/headers",
+                ),
+                request_id=msg_id,
+                callback=batch_callback,
+            )
+
+        batch.execute()
+
+        email_list = [email_map[m["id"]] for m in messages if m["id"] in email_map]
+
+        return jsonify({
+            "emails": email_list,
+            "nextPageToken": result.get("nextPageToken"),
+            "resultSizeEstimate": result.get("resultSizeEstimate", 0),
         })
 
-    return jsonify({"emails": email_list})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 
+    
 
 def _decode_body(data: str) -> str:
     if not data:

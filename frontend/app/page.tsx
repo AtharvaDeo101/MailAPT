@@ -4,12 +4,10 @@ import { FeaturesSection } from "@/components/landing/features-section";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
 
 import { SecuritySection } from "@/components/landing/customer";
-import { DevelopersSection } from "@/components/landing/benifits";
 
 import { CtaSection } from "@/components/landing/cta-section";
 import { FooterSection } from "@/components/landing/footer-section";
 
-import { ServiceCards } from "@/components/landing/ServiceCards";
 
 
 
@@ -20,12 +18,8 @@ export default function Home() {
       <HeroSection />
       <FeaturesSection />
       <HowItWorksSection />
-      
-      <ServiceCards />
-
 
       <SecuritySection />
-      <DevelopersSection />
 
       <CtaSection />
       <FooterSection />

@@ -33,8 +33,6 @@ import {
 
 const API = "http://localhost:5000";
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -66,8 +64,6 @@ interface GmailEmailDetail {
   html_body?: string;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
 function formatTime(dateStr: string | Date): string {
   const date = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
   if (isNaN(date.getTime())) return String(dateStr);
@@ -87,8 +83,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// ── AnimatedWave ──────────────────────────────────────────────────────────
-
 function AnimatedWave() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef(0);
@@ -107,6 +101,7 @@ function AnimatedWave() {
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
     };
 
@@ -160,8 +155,6 @@ function AnimatedWave() {
   );
 }
 
-// ── ChatPrompt ─────────────────────────────────────────────────────────────
-
 interface ChatPromptProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
@@ -197,6 +190,7 @@ function ChatPrompt({ messages, onSendMessage, isLoading }: ChatPromptProps) {
             Describe the email you want to generate
           </div>
         )}
+
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -229,6 +223,7 @@ function ChatPrompt({ messages, onSendMessage, isLoading }: ChatPromptProps) {
             </div>
           </div>
         ))}
+
         {isLoading && (
           <div className="flex gap-2.5">
             <div className="h-7 w-7 rounded-full bg-accent flex items-center justify-center shrink-0">
@@ -251,6 +246,7 @@ function ChatPrompt({ messages, onSendMessage, isLoading }: ChatPromptProps) {
           </div>
         )}
       </div>
+
       <form
         onSubmit={handleSubmit}
         className="border-t border-border p-3 flex gap-2"
@@ -274,8 +270,6 @@ function ChatPrompt({ messages, onSendMessage, isLoading }: ChatPromptProps) {
     </div>
   );
 }
-
-// ── EmailEditor ────────────────────────────────────────────────────────────
 
 interface EmailEditorProps {
   subject: string;
@@ -328,8 +322,6 @@ function EmailEditor({
   );
 }
 
-// ── EmailPreviewModal ──────────────────────────────────────────────────────
-
 interface EmailPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -348,6 +340,7 @@ function EmailPreviewModal({
   attachments,
 }: EmailPreviewModalProps) {
   if (!isOpen) return null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -374,6 +367,7 @@ function EmailPreviewModal({
             <X className="h-4 w-4" />
           </Button>
         </div>
+
         <div className="px-5 py-3 border-b border-border space-y-2 text-sm shrink-0">
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">To</span>
@@ -406,19 +400,16 @@ function EmailPreviewModal({
             </div>
           )}
         </div>
+
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <pre className="whitespace-pre-wrap text-sm text-foreground font-sans leading-relaxed">
-            {body || (
-              <span className="text-muted-foreground">No body yet.</span>
-            )}
+            {body || <span className="text-muted-foreground">No body yet.</span>}
           </pre>
         </div>
       </div>
     </div>
   );
 }
-
-// ── GmailEmailDetailModal ──────────────────────────────────────────────────
 
 interface GmailEmailDetailModalProps {
   isOpen: boolean;
@@ -485,6 +476,7 @@ function GmailEmailDetailModal({
             </Button>
           </div>
         </div>
+
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -493,9 +485,7 @@ function GmailEmailDetailModal({
           <>
             <div className="px-5 py-3 border-b border-border space-y-2 text-sm shrink-0">
               <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">
-                  From
-                </span>
+                <span className="text-muted-foreground w-14 shrink-0">From</span>
                 <span className="text-foreground font-medium">
                   {email.from || "—"}
                 </span>
@@ -509,12 +499,11 @@ function GmailEmailDetailModal({
                 </span>
               </div>
               <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">
-                  Date
-                </span>
+                <span className="text-muted-foreground w-14 shrink-0">Date</span>
                 <span className="text-foreground">{email.date || "—"}</span>
               </div>
             </div>
+
             <div className="flex-1 overflow-y-auto px-5 py-5">
               {viewMode === "text" || !html ? (
                 <pre className="whitespace-pre-wrap text-sm text-foreground font-sans leading-relaxed">
@@ -540,8 +529,6 @@ function GmailEmailDetailModal({
     </div>
   );
 }
-
-// ── EmailSidebar ───────────────────────────────────────────────────────────
 
 function EmptyState({
   icon,
@@ -656,8 +643,8 @@ interface EmailSidebarProps {
   sentEmails: GmailEmail[];
   inboxLoading: boolean;
   sentLoading: boolean;
-  onRefreshInbox: () => void;
-  onRefreshSent: () => void;
+  onRefreshInbox: (force?: boolean) => void;
+  onRefreshSent: (force?: boolean) => void;
   onOpenGmailEmail: (id: string) => void;
 }
 
@@ -686,7 +673,6 @@ function EmailSidebar({
     {
       number: "01",
       label: "Drafts",
-      icon: <Mail className="h-3.5 w-3.5" />,
       isOpen: draftsOpen,
       isHovered: draftsHovered,
       setHovered: setDraftsHovered,
@@ -696,7 +682,6 @@ function EmailSidebar({
         setSentOpen(false);
       },
       count: drafts.length,
-      countLabel: "saved",
       isLoading: false,
       onRefresh: undefined as (() => void) | undefined,
       content: (
@@ -785,19 +770,22 @@ function EmailSidebar({
     {
       number: "02",
       label: "Inbox",
-      icon: <Inbox className="h-3.5 w-3.5" />,
       isOpen: inboxOpen,
       isHovered: inboxHovered,
       setHovered: setInboxHovered,
       onToggle: () => {
-        setInboxOpen((v) => !v);
+        const next = !inboxOpen;
+        setInboxOpen(next);
         setDraftsOpen(false);
         setSentOpen(false);
+
+        if (next && !inboxLoading && inboxEmails.length === 0) {
+          onRefreshInbox();
+        }
       },
       count: inboxEmails.length,
-      countLabel: "emails",
       isLoading: inboxLoading,
-      onRefresh: onRefreshInbox,
+      onRefresh: () => onRefreshInbox(true),
       content: (
         <div className="py-2">
           {inboxLoading ? (
@@ -830,19 +818,22 @@ function EmailSidebar({
     {
       number: "03",
       label: "Sent",
-      icon: <SendHorizonal className="h-3.5 w-3.5" />,
       isOpen: sentOpen,
       isHovered: sentHovered,
       setHovered: setSentHovered,
       onToggle: () => {
-        setSentOpen((v) => !v);
+        const next = !sentOpen;
+        setSentOpen(next);
         setDraftsOpen(false);
         setInboxOpen(false);
+
+        if (next && !sentLoading && sentEmails.length === 0) {
+          onRefreshSent();
+        }
       },
       count: sentEmails.length,
-      countLabel: "emails",
       isLoading: sentLoading,
-      onRefresh: onRefreshSent,
+      onRefresh: () => onRefreshSent(true),
       content: (
         <div className="py-2">
           {sentLoading ? (
@@ -979,6 +970,7 @@ function EmailSidebar({
                     {item.count}
                   </span>
                 )}
+
                 {item.onRefresh && (
                   <Button
                     variant="ghost"
@@ -986,7 +978,7 @@ function EmailSidebar({
                     className="h-5 w-5 text-muted-foreground/40 hover:text-foreground"
                     onClick={(e) => {
                       e.stopPropagation();
-                      item.onRefresh!();
+                      item.onRefresh?.();
                     }}
                     aria-label={`Refresh ${item.label}`}
                   >
@@ -998,6 +990,7 @@ function EmailSidebar({
                     />
                   </Button>
                 )}
+
                 <ChevronDown
                   className="h-3 w-3 transition-all duration-300"
                   style={{
@@ -1052,8 +1045,6 @@ function EmailSidebar({
   );
 }
 
-// ── AttachmentList ─────────────────────────────────────────────────────────
-
 interface AttachmentListProps {
   files: File[];
   onRemove: (index: number) => void;
@@ -1061,6 +1052,7 @@ interface AttachmentListProps {
 
 function AttachmentList({ files, onRemove }: AttachmentListProps) {
   if (files.length === 0) return null;
+
   return (
     <div className="flex flex-wrap gap-2 mt-2">
       {files.map((file, i) => (
@@ -1086,8 +1078,6 @@ function AttachmentList({ files, onRemove }: AttachmentListProps) {
   );
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────
-
 export default function EmailGenerator() {
   const isAuthenticated = useAuth();
 
@@ -1106,7 +1096,6 @@ export default function EmailGenerator() {
   const [drafts, setDrafts] = useState<DraftEmail[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
 
-  // ── NEW: attachment state ──
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1114,20 +1103,26 @@ export default function EmailGenerator() {
   const [sentEmails, setSentEmails] = useState<GmailEmail[]>([]);
   const [inboxLoading, setInboxLoading] = useState(false);
   const [sentLoading, setSentLoading] = useState(false);
+  const [inboxLoaded, setInboxLoaded] = useState(false);
+  const [sentLoaded, setSentLoaded] = useState(false);
 
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailEmail, setDetailEmail] = useState<GmailEmailDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const fetchInbox = async () => {
+  const fetchInbox = async (force = false) => {
+    if (inboxLoading) return;
+    if (inboxLoaded && !force) return;
+
     setInboxLoading(true);
     try {
-      const res = await fetch(`${API}/list_emails?max_results=20&q=in:inbox`, {
+      const res = await fetch(`${API}/list_emails?max_results=10&q=in:inbox`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch inbox");
       const data = await res.json();
       setInboxEmails(data.emails || []);
+      setInboxLoaded(true);
     } catch {
       setInboxEmails([]);
     } finally {
@@ -1135,15 +1130,19 @@ export default function EmailGenerator() {
     }
   };
 
-  const fetchSent = async () => {
+  const fetchSent = async (force = false) => {
+    if (sentLoading) return;
+    if (sentLoaded && !force) return;
+
     setSentLoading(true);
     try {
-      const res = await fetch(`${API}/list_emails?max_results=20&q=in:sent`, {
+      const res = await fetch(`${API}/list_emails?max_results=10&q=in:sent`, {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to fetch sent");
       const data = await res.json();
       setSentEmails(data.emails || []);
+      setSentLoaded(true);
     } catch {
       setSentEmails([]);
     } finally {
@@ -1155,6 +1154,7 @@ export default function EmailGenerator() {
     setDetailModalOpen(true);
     setDetailEmail(null);
     setDetailLoading(true);
+
     try {
       const res = await fetch(`${API}/get_email/${id}`, {
         credentials: "include",
@@ -1170,10 +1170,7 @@ export default function EmailGenerator() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchInbox();
-      fetchSent();
-    }
+    if (!isAuthenticated) return;
   }, [isAuthenticated]);
 
   if (isAuthenticated === null) {
@@ -1195,6 +1192,7 @@ export default function EmailGenerator() {
     addMessage("user", userMessage);
     setIsChatLoading(true);
     setStatus(null);
+
     try {
       const res = await fetch(`${API}/generate_email`, {
         method: "POST",
@@ -1202,8 +1200,11 @@ export default function EmailGenerator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: userMessage }),
       });
-      if (!res.ok)
+
+      if (!res.ok) {
         throw new Error((await res.json()).error || "Generation failed");
+      }
+
       const data = await res.json();
       setSubject(data.subject ?? "");
       setBody(data.body ?? "");
@@ -1222,6 +1223,7 @@ export default function EmailGenerator() {
 
   const handleSaveDraft = () => {
     if (!subject && !body) return;
+
     if (activeDraftId) {
       setDrafts((prev) =>
         prev.map((d) =>
@@ -1241,6 +1243,7 @@ export default function EmailGenerator() {
       setDrafts((prev) => [newDraft, ...prev]);
       setActiveDraftId(newDraft.id);
     }
+
     setStatus({ type: "success", message: "Draft saved." });
     setTimeout(() => setStatus(null), 2000);
   };
@@ -1252,7 +1255,7 @@ export default function EmailGenerator() {
     setActiveDraftId(null);
     setMessages([]);
     setStatus(null);
-    setAttachments([]); // clear attachments on new email
+    setAttachments([]);
   };
 
   const handleSelectDraft = (draft: DraftEmail) => {
@@ -1268,7 +1271,6 @@ export default function EmailGenerator() {
     if (activeDraftId === id) handleNewEmail();
   };
 
-  // ── NEW: attachment handlers ──
   const handleAttachClick = () => {
     fileInputRef.current?.click();
   };
@@ -1277,7 +1279,6 @@ export default function EmailGenerator() {
     const selected = Array.from(e.target.files || []);
     if (selected.length === 0) return;
     setAttachments((prev) => [...prev, ...selected]);
-    // Reset input so same file can be re-attached after removal
     e.target.value = "";
   };
 
@@ -1287,10 +1288,11 @@ export default function EmailGenerator() {
 
   const handleSend = async () => {
     if (!body.trim() || !recipientEmail.trim()) return;
+
     setIsSending(true);
     setStatus(null);
+
     try {
-      // Build FormData to support file attachments
       const formData = new FormData();
       formData.append("to", recipientEmail.trim());
       formData.append("subject", subject);
@@ -1302,18 +1304,27 @@ export default function EmailGenerator() {
         credentials: "include",
         body: formData,
       });
-      if (!res.ok)
+
+      if (!res.ok) {
         throw new Error((await res.json()).error || "Sending failed");
+      }
+
       setStatus({
         type: "success",
         message: `Email sent to ${recipientEmail}`,
       });
+
       addMessage(
         "assistant",
-        `✓ Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}` : ""}!`,
+        `✓ Email successfully sent to ${recipientEmail}${
+          attachments.length > 0
+            ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}`
+            : ""
+        }!`,
       );
-      setAttachments([]); // clear after send
-      fetchSent();
+
+      setAttachments([]);
+      fetchSent(true);
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Unknown error" });
     } finally {
@@ -1332,6 +1343,7 @@ export default function EmailGenerator() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
+
       <div className="flex flex-1 overflow-hidden pt-16">
         <EmailSidebar
           drafts={drafts}
@@ -1348,7 +1360,6 @@ export default function EmailGenerator() {
         />
 
         <main className="flex-1 overflow-y-auto">
-          {/* ── Hero Banner ── */}
           <div className="relative w-full h-44 overflow-hidden border-b border-border">
             <div className="absolute inset-0">
               <AnimatedWave />
@@ -1386,6 +1397,7 @@ export default function EmailGenerator() {
                   </span>
                 </p>
               </div>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -1398,13 +1410,10 @@ export default function EmailGenerator() {
             </div>
           </div>
 
-          {/* ── Main content ── */}
           <div className="p-6 md:p-8">
             <div className="max-w-2xl mx-auto space-y-6">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  To
-                </label>
+                <label className="text-sm font-medium text-foreground">To</label>
                 <Input
                   type="email"
                   placeholder="recipient@example.com"
@@ -1443,6 +1452,7 @@ export default function EmailGenerator() {
                         )}
                         {copied ? "Copied" : "Copy"}
                       </button>
+
                       <button
                         onClick={() => setPreviewOpen(true)}
                         className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -1452,6 +1462,7 @@ export default function EmailGenerator() {
                       </button>
                     </div>
                   </div>
+
                   <EmailEditor
                     subject={subject}
                     body={body}
@@ -1463,9 +1474,7 @@ export default function EmailGenerator() {
 
               {hasEmail && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  {/* ── Attachment area ── */}
                   <div>
-                    {/* Hidden file input */}
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -1475,7 +1484,6 @@ export default function EmailGenerator() {
                       aria-label="Attach files"
                     />
 
-                    {/* Attach button */}
                     <button
                       onClick={handleAttachClick}
                       className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
@@ -1490,14 +1498,12 @@ export default function EmailGenerator() {
                       )}
                     </button>
 
-                    {/* Attachment chips */}
                     <AttachmentList
                       files={attachments}
                       onRemove={handleRemoveAttachment}
                     />
                   </div>
 
-                  {/* ── Action buttons ── */}
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
@@ -1507,6 +1513,7 @@ export default function EmailGenerator() {
                       <Save className="w-4 h-4" />
                       Save Draft
                     </Button>
+
                     <Button
                       onClick={handleSend}
                       disabled={!recipientEmail.trim() || isSending}
