@@ -25,9 +25,10 @@ import {
   Inbox,
   SendHorizonal,
   ChevronDown,
-  ChevronRight,
   RefreshCw,
   Code,
+  Paperclip,
+  FileText,
 } from "lucide-react";
 
 const API = "http://localhost:5000";
@@ -80,7 +81,13 @@ function formatTime(dateStr: string | Date): string {
   return date.toLocaleDateString();
 }
 
-// ── AnimatedWave ───────────────────────────────────────────────────────────
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ── AnimatedWave ──────────────────────────────────────────────────────────
 
 function AnimatedWave() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -92,7 +99,7 @@ function AnimatedWave() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const chars = "·∘○◯◌●◉";
+    const chars = "·∜─╯╒╠╉";
     let time = 0;
 
     const resize = () => {
@@ -187,7 +194,7 @@ function ChatPrompt({ messages, onSendMessage, isLoading }: ChatPromptProps) {
       >
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Describe the email you want to generate…
+            Describe the email you want to generate
           </div>
         )}
         {messages.map((msg) => (
@@ -329,6 +336,7 @@ interface EmailPreviewModalProps {
   recipientEmail: string;
   subject: string;
   body: string;
+  attachments: File[];
 }
 
 function EmailPreviewModal({
@@ -337,6 +345,7 @@ function EmailPreviewModal({
   recipientEmail,
   subject,
   body,
+  attachments,
 }: EmailPreviewModalProps) {
   if (!isOpen) return null;
   return (
@@ -378,6 +387,24 @@ function EmailPreviewModal({
               {subject || "—"}
             </span>
           </div>
+          {attachments.length > 0 && (
+            <div className="flex gap-3">
+              <span className="text-muted-foreground w-14 shrink-0">
+                Attachments
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {attachments.map((file, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-md"
+                  >
+                    <FileText className="h-3 w-3" />
+                    {file.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <pre className="whitespace-pre-wrap text-sm text-foreground font-sans leading-relaxed">
@@ -516,7 +543,6 @@ function GmailEmailDetailModal({
 
 // ── EmailSidebar ───────────────────────────────────────────────────────────
 
-/** Shared empty-state placeholder */
 function EmptyState({
   icon,
   message,
@@ -542,7 +568,6 @@ function EmptyState({
   );
 }
 
-/** Beautiful email card for Inbox / Sent dropdown */
 function GmailEmailItem({
   email,
   onOpen,
@@ -574,7 +599,6 @@ function GmailEmailItem({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="px-4 py-3">
-        {/* Subject line */}
         <p
           className="text-sm font-normal truncate leading-snug transition-colors duration-200"
           style={{
@@ -588,13 +612,9 @@ function GmailEmailItem({
         >
           {email.subject || "(No Subject)"}
         </p>
-
-        {/* From */}
         <p className="text-xs text-muted-foreground/60 truncate mt-1 tracking-wide">
           {email.from || "—"}
         </p>
-
-        {/* Footer row */}
         <div className="flex items-center justify-between mt-2.5">
           <div className="flex items-center gap-1">
             <Clock className="h-2.5 w-2.5 text-muted-foreground/35" />
@@ -602,7 +622,6 @@ function GmailEmailItem({
               {formatTime(email.date)}
             </span>
           </div>
-          {/* Arrow indicator on hover */}
           <span
             className="text-xs text-muted-foreground/40 transition-all duration-200"
             style={{
@@ -616,8 +635,6 @@ function GmailEmailItem({
           </span>
         </div>
       </div>
-
-      {/* Bottom accent bar on hover */}
       <div
         className="h-px transition-all duration-300 origin-left"
         style={{
@@ -862,7 +879,6 @@ function EmailSidebar({
       className="w-64 shrink-0 flex flex-col border-r border-border bg-card/50 h-full overflow-y-auto"
       aria-label="Email navigation"
     >
-      {/* ── Header ── */}
       <div className="px-5 pt-6 pb-4 border-b border-border/30">
         <span
           className="text-xs tracking-[0.22em] uppercase text-muted-foreground/40 font-medium select-none italic"
@@ -872,11 +888,9 @@ function EmailSidebar({
         </span>
       </div>
 
-      {/* ── Nav items ── */}
       <nav className="flex flex-col flex-1">
         {navItems.map((item) => (
           <div key={item.number} className="flex flex-col">
-            {/* ── Nav Row ── */}
             <div
               role="button"
               aria-expanded={item.isOpen}
@@ -891,7 +905,6 @@ function EmailSidebar({
                   : item.isHovered
                     ? "hsl(var(--accent) / 0.3)"
                     : "transparent",
-                /* Pop-out: shift right + subtle shadow on hover/open */
                 transform: item.isOpen
                   ? "translateX(6px)"
                   : item.isHovered
@@ -903,7 +916,6 @@ function EmailSidebar({
                     : "none",
               }}
             >
-              {/* Number */}
               <span
                 className="text-xs shrink-0 font-medium tabular-nums transition-colors duration-200"
                 style={{
@@ -918,7 +930,6 @@ function EmailSidebar({
                 {item.number}
               </span>
 
-              {/* Label */}
               <div className="flex-1 min-w-0 relative">
                 <span
                   className="block transition-all duration-300 ease-in-out"
@@ -941,8 +952,6 @@ function EmailSidebar({
                 >
                   {item.label}
                 </span>
-
-                {/* Animated underline */}
                 <span
                   className="block h-px mt-1 origin-left transition-transform duration-300"
                   style={{
@@ -956,7 +965,6 @@ function EmailSidebar({
                 />
               </div>
 
-              {/* Right: count + refresh + chevron */}
               <div className="flex items-center gap-1.5 shrink-0">
                 {item.count > 0 && (
                   <span
@@ -1003,7 +1011,6 @@ function EmailSidebar({
               </div>
             </div>
 
-            {/* ── Dropdown panel ── */}
             <div
               className="transition-all duration-300 ease-in-out"
               style={{
@@ -1017,7 +1024,6 @@ function EmailSidebar({
                 scrollbarColor: "hsl(var(--border)) transparent",
               }}
             >
-              {/* Dropdown inner bg with subtle gradient */}
               <div
                 style={{
                   background:
@@ -1025,7 +1031,6 @@ function EmailSidebar({
                   backdropFilter: "blur(4px)",
                 }}
               >
-                {/* Section label inside dropdown */}
                 <div className="px-5 pt-3 pb-1">
                   <span
                     className="text-xs tracking-[0.18em] uppercase italic"
@@ -1043,9 +1048,41 @@ function EmailSidebar({
           </div>
         ))}
       </nav>
-
-      {/* ── Footer ── */}
     </aside>
+  );
+}
+
+// ── AttachmentList ─────────────────────────────────────────────────────────
+
+interface AttachmentListProps {
+  files: File[];
+  onRemove: (index: number) => void;
+}
+
+function AttachmentList({ files, onRemove }: AttachmentListProps) {
+  if (files.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {files.map((file, i) => (
+        <div
+          key={i}
+          className="group flex items-center gap-1.5 bg-accent/60 border border-border/50 rounded-lg px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all duration-200 hover:border-border"
+        >
+          <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <span className="truncate flex-1">{file.name}</span>
+          <span className="text-muted-foreground/50 shrink-0 tabular-nums">
+            {formatFileSize(file.size)}
+          </span>
+          <button
+            onClick={() => onRemove(i)}
+            aria-label={`Remove ${file.name}`}
+            className="shrink-0 ml-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all duration-150"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1068,6 +1105,10 @@ export default function EmailGenerator() {
   } | null>(null);
   const [drafts, setDrafts] = useState<DraftEmail[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+
+  // ── NEW: attachment state ──
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [inboxEmails, setInboxEmails] = useState<GmailEmail[]>([]);
   const [sentEmails, setSentEmails] = useState<GmailEmail[]>([]);
@@ -1211,6 +1252,7 @@ export default function EmailGenerator() {
     setActiveDraftId(null);
     setMessages([]);
     setStatus(null);
+    setAttachments([]); // clear attachments on new email
   };
 
   const handleSelectDraft = (draft: DraftEmail) => {
@@ -1226,16 +1268,39 @@ export default function EmailGenerator() {
     if (activeDraftId === id) handleNewEmail();
   };
 
+  // ── NEW: attachment handlers ──
+  const handleAttachClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    if (selected.length === 0) return;
+    setAttachments((prev) => [...prev, ...selected]);
+    // Reset input so same file can be re-attached after removal
+    e.target.value = "";
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSend = async () => {
     if (!body.trim() || !recipientEmail.trim()) return;
     setIsSending(true);
     setStatus(null);
     try {
+      // Build FormData to support file attachments
+      const formData = new FormData();
+      formData.append("to", recipientEmail.trim());
+      formData.append("subject", subject);
+      formData.append("body", body);
+      attachments.forEach((file) => formData.append("attachments", file));
+
       const res = await fetch(`${API}/send_email`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: recipientEmail.trim(), subject, body }),
+        body: formData,
       });
       if (!res.ok)
         throw new Error((await res.json()).error || "Sending failed");
@@ -1245,8 +1310,9 @@ export default function EmailGenerator() {
       });
       addMessage(
         "assistant",
-        `✅ Email successfully sent to ${recipientEmail}!`,
+        `✓ Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}` : ""}!`,
       );
+      setAttachments([]); // clear after send
       fetchSent();
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Unknown error" });
@@ -1267,7 +1333,6 @@ export default function EmailGenerator() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
       <div className="flex flex-1 overflow-hidden pt-16">
-        {/* ── New EmailSidebar ── */}
         <EmailSidebar
           drafts={drafts}
           activeDraftId={activeDraftId}
@@ -1318,7 +1383,6 @@ export default function EmailGenerator() {
                     }}
                   >
                     Describe what you want to say — get a professional email
-                    
                   </span>
                 </p>
               </div>
@@ -1398,27 +1462,64 @@ export default function EmailGenerator() {
               )}
 
               {hasEmail && (
-                <div className="flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveDraft}
-                    className="flex-1 h-11 gap-2"
-                  >
-                    <Save className="w-4 h-4" />
-                    Save Draft
-                  </Button>
-                  <Button
-                    onClick={handleSend}
-                    disabled={!recipientEmail.trim() || isSending}
-                    className="flex-1 h-11 gap-2"
-                  >
-                    {isSending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                    {isSending ? "Sending…" : "Send Email"}
-                  </Button>
+                <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* ── Attachment area ── */}
+                  <div>
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileChange}
+                      aria-label="Attach files"
+                    />
+
+                    {/* Attach button */}
+                    <button
+                      onClick={handleAttachClick}
+                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+                      aria-label="Attach files"
+                    >
+                      <Paperclip className="w-3.5 h-3.5 transition-transform duration-200 group-hover:rotate-12" />
+                      Attach files
+                      {attachments.length > 0 && (
+                        <span className="ml-1 bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+                          {attachments.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Attachment chips */}
+                    <AttachmentList
+                      files={attachments}
+                      onRemove={handleRemoveAttachment}
+                    />
+                  </div>
+
+                  {/* ── Action buttons ── */}
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={handleSaveDraft}
+                      className="flex-1 h-11 gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Draft
+                    </Button>
+                    <Button
+                      onClick={handleSend}
+                      disabled={!recipientEmail.trim() || isSending}
+                      className="flex-1 h-11 gap-2"
+                    >
+                      {isSending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      {isSending ? "Sending…" : "Send Email"}
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -1448,6 +1549,7 @@ export default function EmailGenerator() {
         recipientEmail={recipientEmail}
         subject={subject}
         body={body}
+        attachments={attachments}
       />
 
       <GmailEmailDetailModal
