@@ -98,7 +98,7 @@
 ## <span>Example Prompt</span>
 
 ```html
-<p>Write a professional follow-up email to a client after a product demo and keep the tone confident and friendly.</p>
+Write a professional follow-up email to a client after a product demo and keep the tone confident and friendly.
 ```
 
 ## <span>Future Improvements</span>
