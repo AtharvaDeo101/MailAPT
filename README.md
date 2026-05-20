@@ -1,10 +1,6 @@
 # MailAPT
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Status-Active-success" alt="Status badge" />
-  <img src="https://img.shields.io/badge/Built%20for-AI%20Email%20Automation-blue" alt="Project badge" />
-  <img src="https://img.shields.io/badge/One%20Click-Send-orange" alt="One click send badge" />
-</p>
+
 
 <h3 align="center">Generate AI-powered emails, send them in one click, and create instant email summaries.</h3>
 
@@ -98,14 +94,6 @@
   </ul>
 </details>
 
-## <span>Installation</span>
-
-```bash
-git clone https://github.com/your-username/MailAPT.git
-cd MailAPT
-npm install
-npm run dev
-```
 
 ## <span>Example Prompt</span>
 
