@@ -713,7 +713,7 @@ function LeftSidebar({
 
   return (
     <aside
-      className="w-60 shrink-0 flex flex-col border-r border-border bg-card/50 h-full"
+      className="w-60 shrink-0 flex flex-col border-r border-border bg-card/50 h-full z-10 relative"
       aria-label="Email navigation"
     >
       <div className="px-5 pt-6 pb-4 border-b border-border/30">
@@ -902,6 +902,7 @@ function DraftCard({
 
 function EmailListPanel({
   activeSection,
+  panelVisible,
   inboxEmails,
   sentEmails,
   drafts,
@@ -915,6 +916,7 @@ function EmailListPanel({
   onDeleteDraft,
 }: {
   activeSection: ActiveSection;
+  panelVisible: boolean;
   inboxEmails: GmailEmail[];
   sentEmails: GmailEmail[];
   drafts: DraftEmail[];
@@ -929,7 +931,8 @@ function EmailListPanel({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  if (!activeSection || activeSection === "settings") return null;
+  const shouldRenderPanel = activeSection && activeSection !== "settings";
+  const effectiveSection = shouldRenderPanel ? activeSection : "inbox";
 
   const sectionMeta: Record<string, { label: string; icon: React.ReactNode }> =
     {
@@ -943,7 +946,7 @@ function EmailListPanel({
       favorites: { label: "Favorites", icon: <Star className="h-4 w-4" /> },
     };
 
-  const meta = sectionMeta[activeSection!];
+  const meta = sectionMeta[effectiveSection!];
 
   const filterEmails = (emails: GmailEmail[]) => {
     if (!searchQuery.trim()) return emails;
@@ -966,179 +969,196 @@ function EmailListPanel({
   };
 
   const isLoading =
-    activeSection === "inbox"
+    effectiveSection === "inbox"
       ? inboxLoading
-      : activeSection === "sent"
+      : effectiveSection === "sent"
         ? sentLoading
         : false;
 
-  const canRefresh = activeSection === "inbox" || activeSection === "sent";
+  const canRefresh =
+    effectiveSection === "inbox" || effectiveSection === "sent";
 
   return (
     <div
-      className="w-72 shrink-0 flex flex-col border-r border-border bg-background h-full text-[0.875rem]"
-      style={{ scrollbarWidth: "thin" }}
+      className="w-72 shrink-0 overflow-hidden border-r border-border bg-background h-full text-[0.875rem] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      style={{
+        scrollbarWidth: "thin",
+        width: panelVisible ? "18rem" : "0rem",
+        minWidth: panelVisible ? "18rem" : "0rem",
+        opacity: panelVisible ? 1 : 0,
+        transform: panelVisible ? "translateX(0px)" : "translateX(-100%)",
+        borderRightWidth: panelVisible ? "1px" : "0px",
+      }}
+      aria-hidden={!panelVisible}
     >
-      <div className="px-4 pt-4 pb-3 border-b border-border/50 shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2 text-foreground">
-            <span className="text-muted-foreground">{meta.icon}</span>
-            <span
-              className="text-xs font-semibold"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-            >
-              {meta.label}
-            </span>
-          </div>
-
-          {canRefresh && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-muted-foreground/50 hover:text-foreground"
-              onClick={() =>
-                activeSection === "inbox"
-                  ? onRefreshInbox(true)
-                  : onRefreshSent(true)
-              }
-              aria-label={`Refresh ${meta.label}`}
-            >
-              <RefreshCw
-                className={cn("h-3.5 w-3.5", isLoading && "animate-spin")}
-              />
-            </Button>
-          )}
-        </div>
-
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
-          <input
-            type="text"
-            placeholder={`Search ${meta.label.toLowerCase()}…`}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-muted/40 border border-border/40 rounded-lg pl-8 pr-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/40 focus:bg-background transition-all duration-200"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-      </div>
-
       <div
-        className="flex-1 overflow-y-auto py-2"
+        className="flex flex-col h-full transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
-          scrollbarWidth: "thin",
-          scrollbarColor: "hsl(var(--border)) transparent",
+          opacity: panelVisible ? 1 : 0,
+          transform: panelVisible ? "translateX(0px)" : "translateX(-24px)",
         }}
       >
-        {activeSection === "inbox" &&
-          (isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-              <span className="text-[10px] text-muted-foreground/40">
-                Loading inbox…
+        <div className="px-4 pt-4 pb-3 border-b border-border/50 shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-foreground">
+              <span className="text-muted-foreground">{meta.icon}</span>
+              <span
+                className="text-xs font-semibold"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+              >
+                {meta.label}
               </span>
             </div>
-          ) : filterEmails(inboxEmails).length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-              <Inbox className="h-8 w-8 text-muted-foreground/20" />
-              <p
-                className="text-[10px] text-muted-foreground/40 italic"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-              >
-                {searchQuery ? "No results found" : "No inbox emails"}
-              </p>
-            </div>
-          ) : (
-            filterEmails(inboxEmails).map((email) => (
-              <EmailCard
-                key={email.id}
-                email={email}
-                onClick={() => onOpenGmailEmail(email.id)}
-              />
-            ))
-          ))}
 
-        {activeSection === "sent" &&
-          (isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-              <span className="text-[10px] text-muted-foreground/40">
-                Loading sent…
-              </span>
-            </div>
-          ) : filterEmails(sentEmails).length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-              <SendHorizonal className="h-8 w-8 text-muted-foreground/20" />
-              <p
-                className="text-[10px] text-muted-foreground/40 italic"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+            {canRefresh && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 text-muted-foreground/50 hover:text-foreground"
+                onClick={() =>
+                  effectiveSection === "inbox"
+                    ? onRefreshInbox(true)
+                    : onRefreshSent(true)
+                }
+                aria-label={`Refresh ${meta.label}`}
               >
-                {searchQuery ? "No results found" : "No sent emails"}
-              </p>
-            </div>
-          ) : (
-            filterEmails(sentEmails).map((email) => (
-              <EmailCard
-                key={email.id}
-                email={email}
-                onClick={() => onOpenGmailEmail(email.id)}
-              />
-            ))
-          ))}
-
-        {activeSection === "drafts" &&
-          (filterDrafts(drafts).length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-              <MailOpen className="h-8 w-8 text-muted-foreground/20" />
-              <p
-                className="text-[10px] text-muted-foreground/40 italic"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-              >
-                {searchQuery ? "No results found" : "No drafts yet"}
-              </p>
-            </div>
-          ) : (
-            filterDrafts(drafts).map((draft) => (
-              <DraftCard
-                key={draft.id}
-                draft={draft}
-                isActive={activeDraftId === draft.id}
-                onClick={() => onSelectDraft(draft)}
-                onDelete={() => onDeleteDraft(draft.id)}
-              />
-            ))
-          ))}
-
-        {activeSection === "scheduled" && (
-          <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-            <CalendarClock className="h-8 w-8 text-muted-foreground/20" />
-            <p
-              className="text-[10px] text-muted-foreground/40 italic"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-            >
-              No scheduled emails
-            </p>
+                <RefreshCw
+                  className={cn("h-3.5 w-3.5", isLoading && "animate-spin")}
+                />
+              </Button>
+            )}
           </div>
-        )}
 
-        {activeSection === "favorites" && (
-          <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-            <Star className="h-8 w-8 text-muted-foreground/20" />
-            <p
-              className="text-[10px] text-muted-foreground/40 italic"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-            >
-              No favorites yet
-            </p>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
+            <input
+              type="text"
+              placeholder={`Search ${meta.label.toLowerCase()}…`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-muted/40 border border-border/40 rounded-lg pl-8 pr-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/40 focus:bg-background transition-all duration-200"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
-        )}
+        </div>
+
+        <div
+          className="flex-1 overflow-y-auto py-2"
+          style={{
+            scrollbarWidth: "thin",
+            scrollbarColor: "hsl(var(--border)) transparent",
+          }}
+        >
+          {effectiveSection === "inbox" &&
+            (isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+                <span className="text-[10px] text-muted-foreground/40">
+                  Loading inbox…
+                </span>
+              </div>
+            ) : filterEmails(inboxEmails).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
+                <Inbox className="h-8 w-8 text-muted-foreground/20" />
+                <p
+                  className="text-[10px] text-muted-foreground/40 italic"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
+                  {searchQuery ? "No results found" : "No inbox emails"}
+                </p>
+              </div>
+            ) : (
+              filterEmails(inboxEmails).map((email) => (
+                <EmailCard
+                  key={email.id}
+                  email={email}
+                  onClick={() => onOpenGmailEmail(email.id)}
+                />
+              ))
+            ))}
+
+          {effectiveSection === "sent" &&
+            (isLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+                <span className="text-[10px] text-muted-foreground/40">
+                  Loading sent…
+                </span>
+              </div>
+            ) : filterEmails(sentEmails).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
+                <SendHorizonal className="h-8 w-8 text-muted-foreground/20" />
+                <p
+                  className="text-[10px] text-muted-foreground/40 italic"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
+                  {searchQuery ? "No results found" : "No sent emails"}
+                </p>
+              </div>
+            ) : (
+              filterEmails(sentEmails).map((email) => (
+                <EmailCard
+                  key={email.id}
+                  email={email}
+                  onClick={() => onOpenGmailEmail(email.id)}
+                />
+              ))
+            ))}
+
+          {effectiveSection === "drafts" &&
+            (filterDrafts(drafts).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
+                <MailOpen className="h-8 w-8 text-muted-foreground/20" />
+                <p
+                  className="text-[10px] text-muted-foreground/40 italic"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
+                  {searchQuery ? "No results found" : "No drafts yet"}
+                </p>
+              </div>
+            ) : (
+              filterDrafts(drafts).map((draft) => (
+                <DraftCard
+                  key={draft.id}
+                  draft={draft}
+                  isActive={activeDraftId === draft.id}
+                  onClick={() => onSelectDraft(draft)}
+                  onDelete={() => onDeleteDraft(draft.id)}
+                />
+              ))
+            ))}
+
+          {effectiveSection === "scheduled" && (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
+              <CalendarClock className="h-8 w-8 text-muted-foreground/20" />
+              <p
+                className="text-[10px] text-muted-foreground/40 italic"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+              >
+                No scheduled emails
+              </p>
+            </div>
+          )}
+
+          {effectiveSection === "favorites" && (
+            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
+              <Star className="h-8 w-8 text-muted-foreground/20" />
+              <p
+                className="text-[10px] text-muted-foreground/40 italic"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+              >
+                No favorites yet
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1178,6 +1198,8 @@ export default function EmailGenerator() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
+  const [panelVisible, setPanelVisible] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchInbox = async (force = false) => {
     if (inboxLoading) return;
@@ -1238,12 +1260,23 @@ export default function EmailGenerator() {
   };
 
   const handleSectionSelect = (section: ActiveSection) => {
-    if (section === activeSection) {
-      setActiveSection(null);
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
+    if (section === activeSection && panelVisible) {
+      setPanelVisible(false);
+      closeTimerRef.current = setTimeout(() => {
+        setActiveSection(null);
+      }, 500);
       return;
     }
 
     setActiveSection(section);
+    requestAnimationFrame(() =>
+      setPanelVisible(section !== "settings" && section !== null),
+    );
 
     if (section === "inbox" && !inboxLoaded && !inboxLoading) fetchInbox();
     if (section === "sent" && !sentLoaded && !sentLoading) fetchSent();
@@ -1252,6 +1285,12 @@ export default function EmailGenerator() {
   useEffect(() => {
     if (!isAuthenticated) return;
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   if (isAuthenticated === null) {
     return (
@@ -1428,6 +1467,7 @@ export default function EmailGenerator() {
 
         <EmailListPanel
           activeSection={activeSection}
+          panelVisible={panelVisible}
           inboxEmails={inboxEmails}
           sentEmails={sentEmails}
           drafts={drafts}
