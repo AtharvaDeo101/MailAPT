@@ -571,10 +571,28 @@ function SidebarNavItem({
   onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
+
+  const handleItemClick = () => {
+    setIsRotating(false);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsRotating(true);
+        onClick();
+      });
+    });
+  };
+
+  useEffect(() => {
+    if (!isRotating) return;
+    const timer = setTimeout(() => setIsRotating(false), 1200);
+    return () => clearTimeout(timer);
+  }, [isRotating]);
 
   return (
     <button
-      onClick={onClick}
+      onClick={handleItemClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className="group relative flex items-center gap-3 px-4 py-4 mx-2 my-0.5 rounded-xl text-left select-none transition-all duration-300"
@@ -609,22 +627,38 @@ function SidebarNavItem({
 
       <div className="flex-1 min-w-0 relative">
         <span
-          className="block transition-all duration-300 ease-in-out"
+          className="block"
           style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontWeight: 500,
-            fontSize: isActive || hovered ? "1.16rem" : "0.94rem",
-            fontStyle: isActive || hovered ? "italic" : "normal",
-            letterSpacing: isActive || hovered ? "-0.03em" : "-0.01em",
-            color: isActive
-              ? "hsl(var(--primary))"
-              : hovered
-                ? "hsl(var(--foreground))"
-                : "hsl(var(--foreground) / 0.68)",
-            lineHeight: 1.1,
+            perspective: "1200px",
           }}
         >
-          {item.label}
+          <span
+            className="block"
+            style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontWeight: 500,
+              fontSize: isActive || hovered ? "1.16rem" : "0.94rem",
+              fontStyle: isActive || hovered ? "italic" : "normal",
+              letterSpacing: isActive || hovered ? "-0.03em" : "-0.01em",
+              color: isActive
+                ? "hsl(var(--primary))"
+                : hovered
+                  ? "hsl(var(--foreground))"
+                  : "hsl(var(--foreground) / 0.68)",
+              lineHeight: 1.1,
+              transformStyle: "preserve-3d",
+              backfaceVisibility: "hidden",
+              willChange: "transform",
+              transform: isRotating
+                ? "rotateY(360deg)"
+                : "rotateY(0deg)",
+              transition: isRotating
+                ? "transform 1200ms cubic-bezier(0.16, 1, 0.3, 1)"
+                : "color 300ms ease, font-size 300ms ease, letter-spacing 300ms ease",
+            }}
+          >
+            {item.label}
+          </span>
         </span>
 
         <span
