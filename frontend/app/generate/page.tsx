@@ -33,6 +33,7 @@ import {
   Settings,
   Search,
   ChevronRight,
+  PanelRightOpen,
 } from "lucide-react";
 
 const API = "http://localhost:5000";
@@ -195,7 +196,7 @@ function ChatPrompt({
   };
 
   return (
-    <div className="flex flex-col h-64 border border-border rounded-xl bg-card overflow-hidden">
+    <div className="flex flex-col h-64 rounded-xl bg-card/90 overflow-hidden shadow-sm">
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -260,10 +261,7 @@ function ChatPrompt({
         )}
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="border-t border-border p-3 flex gap-2"
-      >
+      <form onSubmit={handleSubmit} className="p-3 flex gap-2 bg-background/40">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -305,8 +303,8 @@ function EmailEditor({
   }, [body]);
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-3 border-b border-border pb-3">
+    <div className="flex flex-col gap-4 rounded-xl bg-card/90 p-4 shadow-sm">
+      <div className="flex items-center gap-3 pb-3">
         <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">
           Subject
         </span>
@@ -361,8 +359,8 @@ function EmailPreviewModal({
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-2xl rounded-2xl border border-border bg-card shadow-lg flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-card shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-5 py-4 shrink-0">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Mail className="h-4 w-4 text-primary" />
             Email Preview
@@ -372,7 +370,7 @@ function EmailPreviewModal({
           </Button>
         </div>
 
-        <div className="px-5 py-3 border-b border-border space-y-2 text-sm shrink-0">
+        <div className="px-5 py-3 space-y-2 text-sm shrink-0 bg-background/30">
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">To</span>
             <span className="font-medium">{recipientEmail || "—"}</span>
@@ -412,118 +410,6 @@ function EmailPreviewModal({
   );
 }
 
-function GmailEmailDetailModal({
-  isOpen,
-  onClose,
-  email,
-  isLoading,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  email: GmailEmailDetail | null;
-  isLoading: boolean;
-}) {
-  const [viewMode, setViewMode] = useState<"text" | "html">("text");
-
-  useEffect(() => {
-    if (isOpen) setViewMode("text");
-  }, [isOpen, email?.id]);
-
-  if (!isOpen) return null;
-
-  const plain = email?.plain_body || email?.body || "";
-  const html = email?.html_body || "";
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-2xl rounded-2xl border border-border bg-card shadow-lg flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Mail className="h-4 w-4 text-primary" />
-            {email?.subject || "Email"}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {html && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() =>
-                  setViewMode((p) => (p === "text" ? "html" : "text"))
-                }
-              >
-                <Code className="h-3 w-3" />
-                {viewMode === "text" ? "View HTML" : "View text"}
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : email ? (
-          <>
-            <div className="px-5 py-3 border-b border-border space-y-2 text-sm shrink-0">
-              <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">
-                  From
-                </span>
-                <span className="font-medium">{email.from || "—"}</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">
-                  Subject
-                </span>
-                <span className="font-medium">{email.subject || "—"}</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">
-                  Date
-                </span>
-                <span>{email.date || "—"}</span>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-5">
-              {viewMode === "text" || !html ? (
-                <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
-                  {plain || (
-                    <span className="text-muted-foreground">
-                      No body content.
-                    </span>
-                  )}
-                </pre>
-              ) : (
-                <div className="prose max-w-none text-sm">
-                  <div dangerouslySetInnerHTML={{ __html: html }} />
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-            Failed to load email.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function AttachmentList({
   files,
   onRemove,
@@ -538,7 +424,7 @@ function AttachmentList({
       {files.map((file, i) => (
         <div
           key={i}
-          className="group flex items-center gap-1.5 bg-accent/60 border border-border/50 rounded-lg px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all hover:border-border"
+          className="group flex items-center gap-1.5 bg-accent/60 rounded-lg px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all hover:bg-accent"
         >
           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{file.name}</span>
@@ -575,7 +461,6 @@ function SidebarNavItem({
 
   const handleItemClick = () => {
     setIsRotating(false);
-
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setIsRotating(true);
@@ -595,29 +480,24 @@ function SidebarNavItem({
       onClick={handleItemClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="group relative flex items-center gap-3 px-4 py-4 mx-2 my-0.5 rounded-xl text-left select-none transition-all duration-300"
+      className="group relative flex w-full items-center gap-3 px-5 py-4 my-0.5 rounded-none text-left select-none transition-all duration-300"
       style={{
         background: isActive
-          ? "hsl(var(--accent) / 0.6)"
+          ? "hsl(var(--primary) / 0.18)"
           : hovered
-            ? "hsl(var(--accent) / 0.3)"
+            ? "hsl(var(--accent) / 0.45)"
             : "transparent",
-        transform: isActive
-          ? "translateX(6px)"
-          : hovered
-            ? "translateX(4px)"
-            : "translateX(0px)",
-        boxShadow:
-          isActive || hovered
-            ? "-3px 0 0 0 hsl(var(--primary) / 0.7), 4px 0 16px hsl(var(--foreground) / 0.06)"
-            : "none",
+        transform: "translateX(0px)",
+        boxShadow: "none",
+        border: "none",
       }}
     >
       <span
         className="shrink-0 transition-colors duration-200"
         style={{
-          color:
-            isActive || hovered
+          color: isActive
+            ? "hsl(var(--primary))"
+            : hovered
               ? "hsl(var(--primary))"
               : "hsl(var(--muted-foreground) / 0.45)",
         }}
@@ -626,12 +506,7 @@ function SidebarNavItem({
       </span>
 
       <div className="flex-1 min-w-0 relative">
-        <span
-          className="block"
-          style={{
-            perspective: "1200px",
-          }}
-        >
+        <span className="block" style={{ perspective: "1200px" }}>
           <span
             className="block"
             style={{
@@ -649,9 +524,7 @@ function SidebarNavItem({
               transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
               willChange: "transform",
-              transform: isRotating
-                ? "rotateY(360deg)"
-                : "rotateY(0deg)",
+              transform: isRotating ? "rotateY(360deg)" : "rotateY(0deg)",
               transition: isRotating
                 ? "transform 1200ms cubic-bezier(0.16, 1, 0.3, 1)"
                 : "color 300ms ease, font-size 300ms ease, letter-spacing 300ms ease",
@@ -660,25 +533,15 @@ function SidebarNavItem({
             {item.label}
           </span>
         </span>
-
-        <span
-          className="block h-px mt-1 origin-left transition-transform duration-300"
-          style={{
-            background:
-              "linear-gradient(90deg, hsl(var(--primary)) 0%, transparent 100%)",
-            transform: isActive || hovered ? "scaleX(1)" : "scaleX(0)",
-            opacity: isActive ? 1 : 0.6,
-          }}
-          aria-hidden="true"
-        />
       </div>
 
       {item.count !== undefined && item.count > 0 && (
         <span
           className="text-xs tabular-nums shrink-0 transition-colors duration-200"
           style={{
-            color:
-              isActive || hovered
+            color: isActive
+              ? "hsl(var(--primary) / 0.85)"
+              : hovered
                 ? "hsl(var(--primary) / 0.75)"
                 : "hsl(var(--muted-foreground) / 0.4)",
           }}
@@ -690,7 +553,7 @@ function SidebarNavItem({
       {isActive && (
         <ChevronRight
           className="h-3.5 w-3.5 shrink-0"
-          style={{ color: "hsl(var(--primary) / 0.6)" }}
+          style={{ color: "hsl(var(--primary) / 0.75)" }}
         />
       )}
     </button>
@@ -747,10 +610,10 @@ function LeftSidebar({
 
   return (
     <aside
-      className="w-60 shrink-0 flex flex-col border-r border-border bg-card/50 h-full z-10 relative"
+      className="w-60 shrink-0 flex flex-col bg-card/40 h-full z-10 relative shadow-sm"
       aria-label="Email navigation"
     >
-      <div className="px-5 pt-6 pb-4 border-b border-border/30">
+      <div className="px-5 pt-6 pb-4">
         <span
           className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground/40 font-medium select-none italic"
           style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
@@ -759,7 +622,7 @@ function LeftSidebar({
         </span>
       </div>
 
-      <div className="px-4 pt-3 pb-3 border-b border-border/30">
+      <div className="px-4 pt-3 pb-3">
         <Button
           onClick={onNewEmail}
           className="w-full justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-sm"
@@ -779,7 +642,7 @@ function LeftSidebar({
           />
         ))}
 
-        <div className="mx-4 my-2 h-px bg-border/30" />
+        <div className="mx-4 my-2 h-px bg-muted/30" />
 
         <SidebarNavItem
           item={{
@@ -797,63 +660,90 @@ function LeftSidebar({
 function EmailCard({
   email,
   onClick,
+  isSelected,
 }: {
   email: GmailEmail;
   onClick: () => void;
+  isSelected: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
-      className="mx-2 my-1 rounded-lg cursor-pointer overflow-hidden transition-all duration-150"
+      className="w-full cursor-pointer overflow-hidden transition-all duration-150"
       style={{
-        background: hovered ? "hsl(var(--accent))" : "transparent",
-        border: "1px solid",
-        borderColor: hovered ? "hsl(var(--border))" : "transparent",
+        background: isSelected
+          ? "hsl(var(--primary) / 0.18)"
+          : hovered
+            ? "hsl(var(--accent))"
+            : "transparent",
+        boxShadow: "none",
+        border: "none",
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="px-3 py-3">
+      <div className="px-4 py-3">
         <div className="flex items-start gap-2.5">
           <div
             className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center text-xs font-semibold uppercase"
             style={{
-              background: "hsl(var(--primary) / 0.12)",
+              background: isSelected
+                ? "hsl(var(--primary) / 0.22)"
+                : "hsl(var(--primary) / 0.12)",
               color: "hsl(var(--primary))",
             }}
           >
             {(email.from || "?").charAt(0)}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold truncate text-foreground/80 leading-snug">
+            <p
+              className="text-[10px] font-semibold truncate leading-snug"
+              style={{
+                color: isSelected
+                  ? "hsl(var(--primary))"
+                  : "hsl(var(--foreground) / 0.8)",
+              }}
+            >
               {email.from
                 ? email.from.split("<")[0].trim() || email.from
                 : "Unknown"}
             </p>
-            <p className="text-xs font-medium truncate text-foreground leading-snug mt-0.5">
+            <p
+              className="text-xs font-medium truncate leading-snug mt-0.5"
+              style={{
+                color: isSelected
+                  ? "hsl(var(--primary))"
+                  : "hsl(var(--foreground))",
+              }}
+            >
               {email.subject || "(No Subject)"}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1 mt-2 pl-10">
-          <Clock className="h-2.5 w-2.5 text-muted-foreground/35" />
-          <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+          <Clock
+            className="h-2.5 w-2.5"
+            style={{
+              color: isSelected
+                ? "hsl(var(--primary) / 0.75)"
+                : "hsl(var(--muted-foreground) / 0.35)",
+            }}
+          />
+          <span
+            className="text-[10px] tabular-nums"
+            style={{
+              color: isSelected
+                ? "hsl(var(--primary) / 0.85)"
+                : "hsl(var(--muted-foreground) / 0.5)",
+            }}
+          >
             {formatTime(email.date)}
           </span>
         </div>
       </div>
-
-      <div
-        className="h-px transition-all duration-200"
-        style={{
-          background:
-            "linear-gradient(90deg, hsl(var(--primary)) 0%, transparent 100%)",
-          opacity: hovered ? 1 : 0,
-        }}
-      />
     </div>
   );
 }
@@ -871,40 +761,54 @@ function DraftCard({
 }) {
   return (
     <div
-      className={cn(
-        "group mx-2 my-1 rounded-lg cursor-pointer transition-all duration-150",
-        isActive
-          ? "bg-primary/8 border border-primary/20"
-          : "border border-transparent hover:bg-accent hover:border-border",
-      )}
+      className={cn("group w-full cursor-pointer transition-all duration-150", !isActive && "hover:bg-accent")}
+      style={{
+        background: isActive ? "hsl(var(--primary) / 0.18)" : undefined,
+        boxShadow: "none",
+        border: "none",
+      }}
       onClick={onClick}
     >
-      <div className="px-3 py-3">
+      <div className="px-4 py-3">
         <div className="flex items-start gap-2.5">
           <div
             className={cn(
               "h-8 w-8 rounded-full shrink-0 flex items-center justify-center",
-              isActive ? "bg-primary/15" : "bg-muted-foreground/10",
+              !isActive && "bg-muted-foreground/10",
             )}
+            style={{
+              background: isActive ? "hsl(var(--primary) / 0.22)" : undefined,
+            }}
           >
             <MailOpen
-              className={cn(
-                "h-3.5 w-3.5",
-                isActive ? "text-primary" : "text-muted-foreground/50",
-              )}
+              className="h-3.5 w-3.5"
+              style={{
+                color: isActive
+                  ? "hsl(var(--primary))"
+                  : "hsl(var(--muted-foreground) / 0.5)",
+              }}
             />
           </div>
 
           <div className="min-w-0 flex-1">
             <p
-              className={cn(
-                "text-xs font-medium truncate leading-snug",
-                isActive ? "text-primary" : "text-foreground/85",
-              )}
+              className="text-xs font-medium truncate leading-snug"
+              style={{
+                color: isActive
+                  ? "hsl(var(--primary))"
+                  : "hsl(var(--foreground) / 0.85)",
+              }}
             >
               {draft.subject || "Untitled"}
             </p>
-            <p className="text-[10px] text-muted-foreground/60 truncate mt-0.5">
+            <p
+              className="text-[10px] truncate mt-0.5"
+              style={{
+                color: isActive
+                  ? "hsl(var(--primary) / 0.78)"
+                  : "hsl(var(--muted-foreground) / 0.6)",
+              }}
+            >
               {draft.recipientEmail || "No recipient"}
             </p>
           </div>
@@ -924,8 +828,22 @@ function DraftCard({
         </div>
 
         <div className="flex items-center gap-1 mt-2 pl-10">
-          <Clock className="h-2.5 w-2.5 text-muted-foreground/35" />
-          <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+          <Clock
+            className="h-2.5 w-2.5"
+            style={{
+              color: isActive
+                ? "hsl(var(--primary) / 0.75)"
+                : "hsl(var(--muted-foreground) / 0.35)",
+            }}
+          />
+          <span
+            className="text-[10px] tabular-nums"
+            style={{
+              color: isActive
+                ? "hsl(var(--primary) / 0.85)"
+                : "hsl(var(--muted-foreground) / 0.5)",
+            }}
+          >
             {formatTime(draft.createdAt)}
           </span>
         </div>
@@ -943,6 +861,7 @@ function EmailListPanel({
   activeDraftId,
   inboxLoading,
   sentLoading,
+  selectedEmailId,
   onRefreshInbox,
   onRefreshSent,
   onOpenGmailEmail,
@@ -957,6 +876,7 @@ function EmailListPanel({
   activeDraftId: string | null;
   inboxLoading: boolean;
   sentLoading: boolean;
+  selectedEmailId: string | null;
   onRefreshInbox: (force?: boolean) => void;
   onRefreshSent: (force?: boolean) => void;
   onOpenGmailEmail: (id: string) => void;
@@ -1014,14 +934,13 @@ function EmailListPanel({
 
   return (
     <div
-      className="w-72 shrink-0 overflow-hidden border-r border-border bg-background h-full text-[0.875rem] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      className="shrink-0 overflow-hidden bg-background/70 h-full text-[0.875rem] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-sm"
       style={{
         scrollbarWidth: "thin",
         width: panelVisible ? "18rem" : "0rem",
         minWidth: panelVisible ? "18rem" : "0rem",
         opacity: panelVisible ? 1 : 0,
         transform: panelVisible ? "translateX(0px)" : "translateX(-100%)",
-        borderRightWidth: panelVisible ? "1px" : "0px",
       }}
       aria-hidden={!panelVisible}
     >
@@ -1032,13 +951,21 @@ function EmailListPanel({
           transform: panelVisible ? "translateX(0px)" : "translateX(-24px)",
         }}
       >
-        <div className="px-4 pt-4 pb-3 border-b border-border/50 shrink-0">
+        <div className="px-4 pt-4 pb-3 shrink-0 bg-background/35">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-foreground">
-              <span className="text-muted-foreground">{meta.icon}</span>
+            <div
+              className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+              style={{
+                background: "hsl(var(--primary) / 0.08)",
+              }}
+            >
+              <span style={{ color: "hsl(var(--primary))" }}>{meta.icon}</span>
               <span
                 className="text-xs font-semibold"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  color: "hsl(var(--primary))",
+                }}
               >
                 {meta.label}
               </span>
@@ -1070,7 +997,7 @@ function EmailListPanel({
               placeholder={`Search ${meta.label.toLowerCase()}…`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-muted/40 border border-border/40 rounded-lg pl-8 pr-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/40 focus:bg-background transition-all duration-200"
+              className="w-full bg-muted/40 rounded-lg pl-8 pr-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:bg-background transition-all duration-200"
             />
             {searchQuery && (
               <button
@@ -1087,7 +1014,7 @@ function EmailListPanel({
           className="flex-1 overflow-y-auto py-2"
           style={{
             scrollbarWidth: "thin",
-            scrollbarColor: "hsl(var(--border)) transparent",
+            scrollbarColor: "hsl(var(--muted)) transparent",
           }}
         >
           {effectiveSection === "inbox" &&
@@ -1113,6 +1040,7 @@ function EmailListPanel({
                 <EmailCard
                   key={email.id}
                   email={email}
+                  isSelected={selectedEmailId === email.id}
                   onClick={() => onOpenGmailEmail(email.id)}
                 />
               ))
@@ -1141,6 +1069,7 @@ function EmailListPanel({
                 <EmailCard
                   key={email.id}
                   email={email}
+                  isSelected={selectedEmailId === email.id}
                   onClick={() => onOpenGmailEmail(email.id)}
                 />
               ))
@@ -1198,6 +1127,147 @@ function EmailListPanel({
   );
 }
 
+function EmailDetailOverlayPanel({
+  isVisible,
+  email,
+  isLoading,
+  onClose,
+}: {
+  isVisible: boolean;
+  email: GmailEmailDetail | null;
+  isLoading: boolean;
+  onClose: () => void;
+}) {
+  const [viewMode, setViewMode] = useState<"text" | "html">("text");
+
+  useEffect(() => {
+    if (isVisible) setViewMode("text");
+  }, [isVisible, email?.id]);
+
+  const plain = email?.plain_body || email?.body || "";
+  const html = email?.html_body || "";
+
+  return (
+    <div
+      className="absolute inset-0 z-30 overflow-hidden"
+      aria-hidden={!isVisible}
+      style={{
+        pointerEvents: isVisible ? "auto" : "none",
+      }}
+    >
+      <div
+        className="absolute inset-0 bg-background/55 backdrop-blur-[2px] transition-opacity duration-500"
+        style={{
+          opacity: isVisible ? 1 : 0,
+        }}
+        onClick={onClose}
+      />
+
+      <aside
+        className="absolute inset-y-0 left-0 w-full bg-background shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col"
+        style={{
+          transform: isVisible ? "translateX(0%)" : "translateX(-100%)",
+          opacity: isVisible ? 1 : 0.98,
+        }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4 shrink-0"
+          style={{
+            background: "hsl(var(--primary) / 0.08)",
+          }}
+        >
+          <div className="flex items-center gap-2 text-sm font-medium min-w-0">
+            <PanelRightOpen
+              className="h-4 w-4 shrink-0"
+              style={{ color: "hsl(var(--primary))" }}
+            />
+            <span
+              className="truncate"
+              style={{ color: "hsl(var(--primary))" }}
+            >
+              {email?.subject || "Email details"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {html && !isLoading && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() =>
+                  setViewMode((p) => (p === "text" ? "html" : "text"))
+                }
+              >
+                <Code className="h-3 w-3" />
+                {viewMode === "text" ? "HTML" : "Text"}
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading email…</p>
+          </div>
+        ) : !email ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
+            <Mail className="h-10 w-10 text-muted-foreground/30" />
+            <div>
+              <p className="text-sm font-medium text-foreground">No email selected</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Click any inbox or sent email to show it here.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              className="mx-5 mt-5 rounded-xl px-4 py-4 space-y-3 text-sm shrink-0 shadow-sm"
+              style={{
+                background: "hsl(var(--primary) / 0.10)",
+              }}
+            >
+              <div className="flex gap-3">
+                <span className="text-muted-foreground w-14 shrink-0">From</span>
+                <span className="font-medium break-words">{email.from || "—"}</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-muted-foreground w-14 shrink-0">Subject</span>
+                <span className="font-medium break-words">{email.subject || "—"}</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="text-muted-foreground w-14 shrink-0">Date</span>
+                <span className="break-words">{email.date || "—"}</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-5">
+              <div className="rounded-xl min-h-full px-4 py-4 bg-card/70 shadow-sm">
+                {viewMode === "text" || !html ? (
+                  <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
+                    {plain || (
+                      <span className="text-muted-foreground">No body content.</span>
+                    )}
+                  </pre>
+                ) : (
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <div dangerouslySetInnerHTML={{ __html: html }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </aside>
+    </div>
+  );
+}
+
 export default function EmailGenerator() {
   const isAuthenticated = useAuth();
 
@@ -1227,23 +1297,24 @@ export default function EmailGenerator() {
   const [inboxLoaded, setInboxLoaded] = useState(false);
   const [sentLoaded, setSentLoaded] = useState(false);
 
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailEmail, setDetailEmail] = useState<GmailEmailDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailPanelVisible, setDetailPanelVisible] = useState(false);
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
 
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
   const [panelVisible, setPanelVisible] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchInbox = async (force = false) => {
     if (inboxLoading) return;
     if (inboxLoaded && !force) return;
     setInboxLoading(true);
     try {
-      const res = await fetch(
-        `${API}/list_emails?max_results=10&q=in:inbox`,
-        { credentials: "include" },
-      );
+      const res = await fetch(`${API}/list_emails?max_results=10&q=in:inbox`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch inbox");
       const data = await res.json();
       setInboxEmails(data.emails || []);
@@ -1260,10 +1331,9 @@ export default function EmailGenerator() {
     if (sentLoaded && !force) return;
     setSentLoading(true);
     try {
-      const res = await fetch(
-        `${API}/list_emails?max_results=10&q=in:sent`,
-        { credentials: "include" },
-      );
+      const res = await fetch(`${API}/list_emails?max_results=10&q=in:sent`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch sent");
       const data = await res.json();
       setSentEmails(data.emails || []);
@@ -1275,10 +1345,31 @@ export default function EmailGenerator() {
     }
   };
 
+  const closeDetailPanel = () => {
+    if (detailCloseTimerRef.current) {
+      clearTimeout(detailCloseTimerRef.current);
+      detailCloseTimerRef.current = null;
+    }
+    setDetailPanelVisible(false);
+    detailCloseTimerRef.current = setTimeout(() => {
+      setDetailEmail(null);
+      setSelectedEmailId(null);
+    }, 500);
+  };
+
   const handleOpenGmailEmail = async (id: string) => {
-    setDetailModalOpen(true);
-    setDetailEmail(null);
+    if (detailCloseTimerRef.current) {
+      clearTimeout(detailCloseTimerRef.current);
+      detailCloseTimerRef.current = null;
+    }
+
+    setSelectedEmailId(id);
     setDetailLoading(true);
+
+    if (!detailPanelVisible) {
+      requestAnimationFrame(() => setDetailPanelVisible(true));
+    }
+
     try {
       const res = await fetch(`${API}/get_email/${id}`, {
         credentials: "include",
@@ -1286,8 +1377,10 @@ export default function EmailGenerator() {
       if (!res.ok) throw new Error("Failed to fetch email");
       const data = await res.json();
       setDetailEmail(data);
+      setDetailPanelVisible(true);
     } catch {
       setDetailEmail(null);
+      setDetailPanelVisible(true);
     } finally {
       setDetailLoading(false);
     }
@@ -1301,6 +1394,7 @@ export default function EmailGenerator() {
 
     if (section === activeSection && panelVisible) {
       setPanelVisible(false);
+      closeDetailPanel();
       closeTimerRef.current = setTimeout(() => {
         setActiveSection(null);
       }, 500);
@@ -1312,17 +1406,16 @@ export default function EmailGenerator() {
       setPanelVisible(section !== "settings" && section !== null),
     );
 
+    closeDetailPanel();
+
     if (section === "inbox" && !inboxLoaded && !inboxLoading) fetchInbox();
     if (section === "sent" && !sentLoaded && !sentLoading) fetchSent();
   };
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-  }, [isAuthenticated]);
-
-  useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
     };
   }, []);
 
@@ -1408,6 +1501,8 @@ export default function EmailGenerator() {
     setMessages([]);
     setStatus(null);
     setAttachments([]);
+    setSelectedEmailId(null);
+    closeDetailPanel();
   };
 
   const handleSelectDraft = (draft: DraftEmail) => {
@@ -1416,6 +1511,8 @@ export default function EmailGenerator() {
     setRecipientEmail(draft.recipientEmail);
     setActiveDraftId(draft.id);
     setMessages([]);
+    setSelectedEmailId(null);
+    closeDetailPanel();
   };
 
   const handleDeleteDraft = (id: string) => {
@@ -1508,6 +1605,7 @@ export default function EmailGenerator() {
           activeDraftId={activeDraftId}
           inboxLoading={inboxLoading}
           sentLoading={sentLoading}
+          selectedEmailId={selectedEmailId}
           onRefreshInbox={fetchInbox}
           onRefreshSent={fetchSent}
           onOpenGmailEmail={handleOpenGmailEmail}
@@ -1515,183 +1613,196 @@ export default function EmailGenerator() {
           onDeleteDraft={handleDeleteDraft}
         />
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="relative w-full h-40 overflow-hidden border-b border-border">
-            <div className="absolute inset-0">
-              <AnimatedWave />
+        <div className="flex-1 min-w-0 relative overflow-hidden bg-background/50">
+          <main
+            className="h-full overflow-y-auto min-w-0 transition-all duration-300"
+            style={{
+              filter: detailPanelVisible ? "blur(1.5px)" : "none",
+              transform: detailPanelVisible ? "scale(0.995)" : "scale(1)",
+            }}
+          >
+            <div className="relative w-full h-40 overflow-hidden">
+              <div className="absolute inset-0">
+                <AnimatedWave />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
+
+              <div className="relative z-10 flex items-center justify-between h-full px-8 max-w-2xl mx-auto w-full">
+                <div>
+                  <h1
+                    className="select-none"
+                    style={{
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontStyle: "italic",
+                      fontSize: "clamp(1.4rem, 3vw, 2rem)",
+                      letterSpacing: "-0.02em",
+                      color: "hsl(var(--foreground))",
+                    }}
+                  >
+                    Email Generator
+                  </h1>
+                  <p
+                    className="mt-1 select-none"
+                    style={{
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontStyle: "italic",
+                      fontSize: "0.8rem",
+                      letterSpacing: "0.06em",
+                      color: "hsl(var(--muted-foreground) / 0.55)",
+                    }}
+                  >
+                    Describe what you want to say — get a professional email
+                  </p>
+                </div>
+                <div />
+              </div>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
 
-            <div className="relative z-10 flex items-center justify-between h-full px-8 max-w-2xl mx-auto w-full">
-              <div>
-                <h1
-                  className="select-none"
-                  style={{
-                    fontFamily: "'Playfair Display', Georgia, serif",
-                    fontStyle: "italic",
-                    fontSize: "clamp(1.4rem, 3vw, 2rem)",
-                    letterSpacing: "-0.02em",
-                    color: "hsl(var(--foreground))",
-                  }}
-                >
-                  Email Generator
-                </h1>
-                <p
-                  className="mt-1 select-none"
-                  style={{
-                    fontFamily: "'Playfair Display', Georgia, serif",
-                    fontStyle: "italic",
-                    fontSize: "0.8rem",
-                    letterSpacing: "0.06em",
-                    color: "hsl(var(--muted-foreground) / 0.55)",
-                  }}
-                >
-                  Describe what you want to say — get a professional email
-                </p>
-              </div>
-              <div />
-            </div>
-          </div>
-
-          <div className="p-6 md:p-8">
-            <div className="max-w-2xl mx-auto space-y-6">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  To
-                </label>
-                <Input
-                  type="email"
-                  placeholder="recipient@example.com"
-                  value={recipientEmail}
-                  onChange={(e) => setRecipientEmail(e.target.value)}
-                  className="h-11"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  Chat with AI
-                </label>
-                <ChatPrompt
-                  messages={messages}
-                  onSendMessage={handleSendMessage}
-                  isLoading={isChatLoading}
-                />
-              </div>
-
-              {hasEmail && (
-                <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-foreground">
-                      Edit Email
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={handleCopy}
-                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {copied ? (
-                          <Check className="w-3.5 h-3.5" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                        {copied ? "Copied" : "Copy"}
-                      </button>
-                      <button
-                        onClick={() => setPreviewOpen(true)}
-                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Preview
-                      </button>
-                    </div>
-                  </div>
-
-                  <EmailEditor
-                    subject={subject}
-                    body={body}
-                    onSubjectChange={setSubject}
-                    onBodyChange={setBody}
+            <div className="p-6 md:p-8">
+              <div className="max-w-2xl mx-auto space-y-6">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">To</label>
+                  <Input
+                    type="email"
+                    placeholder="recipient@example.com"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    className="h-11 shadow-sm border-0 bg-card/80"
                   />
                 </div>
-              )}
 
-              {hasEmail && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
-                    >
-                      <Paperclip className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform duration-200" />
-                      Attach files
-                      {attachments.length > 0 && (
-                        <span className="ml-1 bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
-                          {attachments.length}
-                        </span>
-                      )}
-                    </button>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-foreground">
+                    Chat with AI
+                  </label>
+                  <ChatPrompt
+                    messages={messages}
+                    onSendMessage={handleSendMessage}
+                    isLoading={isChatLoading}
+                  />
+                </div>
 
-                    <AttachmentList
-                      files={attachments}
-                      onRemove={(i) =>
-                        setAttachments((prev) =>
-                          prev.filter((_, idx) => idx !== i),
-                        )
-                      }
+                {hasEmail && (
+                  <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-foreground">
+                        Edit Email
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={handleCopy}
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {copied ? (
+                            <Check className="w-3.5 h-3.5" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                          {copied ? "Copied" : "Copy"}
+                        </button>
+                        <button
+                          onClick={() => setPreviewOpen(true)}
+                          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Preview
+                        </button>
+                      </div>
+                    </div>
+
+                    <EmailEditor
+                      subject={subject}
+                      body={body}
+                      onSubjectChange={setSubject}
+                      onBodyChange={setBody}
                     />
                   </div>
+                )}
 
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={handleSaveDraft}
-                      className="flex-1 h-11 gap-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save Draft
-                    </Button>
-                    <Button
-                      onClick={handleSend}
-                      disabled={!recipientEmail.trim() || isSending}
-                      className="flex-1 h-11 gap-2"
-                    >
-                      {isSending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
-                      )}
-                      {isSending ? "Sending…" : "Send Email"}
-                    </Button>
+                {hasEmail && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+                      >
+                        <Paperclip className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform duration-200" />
+                        Attach files
+                        {attachments.length > 0 && (
+                          <span className="ml-1 bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums">
+                            {attachments.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <AttachmentList
+                        files={attachments}
+                        onRemove={(i) =>
+                          setAttachments((prev) =>
+                            prev.filter((_, idx) => idx !== i),
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={handleSaveDraft}
+                        className="flex-1 h-11 gap-2 border-0 shadow-sm bg-card/80"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save Draft
+                      </Button>
+                      <Button
+                        onClick={handleSend}
+                        disabled={!recipientEmail.trim() || isSending}
+                        className="flex-1 h-11 gap-2"
+                      >
+                        {isSending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                        {isSending ? "Sending…" : "Send Email"}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {status && (
-                <div
-                  className={`text-sm text-center py-2 px-4 rounded-lg ${
-                    status.type === "success"
-                      ? "bg-primary/10 text-primary"
-                      : "bg-destructive/10 text-destructive"
-                  }`}
-                >
-                  {status.message}
-                </div>
-              )}
+                {status && (
+                  <div
+                    className={`text-sm text-center py-2 px-4 rounded-lg ${
+                      status.type === "success"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-destructive/10 text-destructive"
+                    }`}
+                  >
+                    {status.message}
+                  </div>
+                )}
 
-              <p className="text-center text-xs text-muted-foreground pb-4">
-                Powered by AI · Review before sending
-              </p>
+                <p className="text-center text-xs text-muted-foreground pb-4">
+                  Powered by AI · Review before sending
+                </p>
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
+
+          <EmailDetailOverlayPanel
+            isVisible={detailPanelVisible}
+            email={detailEmail}
+            isLoading={detailLoading}
+            onClose={closeDetailPanel}
+          />
+        </div>
       </div>
 
       <EmailPreviewModal
@@ -1701,16 +1812,6 @@ export default function EmailGenerator() {
         subject={subject}
         body={body}
         attachments={attachments}
-      />
-
-      <GmailEmailDetailModal
-        isOpen={detailModalOpen}
-        onClose={() => {
-          setDetailModalOpen(false);
-          setDetailEmail(null);
-        }}
-        email={detailEmail}
-        isLoading={detailLoading}
       />
     </div>
   );

@@ -157,26 +157,7 @@ export function Navigation() {
                   Sign out
                 </button>
 
-                {/* Generate Email CTA */}
-                <a
-                  href="/generate"
-                  className="rounded-full transition-all duration-300 hover:opacity-85"
-                  style={{
-                    fontFamily: playfair,
-                    fontStyle: "italic",
-                    fontWeight: 500,
-                    fontSize: isScrolled ? "0.75rem" : "0.875rem",
-                    color: "hsl(var(--primary-foreground))",
-                    background: "hsl(var(--primary))",
-                    padding: isScrolled ? "0.3rem 1rem" : "0.45rem 1.5rem",
-                    letterSpacing: "-0.01em",
-                    textDecoration: "none",
-                    display: "inline-block",
-                    transition: "all 0.3s ease",
-                  }}
-                >
-                  Generate Email
-                </a>
+        
               </>
             ) : (
               /* Get Started CTA */
