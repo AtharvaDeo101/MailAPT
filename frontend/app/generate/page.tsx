@@ -25,7 +25,6 @@ import {
   Inbox,
   SendHorizonal,
   RefreshCw,
-  Code,
   Paperclip,
   FileText,
   Star,
@@ -1113,21 +1112,19 @@ function EmailListPanel({
 }
 
 function EmailDetailOverlayPanel({
-  isVisible, email, isLoading, onClose,
+  isVisible,
+  email,
+  isLoading,
+  onClose,
 }: {
   isVisible: boolean;
   email: GmailEmailDetail | null;
   isLoading: boolean;
   onClose: () => void;
 }) {
-  const [viewMode, setViewMode] = useState<"text" | "html">("text");
-
-  useEffect(() => {
-    if (isVisible) setViewMode("text");
-  }, [isVisible, email?.id]);
-
   const plain = email?.plain_body || email?.body || "";
   const html = email?.html_body || "";
+  const hasHtml = Boolean(html && html.trim());
 
   return (
     <div
@@ -1152,20 +1149,21 @@ function EmailDetailOverlayPanel({
           style={{ background: "hsl(var(--primary) / 0.08)" }}
         >
           <div className="flex items-center gap-2 text-sm font-medium min-w-0">
-            <PanelRightOpen className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--primary))" }} />
-            <span className="truncate" style={{ color: "hsl(var(--primary))" }}>
+            <PanelRightOpen
+              className="h-4 w-4 shrink-0"
+              style={{ color: "hsl(var(--primary))" }}
+            />
+            <span
+              className="truncate"
+              style={{ color: "hsl(var(--primary))" }}
+            >
               {email?.subject || "Email details"}
             </span>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {html && !isLoading && (
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setViewMode((p) => (p === "text" ? "html" : "text"))}>
-                <Code className="h-3 w-3" />
-                {viewMode === "text" ? "HTML" : "Text"}
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
-          </div>
+
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         {isLoading ? (
@@ -1178,7 +1176,9 @@ function EmailDetailOverlayPanel({
             <Mail className="h-10 w-10 text-muted-foreground/30" />
             <div>
               <p className="text-sm font-medium text-foreground">No email selected</p>
-              <p className="text-xs text-muted-foreground mt-1">Click any inbox or sent email to show it here.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Click any inbox or sent email to show it here.
+              </p>
             </div>
           </div>
         ) : (
@@ -1191,15 +1191,21 @@ function EmailDetailOverlayPanel({
                 <SenderAvatar from={email.from} size={44} />
                 <div className="min-w-0 flex-1 space-y-2">
                   <div>
-                    <p className="font-medium break-words">{getSenderDisplayName(email.from)}</p>
+                    <p className="font-medium break-words">
+                      {getSenderDisplayName(email.from)}
+                    </p>
                     {extractEmailAddress(email.from) && (
-                      <p className="text-xs text-muted-foreground break-all">{extractEmailAddress(email.from)}</p>
+                      <p className="text-xs text-muted-foreground break-all">
+                        {extractEmailAddress(email.from)}
+                      </p>
                     )}
                   </div>
 
                   <div className="flex gap-3">
                     <span className="text-muted-foreground w-14 shrink-0">Subject</span>
-                    <span className="font-medium break-words">{email.subject || "—"}</span>
+                    <span className="font-medium break-words">
+                      {email.subject || "—"}
+                    </span>
                   </div>
 
                   <div className="flex gap-3">
@@ -1212,14 +1218,14 @@ function EmailDetailOverlayPanel({
 
             <div className="flex-1 overflow-y-auto px-5 py-5">
               <div className="rounded-xl min-h-full px-4 py-4 bg-card/70 shadow-sm">
-                {viewMode === "text" || !html ? (
-                  <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
-                    {plain || <span className="text-muted-foreground">No body content.</span>}
-                  </pre>
-                ) : (
+                {hasHtml ? (
                   <div className="prose prose-sm max-w-none dark:prose-invert">
                     <div dangerouslySetInnerHTML={{ __html: html }} />
                   </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
+                    {plain || <span className="text-muted-foreground">No body content.</span>}
+                  </pre>
                 )}
               </div>
             </div>
