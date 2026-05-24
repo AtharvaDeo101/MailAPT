@@ -97,157 +97,274 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// ── TINY MD5 (for Gravatar) ───────────────────────────────────────────────────
-function md5(str: string): string {
-  function safeAdd(x: number, y: number) {
-    const lsw = (x & 0xffff) + (y & 0xffff);
-    return (((x >> 16) + (y >> 16) + (lsw >> 16)) << 16) | (lsw & 0xffff);
-  }
-  function bitRotateLeft(num: number, cnt: number) {
-    return (num << cnt) | (num >>> (32 - cnt));
-  }
-  function md5cmn(q: number, a: number, b: number, x: number, s: number, t: number) {
-    return safeAdd(bitRotateLeft(safeAdd(safeAdd(a, q), safeAdd(x, t)), s), b);
-  }
-  function md5ff(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
-    return md5cmn((b & c) | (~b & d), a, b, x, s, t);
-  }
-  function md5gg(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
-    return md5cmn((b & d) | (c & ~d), a, b, x, s, t);
-  }
-  function md5hh(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
-    return md5cmn(b ^ c ^ d, a, b, x, s, t);
-  }
-  function md5ii(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
-    return md5cmn(c ^ (b | ~d), a, b, x, s, t);
-  }
-  function calculateMD5(x: number[], len: number) {
-    x[len >> 5] |= 0x80 << len % 32;
-    x[(((len + 64) >>> 9) << 4) + 14] = len;
-    let i, olda, oldb, oldc, oldd;
-    let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
-    for (i = 0; i < x.length; i += 16) {
-      olda = a; oldb = b; oldc = c; oldd = d;
-      a = md5ff(a, b, c, d, x[i], 7, -680876936); d = md5ff(d, a, b, c, x[i+1], 12, -389564586);
-      c = md5ff(c, d, a, b, x[i+2], 17, 606105819); b = md5ff(b, c, d, a, x[i+3], 22, -1044525330);
-      a = md5ff(a, b, c, d, x[i+4], 7, -176418897); d = md5ff(d, a, b, c, x[i+5], 12, 1200080426);
-      c = md5ff(c, d, a, b, x[i+6], 17, -1473231341); b = md5ff(b, c, d, a, x[i+7], 22, -45705983);
-      a = md5ff(a, b, c, d, x[i+8], 7, 1770035416); d = md5ff(d, a, b, c, x[i+9], 12, -1958414417);
-      c = md5ff(c, d, a, b, x[i+10], 17, -42063); b = md5ff(b, c, d, a, x[i+11], 22, -1990404162);
-      a = md5ff(a, b, c, d, x[i+12], 7, 1804603682); d = md5ff(d, a, b, c, x[i+13], 12, -40341101);
-      c = md5ff(c, d, a, b, x[i+14], 17, -1502002290); b = md5ff(b, c, d, a, x[i+15], 22, 1236535329);
-      a = md5gg(a, b, c, d, x[i+1], 5, -165796510); d = md5gg(d, a, b, c, x[i+6], 9, -1069501632);
-      c = md5gg(c, d, a, b, x[i+11], 14, 643717713); b = md5gg(b, c, d, a, x[i], 20, -373897302);
-      a = md5gg(a, b, c, d, x[i+5], 5, -701558691); d = md5gg(d, a, b, c, x[i+10], 9, 38016083);
-      c = md5gg(c, d, a, b, x[i+15], 14, -660478335); b = md5gg(b, c, d, a, x[i+4], 20, -405537848);
-      a = md5gg(a, b, c, d, x[i+9], 5, 568446438); d = md5gg(d, a, b, c, x[i+14], 9, -1019803690);
-      c = md5gg(c, d, a, b, x[i+3], 14, -187363961); b = md5gg(b, c, d, a, x[i+8], 20, 1163531501);
-      a = md5gg(a, b, c, d, x[i+13], 5, -1444681467); d = md5gg(d, a, b, c, x[i+2], 9, -51403784);
-      c = md5gg(c, d, a, b, x[i+7], 14, 1735328473); b = md5gg(b, c, d, a, x[i+12], 20, -1926607734);
-      a = md5hh(a, b, c, d, x[i+5], 4, -378558); d = md5hh(d, a, b, c, x[i+8], 11, -2022574463);
-      c = md5hh(c, d, a, b, x[i+11], 16, 1839030562); b = md5hh(b, c, d, a, x[i+14], 23, -35309556);
-      a = md5hh(a, b, c, d, x[i+1], 4, -1530992060); d = md5hh(d, a, b, c, x[i+4], 11, 1272893353);
-      c = md5hh(c, d, a, b, x[i+7], 16, -155497632); b = md5hh(b, c, d, a, x[i+10], 23, -1094730640);
-      a = md5hh(a, b, c, d, x[i+13], 4, 681279174); d = md5hh(d, a, b, c, x[i], 11, -358537222);
-      c = md5hh(c, d, a, b, x[i+3], 16, -722521979); b = md5hh(b, c, d, a, x[i+6], 23, 76029189);
-      a = md5hh(a, b, c, d, x[i+9], 4, -640364487); d = md5hh(d, a, b, c, x[i+12], 11, -421815835);
-      c = md5hh(c, d, a, b, x[i+15], 16, 530742520); b = md5hh(b, c, d, a, x[i+2], 23, -995338651);
-      a = md5ii(a, b, c, d, x[i], 6, -198630844); d = md5ii(d, a, b, c, x[i+7], 10, 1126891415);
-      c = md5ii(c, d, a, b, x[i+14], 15, -1416354905); b = md5ii(b, c, d, a, x[i+5], 21, -57434055);
-      a = md5ii(a, b, c, d, x[i+12], 6, 1700485571); d = md5ii(d, a, b, c, x[i+3], 10, -1894986606);
-      c = md5ii(c, d, a, b, x[i+10], 15, -1051523); b = md5ii(b, c, d, a, x[i+1], 21, -2054922799);
-      a = md5ii(a, b, c, d, x[i+8], 6, 1873313359); d = md5ii(d, a, b, c, x[i+15], 10, -30611744);
-      c = md5ii(c, d, a, b, x[i+6], 15, -1560198380); b = md5ii(b, c, d, a, x[i+13], 21, 1309151649);
-      a = md5ii(a, b, c, d, x[i+4], 6, -145523070); d = md5ii(d, a, b, c, x[i+11], 10, -1120210379);
-      c = md5ii(c, d, a, b, x[i+2], 15, 718787259); b = md5ii(b, c, d, a, x[i+9], 21, -343485551);
-      a = safeAdd(a, olda); b = safeAdd(b, oldb); c = safeAdd(c, oldc); d = safeAdd(d, oldd);
-    }
-    return [a, b, c, d];
-  }
-  function rhex(n: number) {
-    let s = "", j = 0;
-    for (; j < 4; j++)
-      s += ("0" + ((n >>> (j * 8 + 4)) & 0x0f).toString(16)).slice(-1) +
-           ("0" + ((n >>> (j * 8)) & 0x0f).toString(16)).slice(-1);
-    return s;
-  }
-  function str2binl(str: string) {
-    const bin: number[] = [];
-    const mask = (1 << 8) - 1;
-    for (let i = 0; i < str.length * 8; i += 8)
-      bin[i >> 5] |= (str.charCodeAt(i / 8) & mask) << i % 32;
-    return bin;
-  }
-  function utf8Encode(str: string) {
-    return unescape(encodeURIComponent(str));
-  }
-  const utf8 = utf8Encode(str);
-  return calculateMD5(str2binl(utf8), utf8.length * 8).map(rhex).join("");
-}
-
-// ── EXTRACT EMAIL FROM "Name <email>" FORMAT ─────────────────────────────────
-function extractEmail(from: string): string {
+function extractEmailAddress(from: string): string {
+  if (!from) return "";
   const match = from.match(/<([^>]+)>/);
-  if (match) return match[1].trim().toLowerCase();
+  if (match?.[1]) return match[1].trim().toLowerCase();
   if (from.includes("@")) return from.trim().toLowerCase();
   return "";
 }
 
-// ── BUILD GRAVATAR URL WITH ui-avatars FALLBACK ───────────────────────────────
-// Using ?d=mp (mystery person) as a safe built-in Gravatar fallback so every
-// email always shows SOME image — no broken-img state needed at all.
-// If you want the initials-on-color fallback instead, swap ?d=mp with
-// ?d=https%3A%2F%2Fui-avatars.com%2Fapi%2F%3Fname%3D{initial}%26size%3D64
-function buildAvatarUrl(from: string, size = 64): string {
-  const email = extractEmail(from);
-  const initial = encodeURIComponent((from || "?").charAt(0).toUpperCase());
-  if (email) {
-    const hash = md5(email);
-    // ui-avatars.com as d= fallback: generates a colored-initial image when no Gravatar exists
-    const fallbackUrl = `https://ui-avatars.com/api/?name=${initial}&size=${size}&background=random&color=fff&bold=true`;
-    return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=${encodeURIComponent(fallbackUrl)}&r=g`;
-  }
-  // No email → go straight to ui-avatars
-  return `https://ui-avatars.com/api/?name=${initial}&size=${size}&background=random&color=fff&bold=true`;
+function getSenderDisplayName(from: string): string {
+  if (!from) return "Unknown";
+  return from.split("<")[0].trim() || from;
 }
 
-// ── SENDER AVATAR COMPONENT ───────────────────────────────────────────────────
-// No imgFailed state needed — the Gravatar d= fallback handles missing pics.
-// Each instance is keyed by its own avatarUrl so it's fully independent.
+function getSenderInitial(from: string): string {
+  const name = getSenderDisplayName(from);
+  return name.charAt(0).toUpperCase() || "?";
+}
+
+function getLetterAvatarColors(letter: string) {
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    A: { bg: "#FDE68A", text: "#92400E" },
+    B: { bg: "#BFDBFE", text: "#1E3A8A" },
+    C: { bg: "#C7D2FE", text: "#3730A3" },
+    D: { bg: "#FBCFE8", text: "#9D174D" },
+    E: { bg: "#A7F3D0", text: "#065F46" },
+    F: { bg: "#DDD6FE", text: "#5B21B6" },
+    G: { bg: "#FED7AA", text: "#9A3412" },
+    H: { bg: "#FECACA", text: "#991B1B" },
+    I: { bg: "#BBF7D0", text: "#166534" },
+    J: { bg: "#E9D5FF", text: "#6B21A8" },
+    K: { bg: "#BAE6FD", text: "#075985" },
+    L: { bg: "#FEF3C7", text: "#92400E" },
+    M: { bg: "#FBCFE8", text: "#9D174D" },
+    N: { bg: "#CFFAFE", text: "#155E75" },
+    O: { bg: "#D9F99D", text: "#3F6212" },
+    P: { bg: "#E5E7EB", text: "#374151" },
+    Q: { bg: "#F5D0FE", text: "#86198F" },
+    R: { bg: "#FDE68A", text: "#92400E" },
+    S: { bg: "#BFDBFE", text: "#1E40AF" },
+    T: { bg: "#A7F3D0", text: "#065F46" },
+    U: { bg: "#C4B5FD", text: "#5B21B6" },
+    V: { bg: "#FDBA74", text: "#9A3412" },
+    W: { bg: "#FCA5A5", text: "#991B1B" },
+    X: { bg: "#86EFAC", text: "#166534" },
+    Y: { bg: "#93C5FD", text: "#1D4ED8" },
+    Z: { bg: "#F9A8D4", text: "#9D174D" },
+    "?": { bg: "#E5E7EB", text: "#374151" },
+  };
+
+  return colorMap[letter] || colorMap["?"];
+}
+
+
+// Lightweight md5 for gravatar
+function md5cycle(x: number[], k: number[]) {
+  let [a, b, c, d] = x;
+
+  const ff = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+    a = a + ((b & c) | (~b & d)) + x + t;
+    return (((a << s) | (a >>> (32 - s))) + b) | 0;
+  };
+
+  const gg = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+    a = a + ((b & d) | (c & ~d)) + x + t;
+    return (((a << s) | (a >>> (32 - s))) + b) | 0;
+  };
+
+  const hh = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+    a = a + (b ^ c ^ d) + x + t;
+    return (((a << s) | (a >>> (32 - s))) + b) | 0;
+  };
+
+  const ii = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+    a = a + (c ^ (b | ~d)) + x + t;
+    return (((a << s) | (a >>> (32 - s))) + b) | 0;
+  };
+
+  a = ff(a, b, c, d, k[0], 7, -680876936);
+  d = ff(d, a, b, c, k[1], 12, -389564586);
+  c = ff(c, d, a, b, k[2], 17, 606105819);
+  b = ff(b, c, d, a, k[3], 22, -1044525330);
+  a = ff(a, b, c, d, k[4], 7, -176418897);
+  d = ff(d, a, b, c, k[5], 12, 1200080426);
+  c = ff(c, d, a, b, k[6], 17, -1473231341);
+  b = ff(b, c, d, a, k[7], 22, -45705983);
+  a = ff(a, b, c, d, k[8], 7, 1770035416);
+  d = ff(d, a, b, c, k[9], 12, -1958414417);
+  c = ff(c, d, a, b, k[10], 17, -42063);
+  b = ff(b, c, d, a, k[11], 22, -1990404162);
+  a = ff(a, b, c, d, k[12], 7, 1804603682);
+  d = ff(d, a, b, c, k[13], 12, -40341101);
+  c = ff(c, d, a, b, k[14], 17, -1502002290);
+  b = ff(b, c, d, a, k[15], 22, 1236535329);
+
+  a = gg(a, b, c, d, k[1], 5, -165796510);
+  d = gg(d, a, b, c, k[6], 9, -1069501632);
+  c = gg(c, d, a, b, k[11], 14, 643717713);
+  b = gg(b, c, d, a, k[0], 20, -373897302);
+  a = gg(a, b, c, d, k[5], 5, -701558691);
+  d = gg(d, a, b, c, k[10], 9, 38016083);
+  c = gg(c, d, a, b, k[15], 14, -660478335);
+  b = gg(b, c, d, a, k[4], 20, -405537848);
+  a = gg(a, b, c, d, k[9], 5, 568446438);
+  d = gg(d, a, b, c, k[14], 9, -1019803690);
+  c = gg(c, d, a, b, k[3], 14, -187363961);
+  b = gg(b, c, d, a, k[8], 20, 1163531501);
+  a = gg(a, b, c, d, k[13], 5, -1444681467);
+  d = gg(d, a, b, c, k[2], 9, -51403784);
+  c = gg(c, d, a, b, k[7], 14, 1735328473);
+  b = gg(b, c, d, a, k[12], 20, -1926607734);
+
+  a = hh(a, b, c, d, k[5], 4, -378558);
+  d = hh(d, a, b, c, k[8], 11, -2022574463);
+  c = hh(c, d, a, b, k[11], 16, 1839030562);
+  b = hh(b, c, d, a, k[14], 23, -35309556);
+  a = hh(a, b, c, d, k[1], 4, -1530992060);
+  d = hh(d, a, b, c, k[4], 11, 1272893353);
+  c = hh(c, d, a, b, k[7], 16, -155497632);
+  b = hh(b, c, d, a, k[10], 23, -1094730640);
+  a = hh(a, b, c, d, k[13], 4, 681279174);
+  d = hh(d, a, b, c, k[0], 11, -358537222);
+  c = hh(c, d, a, b, k[3], 16, -722521979);
+  b = hh(b, c, d, a, k[6], 23, 76029189);
+  a = hh(a, b, c, d, k[9], 4, -640364487);
+  d = hh(d, a, b, c, k[12], 11, -421815835);
+  c = hh(c, d, a, b, k[15], 16, 530742520);
+  b = hh(b, c, d, a, k[2], 23, -995338651);
+
+  a = ii(a, b, c, d, k[0], 6, -198630844);
+  d = ii(d, a, b, c, k[7], 10, 1126891415);
+  c = ii(c, d, a, b, k[14], 15, -1416354905);
+  b = ii(b, c, d, a, k[5], 21, -57434055);
+  a = ii(a, b, c, d, k[12], 6, 1700485571);
+  d = ii(d, a, b, c, k[3], 10, -1894986606);
+  c = ii(c, d, a, b, k[10], 15, -1051523);
+  b = ii(b, c, d, a, k[1], 21, -2054922799);
+  a = ii(a, b, c, d, k[8], 6, 1873313359);
+  d = ii(d, a, b, c, k[15], 10, -30611744);
+  c = ii(c, d, a, b, k[6], 15, -1560198380);
+  b = ii(b, c, d, a, k[13], 21, 1309151649);
+  a = ii(a, b, c, d, k[4], 6, -145523070);
+  d = ii(d, a, b, c, k[11], 10, -1120210379);
+  c = ii(c, d, a, b, k[2], 15, 718787259);
+  b = ii(b, c, d, a, k[9], 21, -343485551);
+
+  x[0] = (x[0] + a) | 0;
+  x[1] = (x[1] + b) | 0;
+  x[2] = (x[2] + c) | 0;
+  x[3] = (x[3] + d) | 0;
+}
+
+function md5blk(s: string) {
+  const md5blks = [];
+  for (let i = 0; i < 64; i += 4) {
+    md5blks[i >> 2] =
+      s.charCodeAt(i) +
+      (s.charCodeAt(i + 1) << 8) +
+      (s.charCodeAt(i + 2) << 16) +
+      (s.charCodeAt(i + 3) << 24);
+  }
+  return md5blks;
+}
+
+function md51(s: string) {
+  let n = s.length;
+  const state = [1732584193, -271733879, -1732584194, 271733878];
+  let i;
+
+  for (i = 64; i <= n; i += 64) {
+    md5cycle(state, md5blk(s.substring(i - 64, i)));
+  }
+
+  s = s.substring(i - 64);
+  const tail = new Array(16).fill(0);
+
+  for (i = 0; i < s.length; i++) {
+    tail[i >> 2] |= s.charCodeAt(i) << ((i % 4) << 3);
+  }
+
+  tail[i >> 2] |= 0x80 << ((i % 4) << 3);
+
+  if (i > 55) {
+    md5cycle(state, tail);
+    for (i = 0; i < 16; i++) tail[i] = 0;
+  }
+
+  tail[14] = n * 8;
+  md5cycle(state, tail);
+  return state;
+}
+
+function rhex(n: number) {
+  const hexChr = "0123456789abcdef";
+  let s = "";
+  for (let j = 0; j < 4; j++) {
+    s +=
+      hexChr.charAt((n >> (j * 8 + 4)) & 0x0f) +
+      hexChr.charAt((n >> (j * 8)) & 0x0f);
+  }
+  return s;
+}
+
+function md5(s: string) {
+  return md51(unescape(encodeURIComponent(s))).map(rhex).join("");
+}
+
+function getGravatarUrl(from: string, size = 80) {
+  const email = extractEmailAddress(from);
+  if (!email) return null;
+  const hash = md5(email.trim().toLowerCase());
+  return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=404`;
+}
+
 function SenderAvatar({
   from,
-  size = "md",
-  isSelected = false,
+  size = 32,
+  selected = false,
 }: {
   from: string;
-  size?: "sm" | "md" | "lg";
-  isSelected?: boolean;
+  size?: number;
+  selected?: boolean;
 }) {
-  const px = size === "sm" ? 28 : size === "lg" ? 48 : 32;
-  const sizeClass =
-    size === "sm" ? "h-7 w-7" :
-    size === "lg" ? "h-12 w-12" :
-    "h-8 w-8";
+  const [imgError, setImgError] = useState(false);
+  const imageUrl = getGravatarUrl(from, size * 2);
+  const initial = getSenderInitial(from);
+  const colors = getLetterAvatarColors(initial);
 
-  const avatarUrl = buildAvatarUrl(from, px * 2); // 2x for retina
+  useEffect(() => {
+    setImgError(false);
+  }, [from]);
+
+  if (imageUrl && !imgError) {
+    return (
+      <img
+        src={imageUrl}
+        alt={getSenderDisplayName(from)}
+        width={size}
+        height={size}
+        onError={() => setImgError(true)}
+        className="rounded-full shrink-0 object-cover"
+        style={{
+          width: size,
+          height: size,
+          border: selected
+            ? "2px solid hsl(var(--primary) / 0.25)"
+            : "1px solid hsl(var(--border) / 0.5)",
+        }}
+      />
+    );
+  }
 
   return (
-    <img
-      key={avatarUrl}
-      src={avatarUrl}
-      alt={(from || "?").charAt(0).toUpperCase()}
-      width={px}
-      height={px}
-      loading="lazy"
-      decoding="async"
-      className={cn(
-        sizeClass,
-        "rounded-full shrink-0 object-cover",
-      )}
+    <div
+      className="rounded-full shrink-0 flex items-center justify-center font-semibold uppercase select-none"
       style={{
-        border: `1px solid ${isSelected ? "hsl(var(--primary) / 0.3)" : "hsl(var(--border))"}`,
+        width: size,
+        height: size,
+        backgroundColor: colors.bg,
+        color: colors.text,
+        border: selected
+          ? "2px solid hsl(var(--primary) / 0.25)"
+          : "1px solid rgba(0,0,0,0.06)",
+        fontSize: size >= 44 ? "16px" : size >= 32 ? "12px" : "10px",
       }}
-    />
+      title={getSenderDisplayName(from)}
+    >
+      {initial}
+    </div>
   );
 }
 
@@ -290,7 +407,8 @@ function AnimatedWave() {
         for (let x = 0; x < cols; x++) {
           const px = (x + 0.5) * (rect.width / cols);
           const py = (y + 0.5) * (rect.height / rows);
-          const wave1 = Math.sin(x * 0.2 + time * 2) * Math.cos(y * 0.15 + time);
+          const wave1 =
+            Math.sin(x * 0.2 + time * 2) * Math.cos(y * 0.15 + time);
           const wave2 = Math.sin((x + y) * 0.1 + time * 1.5);
           const wave3 = Math.cos(x * 0.1 - y * 0.1 + time * 0.8);
           const combined = (wave1 + wave2 + wave3) / 3;
@@ -335,7 +453,10 @@ function ChatPrompt({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -356,16 +477,31 @@ function ChatPrompt({
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={cn("flex gap-2.5 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "")}
+            className={cn(
+              "flex gap-2.5 max-w-[85%]",
+              msg.role === "user" ? "ml-auto flex-row-reverse" : "",
+            )}
           >
-            <div className={cn("h-7 w-7 rounded-full flex items-center justify-center shrink-0", msg.role === "user" ? "bg-primary" : "bg-accent")}>
+            <div
+              className={cn(
+                "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
+                msg.role === "user" ? "bg-primary" : "bg-accent",
+              )}
+            >
               {msg.role === "user" ? (
                 <User className="h-3.5 w-3.5 text-primary-foreground" />
               ) : (
                 <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
               )}
             </div>
-            <div className={cn("rounded-xl px-3.5 py-2.5 text-sm leading-relaxed", msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground")}>
+            <div
+              className={cn(
+                "rounded-xl px-3.5 py-2.5 text-sm leading-relaxed",
+                msg.role === "user"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-accent text-accent-foreground",
+              )}
+            >
               {msg.content}
             </div>
           </div>
@@ -400,10 +536,15 @@ function ChatPrompt({
 }
 
 function EmailEditor({
-  subject, body, onSubjectChange, onBodyChange,
+  subject,
+  body,
+  onSubjectChange,
+  onBodyChange,
 }: {
-  subject: string; body: string;
-  onSubjectChange: (v: string) => void; onBodyChange: (v: string) => void;
+  subject: string;
+  body: string;
+  onSubjectChange: (v: string) => void;
+  onBodyChange: (v: string) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -418,21 +559,41 @@ function EmailEditor({
     <div className="flex flex-col gap-4 rounded-xl bg-card/90 p-4 shadow-sm">
       <div className="flex items-center gap-3 pb-3">
         <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">Subject</span>
-        <Input value={subject} onChange={(e) => onSubjectChange(e.target.value)} placeholder="Email subject…" className="border-none shadow-none focus-visible:ring-0 p-0 h-auto text-sm font-medium bg-transparent" />
+        <Input
+          value={subject}
+          onChange={(e) => onSubjectChange(e.target.value)}
+          placeholder="Email subject…"
+          className="border-none shadow-none focus-visible:ring-0 p-0 h-auto text-sm font-medium bg-transparent"
+        />
       </div>
       <div className="flex gap-3">
         <span className="text-xs font-medium text-muted-foreground w-14 shrink-0 pt-0.5">Body</span>
-        <Textarea ref={textareaRef} value={body} onChange={(e) => onBodyChange(e.target.value)} placeholder="Email body…" className="border-none shadow-none focus-visible:ring-0 p-0 resize-none min-h-[180px] text-sm bg-transparent leading-relaxed" />
+        <Textarea
+          ref={textareaRef}
+          value={body}
+          onChange={(e) => onBodyChange(e.target.value)}
+          placeholder="Email body…"
+          className="border-none shadow-none focus-visible:ring-0 p-0 resize-none min-h-[180px] text-sm bg-transparent leading-relaxed"
+        />
       </div>
     </div>
   );
 }
 
 function EmailPreviewModal({
-  isOpen, onClose, recipientEmail, subject, body, attachments,
+  isOpen,
+  onClose,
+  recipientEmail,
+  subject,
+  body,
+  attachments,
 }: {
-  isOpen: boolean; onClose: () => void; recipientEmail: string;
-  subject: string; body: string; attachments: File[];
+  isOpen: boolean;
+  onClose: () => void;
+  recipientEmail: string;
+  subject: string;
+  body: string;
+  attachments: File[];
 }) {
   if (!isOpen) return null;
   return (
@@ -441,13 +602,20 @@ function EmailPreviewModal({
       <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-card shadow-2xl flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-4 shrink-0">
           <div className="flex items-center gap-2 text-sm font-medium">
-            <Mail className="h-4 w-4 text-primary" />Email Preview
+            <Mail className="h-4 w-4 text-primary" />
+            Email Preview
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
         <div className="px-5 py-3 space-y-2 text-sm shrink-0 bg-background/30">
-          <div className="flex gap-3"><span className="text-muted-foreground w-14 shrink-0">To</span><span className="font-medium">{recipientEmail || "—"}</span></div>
-          <div className="flex gap-3"><span className="text-muted-foreground w-14 shrink-0">Subject</span><span className="font-medium">{subject || "—"}</span></div>
+          <div className="flex gap-3">
+            <span className="text-muted-foreground w-14 shrink-0">To</span>
+            <span className="font-medium">{recipientEmail || "—"}</span>
+          </div>
+          <div className="flex gap-3">
+            <span className="text-muted-foreground w-14 shrink-0">Subject</span>
+            <span className="font-medium">{subject || "—"}</span>
+          </div>
           {attachments.length > 0 && (
             <div className="flex gap-3">
               <span className="text-muted-foreground w-14 shrink-0">Attachments</span>
@@ -490,10 +658,13 @@ function AttachmentList({ files, onRemove }: { files: File[]; onRemove: (i: numb
 }
 
 function SidebarNavItem({
-  item, isActive, onClick,
+  item,
+  isActive,
+  onClick,
 }: {
   item: { label: string; icon: React.ReactNode; count?: number };
-  isActive: boolean; onClick: () => void;
+  isActive: boolean;
+  onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
@@ -501,7 +672,10 @@ function SidebarNavItem({
   const handleItemClick = () => {
     setIsRotating(false);
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => { setIsRotating(true); onClick(); });
+      requestAnimationFrame(() => {
+        setIsRotating(true);
+        onClick();
+      });
     });
   };
 
@@ -518,11 +692,25 @@ function SidebarNavItem({
       onMouseLeave={() => setHovered(false)}
       className="group relative flex w-full items-center gap-3 px-5 py-4 my-0.5 rounded-none text-left select-none transition-all duration-300"
       style={{
-        background: isActive ? "hsl(var(--primary) / 0.18)" : hovered ? "hsl(var(--accent) / 0.45)" : "transparent",
-        boxShadow: "none", border: "none",
+        background: isActive
+          ? "hsl(var(--primary) / 0.18)"
+          : hovered
+            ? "hsl(var(--accent) / 0.45)"
+            : "transparent",
+        boxShadow: "none",
+        border: "none",
       }}
     >
-      <span className="shrink-0 transition-colors duration-200" style={{ color: isActive || hovered ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.45)" }}>
+      <span
+        className="shrink-0 transition-colors duration-200"
+        style={{
+          color: isActive
+            ? "hsl(var(--primary))"
+            : hovered
+              ? "hsl(var(--primary))"
+              : "hsl(var(--muted-foreground) / 0.45)",
+        }}
+      >
         {item.icon}
       </span>
       <div className="flex-1 min-w-0 relative">
@@ -535,7 +723,11 @@ function SidebarNavItem({
               fontSize: isActive || hovered ? "1.16rem" : "0.94rem",
               fontStyle: isActive || hovered ? "italic" : "normal",
               letterSpacing: isActive || hovered ? "-0.03em" : "-0.01em",
-              color: isActive ? "hsl(var(--primary))" : hovered ? "hsl(var(--foreground))" : "hsl(var(--foreground) / 0.68)",
+              color: isActive
+                ? "hsl(var(--primary))"
+                : hovered
+                  ? "hsl(var(--foreground))"
+                  : "hsl(var(--foreground) / 0.68)",
               lineHeight: 1.1,
               transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
@@ -551,21 +743,40 @@ function SidebarNavItem({
         </span>
       </div>
       {item.count !== undefined && item.count > 0 && (
-        <span className="text-xs tabular-nums shrink-0 transition-colors duration-200" style={{ color: isActive ? "hsl(var(--primary) / 0.85)" : hovered ? "hsl(var(--primary) / 0.75)" : "hsl(var(--muted-foreground) / 0.4)" }}>
+        <span
+          className="text-xs tabular-nums shrink-0 transition-colors duration-200"
+          style={{
+            color: isActive
+              ? "hsl(var(--primary) / 0.85)"
+              : hovered
+                ? "hsl(var(--primary) / 0.75)"
+                : "hsl(var(--muted-foreground) / 0.4)",
+          }}
+        >
           {item.count}
         </span>
       )}
-      {isActive && <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "hsl(var(--primary) / 0.75)" }} />}
+      {isActive && (
+        <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "hsl(var(--primary) / 0.75)" }} />
+      )}
     </button>
   );
 }
 
-// ── LEFT SIDEBAR ──────────────────────────────────────────────────────────────
 function LeftSidebar({
-  activeSection, onSelect, inboxCount, sentCount, draftsCount, onNewEmail,
+  activeSection,
+  onSelect,
+  inboxCount,
+  sentCount,
+  draftsCount,
+  onNewEmail,
 }: {
-  activeSection: ActiveSection; onSelect: (s: ActiveSection) => void;
-  inboxCount: number; sentCount: number; draftsCount: number; onNewEmail: () => void;
+  activeSection: ActiveSection;
+  onSelect: (s: ActiveSection) => void;
+  inboxCount: number;
+  sentCount: number;
+  draftsCount: number;
+  onNewEmail: () => void;
 }) {
   const navItems = [
     { id: "inbox" as ActiveSection, label: "Inbox", icon: <Inbox className="h-4 w-4" />, count: inboxCount },
@@ -577,37 +788,73 @@ function LeftSidebar({
 
   return (
     <aside className="w-60 shrink-0 flex flex-col bg-card/40 h-full z-10 relative shadow-sm" aria-label="Email navigation">
-      <div className="px-5 pt-5 pb-4 shrink-0" style={{ background: "hsl(var(--primary) / 0.08)" }}>
-        <span className="text-[10px] tracking-[0.22em] uppercase font-medium select-none italic" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "hsl(var(--primary) / 0.7)" }}>
+      <div
+        className="px-5 pt-5 pb-4 shrink-0"
+        style={{ background: "hsl(var(--primary) / 0.08)" }}
+      >
+        <span
+          className="text-[10px] tracking-[0.22em] uppercase font-medium select-none italic"
+          style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            color: "hsl(var(--primary) / 0.7)",
+          }}
+        >
           Mail
         </span>
+
         <div className="mt-3">
-          <Button onClick={onNewEmail} className="w-full justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-sm">
-            <PlusCircle className="h-4 w-4" />New
+          <Button
+            onClick={onNewEmail}
+            className="w-full justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-sm"
+          >
+            <PlusCircle className="h-4 w-4" />
+            New
           </Button>
         </div>
       </div>
+
       <nav className="flex flex-col flex-1 py-2 overflow-y-auto">
         {navItems.map((item) => (
-          <SidebarNavItem key={item.id} item={item} isActive={activeSection === item.id} onClick={() => onSelect(item.id)} />
+          <SidebarNavItem
+            key={item.id}
+            item={item}
+            isActive={activeSection === item.id}
+            onClick={() => onSelect(item.id)}
+          />
         ))}
         <div className="mx-4 my-2 h-px bg-muted/30" />
-        <SidebarNavItem item={{ label: "Settings", icon: <Settings className="h-4 w-4" /> }} isActive={activeSection === "settings"} onClick={() => onSelect("settings")} />
+        <SidebarNavItem
+          item={{ label: "Settings", icon: <Settings className="h-4 w-4" /> }}
+          isActive={activeSection === "settings"}
+          onClick={() => onSelect("settings")}
+        />
       </nav>
     </aside>
   );
 }
 
-// ── EMAIL CARD — REAL PROFILE PIC FOR EVERY EMAIL IN LIST ────────────────────
-function EmailCard({ email, onClick, isSelected }: { email: GmailEmail; onClick: () => void; isSelected: boolean }) {
+function EmailCard({
+  email,
+  onClick,
+  isSelected,
+}: {
+  email: GmailEmail;
+  onClick: () => void;
+  isSelected: boolean;
+}) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
       className="w-full cursor-pointer overflow-hidden transition-all duration-150"
       style={{
-        background: isSelected ? "hsl(var(--primary) / 0.18)" : hovered ? "hsl(var(--accent))" : "transparent",
-        border: "none", boxShadow: "none",
+        background: isSelected
+          ? "hsl(var(--primary) / 0.18)"
+          : hovered
+            ? "hsl(var(--accent))"
+            : "transparent",
+        border: "none",
+        boxShadow: "none",
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
@@ -615,13 +862,18 @@ function EmailCard({ email, onClick, isSelected }: { email: GmailEmail; onClick:
     >
       <div className="px-4 py-3">
         <div className="flex items-start gap-2.5">
-          {/* ── REAL PROFILE PIC — key prop ensures each card gets its own img ── */}
-          <SenderAvatar key={email.id} from={email.from || ""} size="md" isSelected={isSelected} />
+          <SenderAvatar from={email.from} size={32} selected={isSelected} />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold truncate leading-snug" style={{ color: isSelected ? "hsl(var(--primary))" : "hsl(var(--foreground) / 0.8)" }}>
-              {email.from ? email.from.split("<")[0].trim() || email.from : "Unknown"}
+            <p
+              className="text-[10px] font-semibold truncate leading-snug"
+              style={{ color: isSelected ? "hsl(var(--primary))" : "hsl(var(--foreground) / 0.8)" }}
+            >
+              {getSenderDisplayName(email.from)}
             </p>
-            <p className="text-xs font-medium truncate leading-snug mt-0.5" style={{ color: isSelected ? "hsl(var(--primary))" : "hsl(var(--foreground))" }}>
+            <p
+              className="text-xs font-medium truncate leading-snug mt-0.5"
+              style={{ color: isSelected ? "hsl(var(--primary))" : "hsl(var(--foreground))" }}
+            >
               {email.subject || "(No Subject)"}
             </p>
           </div>
@@ -637,7 +889,6 @@ function EmailCard({ email, onClick, isSelected }: { email: GmailEmail; onClick:
   );
 }
 
-// ── DRAFT CARD ────────────────────────────────────────────────────────────────
 function DraftCard({ draft, isActive, onClick, onDelete }: { draft: DraftEmail; isActive: boolean; onClick: () => void; onDelete: () => void }) {
   return (
     <div
@@ -661,7 +912,12 @@ function DraftCard({ draft, isActive, onClick, onDelete }: { draft: DraftEmail; 
               {draft.recipientEmail || "No recipient"}
             </p>
           </div>
-          <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDelete(); }} aria-label="Delete draft">
+          <Button
+            variant="ghost" size="icon"
+            className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            aria-label="Delete draft"
+          >
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
@@ -676,18 +932,24 @@ function DraftCard({ draft, isActive, onClick, onDelete }: { draft: DraftEmail; 
   );
 }
 
-// ── MIDDLE EMAIL LIST PANEL ───────────────────────────────────────────────────
 function EmailListPanel({
   activeSection, panelVisible, inboxEmails, sentEmails, drafts,
   activeDraftId, inboxLoading, sentLoading, selectedEmailId,
   onRefreshInbox, onRefreshSent, onOpenGmailEmail, onSelectDraft, onDeleteDraft,
 }: {
-  activeSection: ActiveSection; panelVisible: boolean;
-  inboxEmails: GmailEmail[]; sentEmails: GmailEmail[]; drafts: DraftEmail[];
-  activeDraftId: string | null; inboxLoading: boolean; sentLoading: boolean;
+  activeSection: ActiveSection;
+  panelVisible: boolean;
+  inboxEmails: GmailEmail[];
+  sentEmails: GmailEmail[];
+  drafts: DraftEmail[];
+  activeDraftId: string | null;
+  inboxLoading: boolean;
+  sentLoading: boolean;
   selectedEmailId: string | null;
-  onRefreshInbox: (force?: boolean) => void; onRefreshSent: (force?: boolean) => void;
-  onOpenGmailEmail: (id: string) => void; onSelectDraft: (d: DraftEmail) => void;
+  onRefreshInbox: (force?: boolean) => void;
+  onRefreshSent: (force?: boolean) => void;
+  onOpenGmailEmail: (id: string) => void;
+  onSelectDraft: (d: DraftEmail) => void;
   onDeleteDraft: (id: string) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -738,20 +1000,32 @@ function EmailListPanel({
           transform: panelVisible ? "translateX(0px)" : "translateX(-24px)",
         }}
       >
-        <div className="px-4 pt-4 pb-3 shrink-0" style={{ background: "hsl(var(--primary) / 0.08)" }}>
+        <div
+          className="px-4 pt-4 pb-3 shrink-0"
+          style={{ background: "hsl(var(--primary) / 0.08)" }}
+        >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span style={{ color: "hsl(var(--primary))" }}>{meta.icon}</span>
-              <span className="text-xs font-semibold" style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "hsl(var(--primary))" }}>
+              <span
+                className="text-xs font-semibold"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "hsl(var(--primary))" }}
+              >
                 {meta.label}
               </span>
             </div>
             {canRefresh && (
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground/50 hover:text-foreground" onClick={() => effectiveSection === "inbox" ? onRefreshInbox(true) : onRefreshSent(true)} aria-label={`Refresh ${meta.label}`}>
+              <Button
+                variant="ghost" size="icon"
+                className="h-6 w-6 text-muted-foreground/50 hover:text-foreground"
+                onClick={() => effectiveSection === "inbox" ? onRefreshInbox(true) : onRefreshSent(true)}
+                aria-label={`Refresh ${meta.label}`}
+              >
                 <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
               </Button>
             )}
           </div>
+
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
             <input
@@ -838,12 +1112,13 @@ function EmailListPanel({
   );
 }
 
-// ── RIGHT DETAIL PANEL — WITH REAL PROFILE PIC ───────────────────────────────
 function EmailDetailOverlayPanel({
   isVisible, email, isLoading, onClose,
 }: {
-  isVisible: boolean; email: GmailEmailDetail | null;
-  isLoading: boolean; onClose: () => void;
+  isVisible: boolean;
+  email: GmailEmailDetail | null;
+  isLoading: boolean;
+  onClose: () => void;
 }) {
   const [viewMode, setViewMode] = useState<"text" | "html">("text");
 
@@ -872,15 +1147,21 @@ function EmailDetailOverlayPanel({
           opacity: isVisible ? 1 : 0.98,
         }}
       >
-        <div className="flex items-center justify-between px-5 py-4 shrink-0" style={{ background: "hsl(var(--primary) / 0.08)" }}>
+        <div
+          className="flex items-center justify-between px-5 py-4 shrink-0"
+          style={{ background: "hsl(var(--primary) / 0.08)" }}
+        >
           <div className="flex items-center gap-2 text-sm font-medium min-w-0">
             <PanelRightOpen className="h-4 w-4 shrink-0" style={{ color: "hsl(var(--primary))" }} />
-            <span className="truncate" style={{ color: "hsl(var(--primary))" }}>{email?.subject || "Email details"}</span>
+            <span className="truncate" style={{ color: "hsl(var(--primary))" }}>
+              {email?.subject || "Email details"}
+            </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {html && !isLoading && (
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setViewMode((p) => (p === "text" ? "html" : "text"))}>
-                <Code className="h-3 w-3" />{viewMode === "text" ? "HTML" : "Text"}
+                <Code className="h-3 w-3" />
+                {viewMode === "text" ? "HTML" : "Text"}
               </Button>
             )}
             <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -902,27 +1183,30 @@ function EmailDetailOverlayPanel({
           </div>
         ) : (
           <>
-            {/* ── EMAIL META WITH PROFILE PIC ── */}
-            <div className="mx-5 mt-5 rounded-xl px-4 py-4 space-y-3 text-sm shrink-0 shadow-sm" style={{ background: "hsl(var(--primary) / 0.10)" }}>
-              {/* Sender row with large avatar */}
-              <div className="flex items-center gap-3">
-                <SenderAvatar key={email.id} from={email.from || ""} size="lg" isSelected={false} />
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-sm leading-snug truncate">
-                    {email.from ? email.from.split("<")[0].trim() || email.from : "Unknown"}
-                  </p>
-                  {extractEmail(email.from || "") && (
-                    <p className="text-xs text-muted-foreground truncate">{extractEmail(email.from || "")}</p>
-                  )}
+            <div
+              className="mx-5 mt-5 rounded-xl px-4 py-4 text-sm shrink-0 shadow-sm"
+              style={{ background: "hsl(var(--primary) / 0.10)" }}
+            >
+              <div className="flex items-start gap-3">
+                <SenderAvatar from={email.from} size={44} />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div>
+                    <p className="font-medium break-words">{getSenderDisplayName(email.from)}</p>
+                    {extractEmailAddress(email.from) && (
+                      <p className="text-xs text-muted-foreground break-all">{extractEmailAddress(email.from)}</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <span className="text-muted-foreground w-14 shrink-0">Subject</span>
+                    <span className="font-medium break-words">{email.subject || "—"}</span>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <span className="text-muted-foreground w-14 shrink-0">Date</span>
+                    <span className="break-words">{email.date || "—"}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-3 pt-1 border-t border-border/40">
-                <span className="text-muted-foreground w-14 shrink-0">Subject</span>
-                <span className="font-medium break-words">{email.subject || "—"}</span>
-              </div>
-              <div className="flex gap-3">
-                <span className="text-muted-foreground w-14 shrink-0">Date</span>
-                <span className="break-words">{email.date || "—"}</span>
               </div>
             </div>
 
@@ -946,7 +1230,6 @@ function EmailDetailOverlayPanel({
   );
 }
 
-// ── MAIN PAGE ─────────────────────────────────────────────────────────────────
 export default function EmailGenerator() {
   const isAuthenticated = useAuth();
 
@@ -988,8 +1271,11 @@ export default function EmailGenerator() {
       const data = await res.json();
       setInboxEmails(data.emails || []);
       setInboxLoaded(true);
-    } catch { setInboxEmails([]); }
-    finally { setInboxLoading(false); }
+    } catch {
+      setInboxEmails([]);
+    } finally {
+      setInboxLoading(false);
+    }
   };
 
   const fetchSent = async (force = false) => {
@@ -1002,18 +1288,30 @@ export default function EmailGenerator() {
       const data = await res.json();
       setSentEmails(data.emails || []);
       setSentLoaded(true);
-    } catch { setSentEmails([]); }
-    finally { setSentLoading(false); }
+    } catch {
+      setSentEmails([]);
+    } finally {
+      setSentLoading(false);
+    }
   };
 
   const closeDetailPanel = () => {
-    if (detailCloseTimerRef.current) { clearTimeout(detailCloseTimerRef.current); detailCloseTimerRef.current = null; }
+    if (detailCloseTimerRef.current) {
+      clearTimeout(detailCloseTimerRef.current);
+      detailCloseTimerRef.current = null;
+    }
     setDetailPanelVisible(false);
-    detailCloseTimerRef.current = setTimeout(() => { setDetailEmail(null); setSelectedEmailId(null); }, 500);
+    detailCloseTimerRef.current = setTimeout(() => {
+      setDetailEmail(null);
+      setSelectedEmailId(null);
+    }, 500);
   };
 
   const handleOpenGmailEmail = async (id: string) => {
-    if (detailCloseTimerRef.current) { clearTimeout(detailCloseTimerRef.current); detailCloseTimerRef.current = null; }
+    if (detailCloseTimerRef.current) {
+      clearTimeout(detailCloseTimerRef.current);
+      detailCloseTimerRef.current = null;
+    }
     setSelectedEmailId(id);
     setDetailLoading(true);
     if (!detailPanelVisible) requestAnimationFrame(() => setDetailPanelVisible(true));
@@ -1023,12 +1321,19 @@ export default function EmailGenerator() {
       const data = await res.json();
       setDetailEmail(data);
       setDetailPanelVisible(true);
-    } catch { setDetailEmail(null); setDetailPanelVisible(true); }
-    finally { setDetailLoading(false); }
+    } catch {
+      setDetailEmail(null);
+      setDetailPanelVisible(true);
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleSectionSelect = (section: ActiveSection) => {
-    if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; }
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     if (section === activeSection && panelVisible) {
       setPanelVisible(false);
       closeDetailPanel();
@@ -1067,7 +1372,8 @@ export default function EmailGenerator() {
     setStatus(null);
     try {
       const res = await fetch(`${API}/generate_email`, {
-        method: "POST", credentials: "include",
+        method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: userMessage }),
       });
@@ -1080,15 +1386,29 @@ export default function EmailGenerator() {
       const msg = err.message || "Unknown error";
       addMessage("assistant", `Sorry, something went wrong: ${msg}`);
       setStatus({ type: "error", message: msg });
-    } finally { setIsChatLoading(false); }
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const handleSaveDraft = () => {
     if (!subject && !body) return;
     if (activeDraftId) {
-      setDrafts((prev) => prev.map((d) => d.id === activeDraftId ? { ...d, subject, body, recipientEmail, createdAt: new Date() } : d));
+      setDrafts((prev) =>
+        prev.map((d) =>
+          d.id === activeDraftId
+            ? { ...d, subject, body, recipientEmail, createdAt: new Date() }
+            : d
+        )
+      );
     } else {
-      const nd: DraftEmail = { id: `${Date.now()}`, subject, body, recipientEmail, createdAt: new Date() };
+      const nd: DraftEmail = {
+        id: `${Date.now()}`,
+        subject,
+        body,
+        recipientEmail,
+        createdAt: new Date(),
+      };
       setDrafts((prev) => [nd, ...prev]);
       setActiveDraftId(nd.id);
     }
@@ -1097,15 +1417,25 @@ export default function EmailGenerator() {
   };
 
   const handleNewEmail = () => {
-    setSubject(""); setBody(""); setRecipientEmail(""); setActiveDraftId(null);
-    setMessages([]); setStatus(null); setAttachments([]);
-    setSelectedEmailId(null); closeDetailPanel();
+    setSubject("");
+    setBody("");
+    setRecipientEmail("");
+    setActiveDraftId(null);
+    setMessages([]);
+    setStatus(null);
+    setAttachments([]);
+    setSelectedEmailId(null);
+    closeDetailPanel();
   };
 
   const handleSelectDraft = (draft: DraftEmail) => {
-    setSubject(draft.subject); setBody(draft.body);
-    setRecipientEmail(draft.recipientEmail); setActiveDraftId(draft.id);
-    setMessages([]); setSelectedEmailId(null); closeDetailPanel();
+    setSubject(draft.subject);
+    setBody(draft.body);
+    setRecipientEmail(draft.recipientEmail);
+    setActiveDraftId(draft.id);
+    setMessages([]);
+    setSelectedEmailId(null);
+    closeDetailPanel();
   };
 
   const handleDeleteDraft = (id: string) => {
@@ -1122,22 +1452,32 @@ export default function EmailGenerator() {
 
   const handleSend = async () => {
     if (!body.trim() || !recipientEmail.trim()) return;
-    setIsSending(true); setStatus(null);
+    setIsSending(true);
+    setStatus(null);
     try {
       const formData = new FormData();
       formData.append("to", recipientEmail.trim());
       formData.append("subject", subject);
       formData.append("body", body);
       attachments.forEach((f) => formData.append("attachments", f));
-      const res = await fetch(`${API}/send_email`, { method: "POST", credentials: "include", body: formData });
+      const res = await fetch(`${API}/send_email`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
       if (!res.ok) throw new Error((await res.json()).error || "Sending failed");
       setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
-      addMessage("assistant", `✓ Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}` : ""}!`);
+      addMessage(
+        "assistant",
+        `✓ Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}` : ""}!`
+      );
       setAttachments([]);
       fetchSent(true);
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Unknown error" });
-    } finally { setIsSending(false); }
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleCopy = () => {
@@ -1223,7 +1563,13 @@ export default function EmailGenerator() {
               <div className="max-w-2xl mx-auto space-y-6">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-foreground">To</label>
-                  <Input type="email" placeholder="recipient@example.com" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} className="h-11 shadow-sm border-0 bg-card/80" />
+                  <Input
+                    type="email"
+                    placeholder="recipient@example.com"
+                    value={recipientEmail}
+                    onChange={(e) => setRecipientEmail(e.target.value)}
+                    className="h-11 shadow-sm border-0 bg-card/80"
+                  />
                 </div>
 
                 <div className="space-y-1.5">
