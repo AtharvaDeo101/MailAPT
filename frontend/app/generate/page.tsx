@@ -148,8 +148,6 @@ function getLetterAvatarColors(letter: string) {
   return colorMap[letter] || colorMap["?"];
 }
 
-
-// Lightweight md5 for gravatar
 function md5cycle(x: number[], k: number[]) {
   let [a, b, c, d] = x;
 
@@ -340,8 +338,8 @@ function SenderAvatar({
           width: size,
           height: size,
           border: selected
-            ? "2px solid hsl(var(--primary) / 0.25)"
-            : "1px solid hsl(var(--border) / 0.5)",
+            ? "2px solid color-mix(in srgb, var(--primary) 28%, transparent)"
+            : "1px solid var(--border)",
         }}
       />
     );
@@ -356,8 +354,8 @@ function SenderAvatar({
         backgroundColor: colors.bg,
         color: colors.text,
         border: selected
-          ? "2px solid hsl(var(--primary) / 0.25)"
-          : "1px solid rgba(0,0,0,0.06)",
+          ? "2px solid color-mix(in srgb, var(--primary) 28%, transparent)"
+          : "1px solid var(--border)",
         fontSize: size >= 44 ? "16px" : size >= 32 ? "12px" : "10px",
       }}
       title={getSenderDisplayName(from)}
@@ -377,7 +375,7 @@ function AnimatedWave() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const chars = "·∜─╯╒╠╉";
+    const chars = "·∼─╯╒╘╉";
     let time = 0;
 
     const resize = () => {
@@ -402,6 +400,8 @@ function AnimatedWave() {
       const cols = Math.floor(rect.width / 20);
       const rows = Math.floor(rect.height / 20);
 
+      const fg = getComputedStyle(document.documentElement).getPropertyValue("--foreground").trim() || "#000000";
+
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
           const px = (x + 0.5) * (rect.width / cols);
@@ -413,8 +413,8 @@ function AnimatedWave() {
           const combined = (wave1 + wave2 + wave3) / 3;
           const normalized = (combined + 1) / 2;
           const charIndex = Math.floor(normalized * (chars.length - 1));
-          const alpha = 0.15 + normalized * 0.5;
-          ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+          const alpha = 0.12 + normalized * 0.35;
+          ctx.fillStyle = `color-mix(in srgb, ${fg} ${Math.round(alpha * 100)}%, transparent)`;
           ctx.fillText(chars[charIndex], px, py);
         }
       }
@@ -466,7 +466,7 @@ function ChatPrompt({
   };
 
   return (
-    <div className="flex flex-col h-64 rounded-xl bg-card/90 overflow-hidden shadow-sm">
+    <div className="flex flex-col h-64 rounded-xl bg-card/90 overflow-hidden shadow-sm border border-border">
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -518,11 +518,11 @@ function ChatPrompt({
           </div>
         )}
       </div>
-      <form onSubmit={handleSubmit} className="p-3 flex gap-2 bg-background/40">
+      <form onSubmit={handleSubmit} className="p-3 flex gap-2 bg-background/40 border-t border-border">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Describe the email you want to generate…"
+          placeholder="Describe the email you want to generate..."
           className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
           disabled={isLoading}
         />
@@ -555,14 +555,14 @@ function EmailEditor({
   }, [body]);
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-card/90 p-4 shadow-sm">
-      <div className="flex items-center gap-3 pb-3">
+    <div className="flex flex-col gap-4 rounded-xl bg-card/90 p-4 shadow-sm border border-border">
+      <div className="flex items-center gap-3 pb-3 border-b border-border">
         <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">Subject</span>
         <Input
           value={subject}
           onChange={(e) => onSubjectChange(e.target.value)}
-          placeholder="Email subject…"
-          className="border-none shadow-none focus-visible:ring-0 p-0 h-auto text-sm font-medium bg-transparent"
+          placeholder="Email subject..."
+          className="border-none shadow-none focus-visible:ring-0 p-0 h-auto text-sm font-medium bg-transparent text-foreground"
         />
       </div>
       <div className="flex gap-3">
@@ -571,8 +571,8 @@ function EmailEditor({
           ref={textareaRef}
           value={body}
           onChange={(e) => onBodyChange(e.target.value)}
-          placeholder="Email body…"
-          className="border-none shadow-none focus-visible:ring-0 p-0 resize-none min-h-[180px] text-sm bg-transparent leading-relaxed"
+          placeholder="Email body..."
+          className="border-none shadow-none focus-visible:ring-0 p-0 resize-none min-h-[180px] text-sm bg-transparent leading-relaxed text-foreground"
         />
       </div>
     </div>
@@ -598,22 +598,22 @@ function EmailPreviewModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-card shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-5 py-4 shrink-0">
-          <div className="flex items-center gap-2 text-sm font-medium">
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-card shadow-2xl flex flex-col max-h-[90vh] border border-border">
+        <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Mail className="h-4 w-4 text-primary" />
             Email Preview
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
-        <div className="px-5 py-3 space-y-2 text-sm shrink-0 bg-background/30">
+        <div className="px-5 py-3 space-y-2 text-sm shrink-0 bg-background/30 border-b border-border">
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">To</span>
-            <span className="font-medium">{recipientEmail || "—"}</span>
+            <span className="font-medium text-foreground">{recipientEmail || "—"}</span>
           </div>
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">Subject</span>
-            <span className="font-medium">{subject || "—"}</span>
+            <span className="font-medium text-foreground">{subject || "—"}</span>
           </div>
           {attachments.length > 0 && (
             <div className="flex gap-3">
@@ -629,7 +629,7 @@ function EmailPreviewModal({
           )}
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
+          <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
             {body || <span className="text-muted-foreground">No body yet.</span>}
           </pre>
         </div>
@@ -643,10 +643,10 @@ function AttachmentList({ files, onRemove }: { files: File[]; onRemove: (i: numb
   return (
     <div className="flex flex-wrap gap-2 mt-2">
       {files.map((file, i) => (
-        <div key={i} className="group flex items-center gap-1.5 bg-accent/60 rounded-lg px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all hover:bg-accent">
+        <div key={i} className="group flex items-center gap-1.5 bg-accent/60 rounded-lg px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all hover:bg-accent border border-border">
           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{file.name}</span>
-          <span className="text-muted-foreground/50 tabular-nums">{formatFileSize(file.size)}</span>
+          <span className="text-muted-foreground/70 tabular-nums">{formatFileSize(file.size)}</span>
           <button onClick={() => onRemove(i)} className="shrink-0 ml-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
             <X className="h-3 w-3" />
           </button>
@@ -692,9 +692,9 @@ function SidebarNavItem({
       className="group relative flex w-full items-center gap-3 px-5 py-4 my-0.5 rounded-none text-left select-none transition-all duration-300"
       style={{
         background: isActive
-          ? "hsl(var(--primary) / 0.18)"
+          ? "color-mix(in srgb, var(--primary) 16%, transparent)"
           : hovered
-            ? "hsl(var(--accent) / 0.45)"
+            ? "color-mix(in srgb, var(--foreground) 6%, transparent)"
             : "transparent",
         boxShadow: "none",
         border: "none",
@@ -704,10 +704,10 @@ function SidebarNavItem({
         className="shrink-0 transition-colors duration-200"
         style={{
           color: isActive
-            ? "hsl(var(--primary))"
+            ? "var(--primary)"
             : hovered
-              ? "hsl(var(--primary))"
-              : "hsl(var(--muted-foreground) / 0.45)",
+              ? "var(--foreground)"
+              : "var(--muted-foreground)",
         }}
       >
         {item.icon}
@@ -723,10 +723,10 @@ function SidebarNavItem({
               fontStyle: isActive || hovered ? "italic" : "normal",
               letterSpacing: isActive || hovered ? "-0.03em" : "-0.01em",
               color: isActive
-                ? "hsl(var(--primary))"
+                ? "var(--primary)"
                 : hovered
-                  ? "hsl(var(--foreground))"
-                  : "hsl(var(--foreground) / 0.68)",
+                  ? "var(--foreground)"
+                  : "var(--muted-foreground)",
               lineHeight: 1.1,
               transformStyle: "preserve-3d",
               backfaceVisibility: "hidden",
@@ -746,17 +746,17 @@ function SidebarNavItem({
           className="text-xs tabular-nums shrink-0 transition-colors duration-200"
           style={{
             color: isActive
-              ? "hsl(var(--primary) / 0.85)"
+              ? "color-mix(in srgb, var(--primary) 88%, transparent)"
               : hovered
-                ? "hsl(var(--primary) / 0.75)"
-                : "hsl(var(--muted-foreground) / 0.4)",
+                ? "var(--foreground)"
+                : "var(--muted-foreground)",
           }}
         >
           {item.count}
         </span>
       )}
       {isActive && (
-        <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "hsl(var(--primary) / 0.75)" }} />
+        <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--primary)" }} />
       )}
     </button>
   );
@@ -786,16 +786,16 @@ function LeftSidebar({
   ];
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col bg-card/40 h-full z-10 relative shadow-sm" aria-label="Email navigation">
+    <aside className="w-60 shrink-0 flex flex-col bg-card/40 h-full z-10 relative shadow-sm border-r border-border" aria-label="Email navigation">
       <div
         className="px-5 pt-5 pb-4 shrink-0"
-        style={{ background: "hsl(var(--primary) / 0.08)" }}
+        style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
       >
         <span
           className="text-[10px] tracking-[0.22em] uppercase font-medium select-none italic"
           style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            color: "hsl(var(--primary) / 0.7)",
+            color: "color-mix(in srgb, var(--primary) 78%, transparent)",
           }}
         >
           Mail
@@ -821,7 +821,7 @@ function LeftSidebar({
             onClick={() => onSelect(item.id)}
           />
         ))}
-        <div className="mx-4 my-2 h-px bg-muted/30" />
+        <div className="mx-4 my-2 h-px bg-border" />
         <SidebarNavItem
           item={{ label: "Settings", icon: <Settings className="h-4 w-4" /> }}
           isActive={activeSection === "settings"}
@@ -848,9 +848,9 @@ function EmailCard({
       className="w-full cursor-pointer overflow-hidden transition-all duration-150"
       style={{
         background: isSelected
-          ? "hsl(var(--primary) / 0.18)"
+          ? "color-mix(in srgb, var(--primary) 16%, transparent)"
           : hovered
-            ? "hsl(var(--accent))"
+            ? "color-mix(in srgb, var(--foreground) 6%, transparent)"
             : "transparent",
         border: "none",
         boxShadow: "none",
@@ -865,21 +865,21 @@ function EmailCard({
           <div className="min-w-0 flex-1">
             <p
               className="text-[10px] font-semibold truncate leading-snug"
-              style={{ color: isSelected ? "hsl(var(--primary))" : "hsl(var(--foreground) / 0.8)" }}
+              style={{ color: isSelected ? "var(--primary)" : "var(--muted-foreground)" }}
             >
               {getSenderDisplayName(email.from)}
             </p>
             <p
               className="text-xs font-medium truncate leading-snug mt-0.5"
-              style={{ color: isSelected ? "hsl(var(--primary))" : "hsl(var(--foreground))" }}
+              style={{ color: isSelected ? "var(--primary)" : "var(--foreground)" }}
             >
               {email.subject || "(No Subject)"}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1 mt-2 pl-10">
-          <Clock className="h-2.5 w-2.5" style={{ color: isSelected ? "hsl(var(--primary) / 0.75)" : "hsl(var(--muted-foreground) / 0.35)" }} />
-          <span className="text-[10px] tabular-nums" style={{ color: isSelected ? "hsl(var(--primary) / 0.85)" : "hsl(var(--muted-foreground) / 0.5)" }}>
+          <Clock className="h-2.5 w-2.5" style={{ color: isSelected ? "var(--primary)" : "var(--muted-foreground)" }} />
+          <span className="text-[10px] tabular-nums" style={{ color: isSelected ? "var(--primary)" : "var(--muted-foreground)" }}>
             {formatTime(email.date)}
           </span>
         </div>
@@ -892,22 +892,22 @@ function DraftCard({ draft, isActive, onClick, onDelete }: { draft: DraftEmail; 
   return (
     <div
       className={cn("group w-full cursor-pointer transition-all duration-150", !isActive && "hover:bg-accent")}
-      style={{ background: isActive ? "hsl(var(--primary) / 0.18)" : undefined, border: "none", boxShadow: "none" }}
+      style={{ background: isActive ? "color-mix(in srgb, var(--primary) 16%, transparent)" : undefined, border: "none", boxShadow: "none" }}
       onClick={onClick}
     >
       <div className="px-4 py-3">
         <div className="flex items-start gap-2.5">
           <div
             className={cn("h-8 w-8 rounded-full shrink-0 flex items-center justify-center", !isActive && "bg-muted-foreground/10")}
-            style={{ background: isActive ? "hsl(var(--primary) / 0.22)" : undefined }}
+            style={{ background: isActive ? "color-mix(in srgb, var(--primary) 18%, transparent)" : undefined }}
           >
-            <MailOpen className="h-3.5 w-3.5" style={{ color: isActive ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.5)" }} />
+            <MailOpen className="h-3.5 w-3.5" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }} />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium truncate leading-snug" style={{ color: isActive ? "hsl(var(--primary))" : "hsl(var(--foreground) / 0.85)" }}>
+            <p className="text-xs font-medium truncate leading-snug" style={{ color: isActive ? "var(--primary)" : "var(--foreground)" }}>
               {draft.subject || "Untitled"}
             </p>
-            <p className="text-[10px] truncate mt-0.5" style={{ color: isActive ? "hsl(var(--primary) / 0.78)" : "hsl(var(--muted-foreground) / 0.6)" }}>
+            <p className="text-[10px] truncate mt-0.5" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }}>
               {draft.recipientEmail || "No recipient"}
             </p>
           </div>
@@ -921,8 +921,8 @@ function DraftCard({ draft, isActive, onClick, onDelete }: { draft: DraftEmail; 
           </Button>
         </div>
         <div className="flex items-center gap-1 mt-2 pl-10">
-          <Clock className="h-2.5 w-2.5" style={{ color: isActive ? "hsl(var(--primary) / 0.75)" : "hsl(var(--muted-foreground) / 0.35)" }} />
-          <span className="text-[10px] tabular-nums" style={{ color: isActive ? "hsl(var(--primary) / 0.85)" : "hsl(var(--muted-foreground) / 0.5)" }}>
+          <Clock className="h-2.5 w-2.5" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }} />
+          <span className="text-[10px] tabular-nums" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }}>
             {formatTime(draft.createdAt)}
           </span>
         </div>
@@ -983,7 +983,7 @@ function EmailListPanel({
 
   return (
     <div
-      className="shrink-0 overflow-hidden bg-background/70 h-full text-[0.875rem] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-sm"
+      className="shrink-0 overflow-hidden bg-background/70 h-full text-[0.875rem] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-sm border-r border-border"
       style={{
         width: panelVisible ? "18rem" : "0rem",
         minWidth: panelVisible ? "18rem" : "0rem",
@@ -1001,14 +1001,14 @@ function EmailListPanel({
       >
         <div
           className="px-4 pt-4 pb-3 shrink-0"
-          style={{ background: "hsl(var(--primary) / 0.08)" }}
+          style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span style={{ color: "hsl(var(--primary))" }}>{meta.icon}</span>
+              <span style={{ color: "var(--primary)" }}>{meta.icon}</span>
               <span
                 className="text-xs font-semibold"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "hsl(var(--primary))" }}
+                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--primary)" }}
               >
                 {meta.label}
               </span>
@@ -1029,10 +1029,10 @@ function EmailListPanel({
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40 pointer-events-none" />
             <input
               type="text"
-              placeholder={`Search ${meta.label.toLowerCase()}…`}
+              placeholder={`Search ${meta.label.toLowerCase()}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-background/50 rounded-lg pl-8 pr-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:bg-background transition-all duration-200"
+              className="w-full bg-background/50 rounded-lg pl-8 pr-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:bg-background transition-all duration-200 border border-border"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground">
@@ -1042,12 +1042,12 @@ function EmailListPanel({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: "thin", scrollbarColor: "hsl(var(--muted)) transparent" }}>
+        <div className="flex-1 overflow-y-auto py-2">
           {effectiveSection === "inbox" && (
             isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-                <span className="text-[10px] text-muted-foreground/40">Loading inbox…</span>
+                <span className="text-[10px] text-muted-foreground/40">Loading inbox...</span>
               </div>
             ) : filterEmails(inboxEmails).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
@@ -1065,7 +1065,7 @@ function EmailListPanel({
             isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-                <span className="text-[10px] text-muted-foreground/40">Loading sent…</span>
+                <span className="text-[10px] text-muted-foreground/40">Loading mails</span>
               </div>
             ) : filterEmails(sentEmails).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
@@ -1138,24 +1138,24 @@ function EmailDetailOverlayPanel({
         onClick={onClose}
       />
       <aside
-        className="absolute inset-y-0 left-0 w-full bg-background shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col"
+        className="absolute inset-y-0 left-0 w-full bg-background shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col border-l border-border"
         style={{
           transform: isVisible ? "translateX(0%)" : "translateX(-100%)",
           opacity: isVisible ? 1 : 0.98,
         }}
       >
         <div
-          className="flex items-center justify-between px-5 py-4 shrink-0"
-          style={{ background: "hsl(var(--primary) / 0.08)" }}
+          className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border"
+          style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
         >
           <div className="flex items-center gap-2 text-sm font-medium min-w-0">
             <PanelRightOpen
               className="h-4 w-4 shrink-0"
-              style={{ color: "hsl(var(--primary))" }}
+              style={{ color: "var(--foreground)" }}
             />
             <span
               className="truncate"
-              style={{ color: "hsl(var(--primary))" }}
+              style={{ color: "var(--primary)" }}
             >
               {email?.subject || "Email details"}
             </span>
@@ -1169,7 +1169,7 @@ function EmailDetailOverlayPanel({
         {isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Loading email…</p>
+            <p className="text-sm text-muted-foreground">Loading email</p>
           </div>
         ) : !email ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
@@ -1184,14 +1184,14 @@ function EmailDetailOverlayPanel({
         ) : (
           <>
             <div
-              className="mx-5 mt-5 rounded-xl px-4 py-4 text-sm shrink-0 shadow-sm"
-              style={{ background: "hsl(var(--primary) / 0.10)" }}
+              className="mx-5 mt-5 rounded-xl px-4 py-4 text-sm shrink-0 shadow-sm border border-border"
+              style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)" }}
             >
               <div className="flex items-start gap-3">
                 <SenderAvatar from={email.from} size={44} />
                 <div className="min-w-0 flex-1 space-y-2">
                   <div>
-                    <p className="font-medium break-words">
+                    <p className="font-medium break-words text-foreground">
                       {getSenderDisplayName(email.from)}
                     </p>
                     {extractEmailAddress(email.from) && (
@@ -1203,21 +1203,21 @@ function EmailDetailOverlayPanel({
 
                   <div className="flex gap-3">
                     <span className="text-muted-foreground w-14 shrink-0">Subject</span>
-                    <span className="font-medium break-words">
+                    <span className="font-medium break-words text-foreground">
                       {email.subject || "—"}
                     </span>
                   </div>
 
                   <div className="flex gap-3">
                     <span className="text-muted-foreground w-14 shrink-0">Date</span>
-                    <span className="break-words">{email.date || "—"}</span>
+                    <span className="break-words text-foreground">{email.date || "—"}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-5">
-              <div className="rounded-xl min-h-full px-4 py-4 bg-card/70 shadow-sm">
+              <div className="rounded-xl min-h-full px-4 py-4 bg-card/70 shadow-sm border border-border">
                 {hasHtml ? (
                   <div className="prose prose-sm max-w-none dark:prose-invert">
                     <div dangerouslySetInnerHTML={{ __html: html }} />
@@ -1362,7 +1362,7 @@ export default function EmailGenerator() {
 
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
       </div>
     );
@@ -1495,7 +1495,7 @@ export default function EmailGenerator() {
   const hasEmail = Boolean(subject || body);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navigation />
       <div className="flex flex-1 overflow-hidden pt-16">
         <LeftSidebar
@@ -1532,7 +1532,7 @@ export default function EmailGenerator() {
               transform: detailPanelVisible ? "scale(0.995)" : "scale(1)",
             }}
           >
-            <div className="relative w-full h-40 overflow-hidden">
+            <div className="relative w-full h-40 overflow-hidden border-b border-border">
               <div className="absolute inset-0"><AnimatedWave /></div>
               <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
               <div className="relative z-10 flex items-center justify-between h-full px-8 max-w-2xl mx-auto w-full">
@@ -1544,7 +1544,7 @@ export default function EmailGenerator() {
                       fontStyle: "italic",
                       fontSize: "clamp(1.4rem, 3vw, 2rem)",
                       letterSpacing: "-0.02em",
-                      color: "hsl(var(--foreground))",
+                      color: "var(--foreground)",
                     }}
                   >
                     Email Generator
@@ -1556,7 +1556,7 @@ export default function EmailGenerator() {
                       fontStyle: "italic",
                       fontSize: "0.8rem",
                       letterSpacing: "0.06em",
-                      color: "hsl(var(--muted-foreground) / 0.55)",
+                      color: "var(--muted-foreground)",
                     }}
                   >
                     Describe what you want to say — get a professional email
@@ -1574,7 +1574,7 @@ export default function EmailGenerator() {
                     placeholder="recipient@example.com"
                     value={recipientEmail}
                     onChange={(e) => setRecipientEmail(e.target.value)}
-                    className="h-11 shadow-sm border-0 bg-card/80"
+                    className="h-11 shadow-sm border-0 bg-card/80 text-foreground"
                   />
                 </div>
 
@@ -1618,12 +1618,12 @@ export default function EmailGenerator() {
                       <AttachmentList files={attachments} onRemove={(i) => setAttachments((prev) => prev.filter((_, idx) => idx !== i))} />
                     </div>
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={handleSaveDraft} className="flex-1 h-11 gap-2 border-0 shadow-sm bg-card/80">
+                      <Button variant="outline" onClick={handleSaveDraft} className="flex-1 h-11 gap-2 border-0 shadow-sm bg-card/80 text-foreground">
                         <Save className="w-4 h-4" />Save Draft
                       </Button>
                       <Button onClick={handleSend} disabled={!recipientEmail.trim() || isSending} className="flex-1 h-11 gap-2">
                         {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {isSending ? "Sending…" : "Send Email"}
+                        {isSending ? "Sending..." : "Send Email"}
                       </Button>
                     </div>
                   </div>

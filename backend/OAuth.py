@@ -52,7 +52,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
 ]
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000/")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000/generate")
 REDIRECT_URI = os.environ.get("REDIRECT_URI", "http://localhost:5000/oauth2callback")
 
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN")
@@ -185,10 +185,8 @@ def oauth2callback():
     )
     flow.redirect_uri = REDIRECT_URI
 
-    authorization_response = request.url.replace("https://", "http://", 1)
-
     flow.fetch_token(
-        authorization_response=authorization_response,
+        authorization_response=request.url.replace("https://", "http://", 1),
         code_verifier=code_verifier,
     )
 
@@ -201,7 +199,8 @@ def oauth2callback():
         "client_secret": creds.client_secret,
         "scopes": list(creds.scopes) if creds.scopes else [],
     }
-    return redirect(FRONTEND_URL)
+
+    return redirect(FRONTEND_URL, code=302)
 
 
 @app.route("/logout", methods=["POST"])
