@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { Navigation } from "@/components/landing/navigation";
 import { GlassButton } from "@/components/landing/glassbutton";
 import { BackgroundPaths } from "@/components/landing/line-wave";
-import { motion } from "framer-motion";
 import {
   Send,
   User,
@@ -332,9 +332,7 @@ function rhex(n: number) {
 }
 
 function md5(s: string) {
-  return md51(unescape(encodeURIComponent(s)))
-    .map(rhex)
-    .join("");
+  return md51(unescape(encodeURIComponent(s))).map(rhex).join("");
 }
 
 function getGravatarUrl(from: string, size = 80) {
@@ -342,6 +340,24 @@ function getGravatarUrl(from: string, size = 80) {
   if (!email) return null;
   const hash = md5(email.trim().toLowerCase());
   return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=404`;
+}
+
+async function fetchEmails(query: string): Promise<GmailEmail[]> {
+  const res = await fetch(
+    `${API}/list_emails?max_results=10&q=${encodeURIComponent(query)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error("Failed to fetch emails");
+  const data = await res.json();
+  return data.emails || [];
+}
+
+async function fetchEmailDetail(id: string): Promise<GmailEmailDetail> {
+  const res = await fetch(`${API}/get_email/${id}`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch email");
+  return res.json();
 }
 
 function SenderAvatar({
@@ -406,7 +422,6 @@ function ChatBoxBackgroundAnimation() {
   return (
     <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
       <div className="absolute inset-0 opacity-100"></div>
-
       <div
         className="absolute inset-0"
         style={{
@@ -414,7 +429,6 @@ function ChatBoxBackgroundAnimation() {
             "linear-gradient(to bottom right, color-mix(in srgb, var(--background) 52%, transparent), color-mix(in srgb, var(--card) 42%, transparent))",
         }}
       />
-
       <div
         className="absolute inset-0"
         style={{
@@ -437,25 +451,43 @@ function ChatPrompt({
 }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages]);
+  }, [messages, isLoading]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
+
+  const submitMessage = () => {
     if (!input.trim() || isLoading) return;
     onSendMessage(input.trim());
     setInput("");
   };
 
-  return (
-    <div className="relative flex flex-col h-64 rounded-xl overflow-hidden shadow-sm border border-border bg-card/55 backdrop-blur-sm">
-      <ChatBoxBackgroundAnimation />
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitMessage();
+  };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submitMessage();
+    }
+  };
+
+  return (
+    <div className="relative flex flex-col h-64 rounded-xl overflow-hidden shadow-sm border border-border bg-card/30 backdrop-blur-sm">
+      <ChatBoxBackgroundAnimation />
       <div
         ref={scrollRef}
         className="relative z-10 flex-1 overflow-y-auto p-4 space-y-3"
@@ -525,23 +557,27 @@ function ChatPrompt({
 
       <form
         onSubmit={handleSubmit}
-        className="relative z-10 p-3 flex gap-2 bg-background/45 backdrop-blur-md border-t border-border"
+        className="relative z-10 px-4 py-3 flex items-end gap-3 bg-background/10 backdrop-blur-md"
       >
-        <input
+        <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Describe the email you want to generate..."
-          className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+          rows={1}
           disabled={isLoading}
+          className="flex-1 resize-none overflow-y-auto max-h-[120px] bg-transparent border-0 border-b border-muted-foreground/30 rounded-none px-0 py-2 text-sm leading-6 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
         />
-        <Button
+
+        <button
           type="submit"
-          size="icon"
           disabled={!input.trim() || isLoading}
-          className="shrink-0"
+          className="shrink-0 pb-2 text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label="Send prompt"
         >
           <Send className="h-4 w-4" />
-        </Button>
+        </button>
       </form>
     </div>
   );
@@ -612,6 +648,7 @@ function EmailPreviewModal({
   attachments: File[];
 }) {
   if (!isOpen) return null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -632,6 +669,7 @@ function EmailPreviewModal({
             <X className="h-4 w-4" />
           </Button>
         </div>
+
         <div className="px-5 py-3 space-y-2 text-sm shrink-0 bg-background/30 border-b border-border">
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">To</span>
@@ -641,9 +679,7 @@ function EmailPreviewModal({
           </div>
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">Subject</span>
-            <span className="font-medium text-foreground">
-              {subject || "—"}
-            </span>
+            <span className="font-medium text-foreground">{subject || "—"}</span>
           </div>
           {attachments.length > 0 && (
             <div className="flex gap-3">
@@ -664,11 +700,10 @@ function EmailPreviewModal({
             </div>
           )}
         </div>
+
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
-            {body || (
-              <span className="text-muted-foreground">No body yet.</span>
-            )}
+            {body || <span className="text-muted-foreground">No body yet.</span>}
           </pre>
         </div>
       </div>
@@ -684,6 +719,7 @@ function AttachmentList({
   onRemove: (i: number) => void;
 }) {
   if (files.length === 0) return null;
+
   return (
     <div className="flex flex-wrap gap-2 mt-2">
       {files.map((file, i) => (
@@ -764,6 +800,7 @@ function SidebarNavItem({
       >
         {item.icon}
       </span>
+
       <div className="flex-1 min-w-0 relative">
         <span className="block" style={{ perspective: "1200px" }}>
           <span
@@ -793,6 +830,7 @@ function SidebarNavItem({
           </span>
         </span>
       </div>
+
       {item.count !== undefined && item.count > 0 && (
         <span
           className="text-xs tabular-nums shrink-0 transition-colors duration-200"
@@ -807,6 +845,7 @@ function SidebarNavItem({
           {item.count}
         </span>
       )}
+
       {isActive && (
         <ChevronRight
           className="h-3.5 w-3.5 shrink-0"
@@ -1102,8 +1141,8 @@ function EmailListPanel({
   inboxLoading: boolean;
   sentLoading: boolean;
   selectedEmailId: string | null;
-  onRefreshInbox: (force?: boolean) => void;
-  onRefreshSent: (force?: boolean) => void;
+  onRefreshInbox: () => void;
+  onRefreshSent: () => void;
   onOpenGmailEmail: (id: string) => void;
   onSelectDraft: (d: DraftEmail) => void;
   onDeleteDraft: (id: string) => void;
@@ -1153,8 +1192,8 @@ function EmailListPanel({
       : effectiveSection === "sent"
         ? sentLoading
         : false;
-  const canRefresh =
-    effectiveSection === "inbox" || effectiveSection === "sent";
+
+  const canRefresh = effectiveSection === "inbox" || effectiveSection === "sent";
 
   return (
     <div
@@ -1193,6 +1232,7 @@ function EmailListPanel({
                 {meta.label}
               </span>
             </div>
+
             {canRefresh && (
               <Button
                 variant="ghost"
@@ -1200,8 +1240,8 @@ function EmailListPanel({
                 className="h-6 w-6 text-muted-foreground/50 hover:text-foreground"
                 onClick={() =>
                   effectiveSection === "inbox"
-                    ? onRefreshInbox(true)
-                    : onRefreshSent(true)
+                    ? onRefreshInbox()
+                    : onRefreshSent()
                 }
                 aria-label={`Refresh ${meta.label}`}
               >
@@ -1391,7 +1431,6 @@ function EmailDetailOverlayPanel({
               {email?.subject || "Email details"}
             </span>
           </div>
-
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -1484,6 +1523,7 @@ function EmailDetailOverlayPanel({
 
 export default function EmailGenerator() {
   const isAuthenticated = useAuth();
+  const queryClient = useQueryClient();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
@@ -1501,60 +1541,52 @@ export default function EmailGenerator() {
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [inboxEmails, setInboxEmails] = useState<GmailEmail[]>([]);
-  const [sentEmails, setSentEmails] = useState<GmailEmail[]>([]);
-  const [inboxLoading, setInboxLoading] = useState(false);
-  const [sentLoading, setSentLoading] = useState(false);
-  const [inboxLoaded, setInboxLoaded] = useState(false);
-  const [sentLoaded, setSentLoaded] = useState(false);
-  const [detailEmail, setDetailEmail] = useState<GmailEmailDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+
   const [detailPanelVisible, setDetailPanelVisible] = useState(false);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
   const [panelVisible, setPanelVisible] = useState(false);
+
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchInbox = async (force = false) => {
-    if (inboxLoading) return;
-    if (inboxLoaded && !force) return;
-    setInboxLoading(true);
-    try {
-      const res = await fetch(`${API}/list_emails?max_results=10&q=in:inbox`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch inbox");
-      const data = await res.json();
-      setInboxEmails(data.emails || []);
-      setInboxLoaded(true);
-    } catch {
-      setInboxEmails([]);
-    } finally {
-      setInboxLoading(false);
-    }
-  };
+  const {
+    data: inboxEmails = [],
+    isFetching: inboxLoading,
+    refetch: refetchInbox,
+  } = useQuery({
+    queryKey: ["emails", "inbox"],
+    queryFn: () => fetchEmails("in:inbox"),
+    enabled: isAuthenticated === true && activeSection === "inbox",
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
 
-  const fetchSent = async (force = false) => {
-    if (sentLoading) return;
-    if (sentLoaded && !force) return;
-    setSentLoading(true);
-    try {
-      const res = await fetch(`${API}/list_emails?max_results=10&q=in:sent`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch sent");
-      const data = await res.json();
-      setSentEmails(data.emails || []);
-      setSentLoaded(true);
-    } catch {
-      setSentEmails([]);
-    } finally {
-      setSentLoading(false);
-    }
-  };
+  const {
+    data: sentEmails = [],
+    isFetching: sentLoading,
+    refetch: refetchSent,
+  } = useQuery({
+    queryKey: ["emails", "sent"],
+    queryFn: () => fetchEmails("in:sent"),
+    enabled: isAuthenticated === true && activeSection === "sent",
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
+
+  const {
+    data: detailEmail = null,
+    isFetching: detailLoading,
+  } = useQuery({
+    queryKey: ["email", selectedEmailId],
+    queryFn: () => fetchEmailDetail(selectedEmailId as string),
+    enabled: isAuthenticated === true && !!selectedEmailId,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
 
   const closeDetailPanel = () => {
     if (detailCloseTimerRef.current) {
@@ -1563,33 +1595,20 @@ export default function EmailGenerator() {
     }
     setDetailPanelVisible(false);
     detailCloseTimerRef.current = setTimeout(() => {
-      setDetailEmail(null);
       setSelectedEmailId(null);
     }, 500);
   };
 
-  const handleOpenGmailEmail = async (id: string) => {
+  const handleOpenGmailEmail = (id: string) => {
     if (detailCloseTimerRef.current) {
       clearTimeout(detailCloseTimerRef.current);
       detailCloseTimerRef.current = null;
     }
     setSelectedEmailId(id);
-    setDetailLoading(true);
-    if (!detailPanelVisible)
+    if (!detailPanelVisible) {
       requestAnimationFrame(() => setDetailPanelVisible(true));
-    try {
-      const res = await fetch(`${API}/get_email/${id}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch email");
-      const data = await res.json();
-      setDetailEmail(data);
+    } else {
       setDetailPanelVisible(true);
-    } catch {
-      setDetailEmail(null);
-      setDetailPanelVisible(true);
-    } finally {
-      setDetailLoading(false);
     }
   };
 
@@ -1598,26 +1617,25 @@ export default function EmailGenerator() {
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
+
     if (section === activeSection && panelVisible) {
       setPanelVisible(false);
       closeDetailPanel();
       closeTimerRef.current = setTimeout(() => setActiveSection(null), 500);
       return;
     }
+
     setActiveSection(section);
     requestAnimationFrame(() =>
       setPanelVisible(section !== "settings" && section !== null),
     );
     closeDetailPanel();
-    if (section === "inbox" && !inboxLoaded && !inboxLoading) fetchInbox();
-    if (section === "sent" && !sentLoaded && !sentLoading) fetchSent();
   };
 
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-      if (detailCloseTimerRef.current)
-        clearTimeout(detailCloseTimerRef.current);
+      if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
     };
   }, []);
 
@@ -1640,6 +1658,7 @@ export default function EmailGenerator() {
     addMessage("user", userMessage);
     setIsChatLoading(true);
     setStatus(null);
+
     try {
       const res = await fetch(`${API}/generate_email`, {
         method: "POST",
@@ -1647,11 +1666,15 @@ export default function EmailGenerator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: userMessage }),
       });
-      if (!res.ok)
+
+      if (!res.ok) {
         throw new Error((await res.json()).error || "Generation failed");
+      }
+
       const data = await res.json();
       setSubject(data.subject ?? "");
       setBody(data.body ?? "");
+
       addMessage(
         "assistant",
         `I've drafted an email with the subject "${data.subject}". Review and edit it below, then send when ready.`,
@@ -1667,6 +1690,7 @@ export default function EmailGenerator() {
 
   const handleSaveDraft = () => {
     if (!subject && !body) return;
+
     if (activeDraftId) {
       setDrafts((prev) =>
         prev.map((d) =>
@@ -1686,6 +1710,7 @@ export default function EmailGenerator() {
       setDrafts((prev) => [nd, ...prev]);
       setActiveDraftId(nd.id);
     }
+
     setStatus({ type: "success", message: "Draft saved." });
     setTimeout(() => setStatus(null), 2000);
   };
@@ -1726,31 +1751,46 @@ export default function EmailGenerator() {
 
   const handleSend = async () => {
     if (!body.trim() || !recipientEmail.trim()) return;
+
     setIsSending(true);
     setStatus(null);
+
     try {
       const formData = new FormData();
       formData.append("to", recipientEmail.trim());
       formData.append("subject", subject);
       formData.append("body", body);
       attachments.forEach((f) => formData.append("attachments", f));
+
       const res = await fetch(`${API}/send_email`, {
         method: "POST",
         credentials: "include",
         body: formData,
       });
-      if (!res.ok)
+
+      if (!res.ok) {
         throw new Error((await res.json()).error || "Sending failed");
+      }
+
       setStatus({
         type: "success",
         message: `Email sent to ${recipientEmail}`,
       });
+
       addMessage(
         "assistant",
-        `✓ Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}` : ""}!`,
+        `✓ Email successfully sent to ${recipientEmail}${
+          attachments.length > 0
+            ? ` with ${attachments.length} attachment${
+                attachments.length > 1 ? "s" : ""
+              }`
+            : ""
+        }!`,
       );
+
       setAttachments([]);
-      fetchSent(true);
+
+      await queryClient.invalidateQueries({ queryKey: ["emails", "sent"] });
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Unknown error" });
     } finally {
@@ -1769,6 +1809,7 @@ export default function EmailGenerator() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navigation />
+
       <div className="flex flex-1 overflow-hidden pt-16">
         <LeftSidebar
           activeSection={activeSection}
@@ -1789,8 +1830,8 @@ export default function EmailGenerator() {
           inboxLoading={inboxLoading}
           sentLoading={sentLoading}
           selectedEmailId={selectedEmailId}
-          onRefreshInbox={fetchInbox}
-          onRefreshSent={fetchSent}
+          onRefreshInbox={() => refetchInbox()}
+          onRefreshSent={() => refetchSent()}
           onOpenGmailEmail={handleOpenGmailEmail}
           onSelectDraft={handleSelectDraft}
           onDeleteDraft={handleDeleteDraft}
@@ -1838,24 +1879,20 @@ export default function EmailGenerator() {
             </div>
 
             <div className="relative p-6 md:p-8">
-              {/* background animation */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl">
                 <BackgroundPaths className="h-full w-full opacity-30" />
                 <div className="absolute inset-0 bg-gradient-to-br from-background/82 via-background/70 to-background/86" />
               </div>
 
-              {/* foreground content */}
               <div className="relative z-10 max-w-2xl mx-auto space-y-6">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">
-                    To
-                  </label>
-                  <Input
+                <div className="space-y-2">
+                  <p className="text-sm font-small text-foreground">To</p>
+                  <input
                     type="email"
-                    placeholder="recipient@example.com"
+                    multiple
                     value={recipientEmail}
                     onChange={(e) => setRecipientEmail(e.target.value)}
-                    className="h-11 shadow-sm border-0 bg-card/80 text-foreground"
+                    className="w-full bg-transparent border-0 border-b border-muted-foreground/30 rounded-none px-0 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
                   />
                 </div>
 
@@ -1877,7 +1914,31 @@ export default function EmailGenerator() {
                         Edit Email
                       </label>
                       <div className="flex items-center gap-3">
-                        {/* your existing copy/preview buttons */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleCopy}
+                          className="gap-2"
+                        >
+                          {copied ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                          {copied ? "Copied" : "Copy"}
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPreviewOpen(true)}
+                          className="gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Preview
+                        </Button>
                       </div>
                     </div>
 
@@ -1892,7 +1953,72 @@ export default function EmailGenerator() {
 
                 {hasEmail && (
                   <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    {/* existing attachments + action buttons + status */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          className="hidden"
+                          onChange={handleFileChange}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="gap-2"
+                        >
+                          <Paperclip className="h-4 w-4" />
+                          Add Attachment
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSaveDraft}
+                          className="gap-2"
+                        >
+                          <Save className="h-4 w-4" />
+                          Save Draft
+                        </Button>
+
+                        <Button
+                          type="button"
+                          onClick={handleSend}
+                          disabled={!recipientEmail.trim() || !body.trim() || isSending}
+                          className="gap-2"
+                        >
+                          {isSending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
+                          Send Email
+                        </Button>
+                      </div>
+                    </div>
+
+                    <AttachmentList
+                      files={attachments}
+                      onRemove={(i) =>
+                        setAttachments((prev) => prev.filter((_, idx) => idx !== i))
+                      }
+                    />
+
+                    {status && (
+                      <div
+                        className={cn(
+                          "rounded-lg px-3 py-2 text-sm border",
+                          status.type === "success"
+                            ? "bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400"
+                            : "bg-red-500/10 text-red-700 border-red-500/20 dark:text-red-400",
+                        )}
+                      >
+                        {status.message}
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -13,7 +13,7 @@ export default function LoginPage() {
       {/* Left side illustration */}
       <div
         className="relative hidden lg:flex flex-col items-center justify-center p-8 text-white"
-        style={{ backgroundColor: "#E76F2E" }}
+        style={{ backgroundColor: "#995F2F" }}
       >
         <div className="max-w-md mx-auto text-center space-y-6">
           <Image

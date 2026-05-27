@@ -51,7 +51,7 @@ export function HowItWorksSection() {
       id="how-it-works"
       ref={sectionRef}
       className="relative py-24 lg:py-32 text-background overflow-hidden"
-      style={{ backgroundColor: "#E76F2E" }}
+      style={{ backgroundColor: "#995F2F" }}
     >
       {/* Diagonal lines pattern */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">

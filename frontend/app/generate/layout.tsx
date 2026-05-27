@@ -1,16 +1,9 @@
-import { Navigation } from "@/components/landing/navigation";
-
-
+import GenerateProviders from "./providers";
 
 export default function GenerateLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      {/* <Navigation /> */}
-      {children}
-    </>
-  );
+  return <GenerateProviders>{children}</GenerateProviders>;
 }
