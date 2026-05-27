@@ -30,8 +30,10 @@ export function HowItWorksSection() {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setIsVisible(true); },
-      { threshold: 0.1 }
+      ([entry]) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      },
+      { threshold: 0.1 },
     );
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
@@ -48,7 +50,8 @@ export function HowItWorksSection() {
     <section
       id="how-it-works"
       ref={sectionRef}
-      className="relative py-24 lg:py-32 bg-foreground text-background overflow-hidden"
+      className="relative py-24 lg:py-32 text-background overflow-hidden"
+      style={{ backgroundColor: "#E76F2E" }}
     >
       {/* Diagonal lines pattern */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
@@ -67,10 +70,8 @@ export function HowItWorksSection() {
       </div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
-
         {/* ── Header ── */}
         <div className="mb-16 lg:mb-24">
-
           {/* Eyebrow — Playfair italic, matches HeroSection */}
           <span
             className="inline-flex items-center gap-3 mb-6"
@@ -94,7 +95,9 @@ export function HowItWorksSection() {
           {/* Section heading */}
           <h2
             className={`tracking-tight transition-all duration-700 ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              isVisible
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 translate-y-4"
             }`}
             style={{
               fontFamily: playfair,
@@ -140,17 +143,17 @@ export function HowItWorksSection() {
                   transform: isActive
                     ? "translateX(8px)"
                     : isHovered
-                    ? "translateX(5px)"
-                    : "translateX(0)",
+                      ? "translateX(5px)"
+                      : "translateX(0)",
                   boxShadow:
                     isActive || isHovered
                       ? "-3px 0 0 0 hsl(var(--background) / 0.5)"
                       : "none",
-                  transition: "opacity 0.5s ease, transform 0.3s ease, box-shadow 0.3s ease",
+                  transition:
+                    "opacity 0.5s ease, transform 0.3s ease, box-shadow 0.3s ease",
                 }}
               >
                 <div className="flex items-start gap-6">
-
                   {/* Roman numeral — Playfair italic, faded */}
                   <span
                     style={{
@@ -177,7 +180,8 @@ export function HowItWorksSection() {
                         fontWeight: 500,
                         fontStyle: isActive || isHovered ? "italic" : "normal",
                         fontSize: "clamp(1.5rem, 3vw, 2rem)",
-                        letterSpacing: isActive || isHovered ? "-0.03em" : "-0.01em",
+                        letterSpacing:
+                          isActive || isHovered ? "-0.03em" : "-0.01em",
                         lineHeight: 1.1,
                         marginBottom: "0.6rem",
                         color: "hsl(var(--background))",
@@ -246,8 +250,12 @@ export function HowItWorksSection() {
 
       <style jsx>{`
         @keyframes progress {
-          from { width: 0%; }
-          to   { width: 100%; }
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
         }
       `}</style>
     </section>

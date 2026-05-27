@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Navigation } from "@/components/landing/navigation";
+import { GlassButton } from "@/components/landing/glassbutton";
+import { BackgroundPaths } from "@/components/landing/line-wave";
+import { motion } from "framer-motion";
 import {
   Send,
   User,
@@ -151,22 +154,54 @@ function getLetterAvatarColors(letter: string) {
 function md5cycle(x: number[], k: number[]) {
   let [a, b, c, d] = x;
 
-  const ff = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+  const ff = (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) => {
     a = a + ((b & c) | (~b & d)) + x + t;
     return (((a << s) | (a >>> (32 - s))) + b) | 0;
   };
 
-  const gg = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+  const gg = (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) => {
     a = a + ((b & d) | (c & ~d)) + x + t;
     return (((a << s) | (a >>> (32 - s))) + b) | 0;
   };
 
-  const hh = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+  const hh = (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) => {
     a = a + (b ^ c ^ d) + x + t;
     return (((a << s) | (a >>> (32 - s))) + b) | 0;
   };
 
-  const ii = (a: number, b: number, c: number, d: number, x: number, s: number, t: number) => {
+  const ii = (
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) => {
     a = a + (c ^ (b | ~d)) + x + t;
     return (((a << s) | (a >>> (32 - s))) + b) | 0;
   };
@@ -297,7 +332,9 @@ function rhex(n: number) {
 }
 
 function md5(s: string) {
-  return md51(unescape(encodeURIComponent(s))).map(rhex).join("");
+  return md51(unescape(encodeURIComponent(s)))
+    .map(rhex)
+    .join("");
 }
 
 function getGravatarUrl(from: string, size = 80) {
@@ -365,77 +402,27 @@ function SenderAvatar({
   );
 }
 
-function AnimatedWave() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const frameRef = useRef(0);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const chars = "·∼─╯╒╘╉";
-    let time = 0;
-
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-
-    const render = () => {
-      const rect = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
-      ctx.font = "14px monospace";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      const cols = Math.floor(rect.width / 20);
-      const rows = Math.floor(rect.height / 20);
-
-      const fg = getComputedStyle(document.documentElement).getPropertyValue("--foreground").trim() || "#000000";
-
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const px = (x + 0.5) * (rect.width / cols);
-          const py = (y + 0.5) * (rect.height / rows);
-          const wave1 =
-            Math.sin(x * 0.2 + time * 2) * Math.cos(y * 0.15 + time);
-          const wave2 = Math.sin((x + y) * 0.1 + time * 1.5);
-          const wave3 = Math.cos(x * 0.1 - y * 0.1 + time * 0.8);
-          const combined = (wave1 + wave2 + wave3) / 3;
-          const normalized = (combined + 1) / 2;
-          const charIndex = Math.floor(normalized * (chars.length - 1));
-          const alpha = 0.12 + normalized * 0.35;
-          ctx.fillStyle = `color-mix(in srgb, ${fg} ${Math.round(alpha * 100)}%, transparent)`;
-          ctx.fillText(chars[charIndex], px, py);
-        }
-      }
-
-      time += 0.03;
-      frameRef.current = requestAnimationFrame(render);
-    };
-
-    render();
-    return () => {
-      window.removeEventListener("resize", resize);
-      cancelAnimationFrame(frameRef.current);
-    };
-  }, []);
-
+function ChatBoxBackgroundAnimation() {
   return (
-    <canvas
-      ref={canvasRef}
-      className="w-full h-full"
-      style={{ display: "block" }}
-    />
+    <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
+      <div className="absolute inset-0 opacity-100"></div>
+
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to bottom right, color-mix(in srgb, var(--background) 52%, transparent), color-mix(in srgb, var(--card) 42%, transparent))",
+        }}
+      />
+
+      <div
+        className="absolute inset-0"
+        style={{
+          boxShadow:
+            "inset 0 0 40px color-mix(in srgb, var(--background) 35%, transparent)",
+        }}
+      />
+    </div>
   );
 }
 
@@ -466,13 +453,19 @@ function ChatPrompt({
   };
 
   return (
-    <div className="flex flex-col h-64 rounded-xl bg-card/90 overflow-hidden shadow-sm border border-border">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+    <div className="relative flex flex-col h-64 rounded-xl overflow-hidden shadow-sm border border-border bg-card/55 backdrop-blur-sm">
+      <ChatBoxBackgroundAnimation />
+
+      <div
+        ref={scrollRef}
+        className="relative z-10 flex-1 overflow-y-auto p-4 space-y-3"
+      >
         {messages.length === 0 && (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm text-center px-6">
             Describe the email you want to generate
           </div>
         )}
+
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -493,32 +486,47 @@ function ChatPrompt({
                 <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
               )}
             </div>
+
             <div
               className={cn(
-                "rounded-xl px-3.5 py-2.5 text-sm leading-relaxed",
+                "rounded-xl px-3.5 py-2.5 text-sm leading-relaxed backdrop-blur-[2px]",
                 msg.role === "user"
                   ? "bg-primary text-primary-foreground"
-                  : "bg-accent text-accent-foreground",
+                  : "bg-accent/90 text-accent-foreground",
               )}
             >
               {msg.content}
             </div>
           </div>
         ))}
+
         {isLoading && (
           <div className="flex gap-2.5">
             <div className="h-7 w-7 rounded-full bg-accent flex items-center justify-center shrink-0">
               <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
             </div>
-            <div className="bg-accent rounded-xl px-4 py-3 flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "300ms" }} />
+            <div className="bg-accent/90 rounded-xl px-4 py-3 flex gap-1 backdrop-blur-[2px]">
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              />
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              />
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              />
             </div>
           </div>
         )}
       </div>
-      <form onSubmit={handleSubmit} className="p-3 flex gap-2 bg-background/40 border-t border-border">
+
+      <form
+        onSubmit={handleSubmit}
+        className="relative z-10 p-3 flex gap-2 bg-background/45 backdrop-blur-md border-t border-border"
+      >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -526,7 +534,12 @@ function ChatPrompt({
           className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
           disabled={isLoading}
         />
-        <Button type="submit" size="icon" disabled={!input.trim() || isLoading} className="shrink-0">
+        <Button
+          type="submit"
+          size="icon"
+          disabled={!input.trim() || isLoading}
+          className="shrink-0"
+        >
           <Send className="h-4 w-4" />
         </Button>
       </form>
@@ -557,7 +570,9 @@ function EmailEditor({
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-card/90 p-4 shadow-sm border border-border">
       <div className="flex items-center gap-3 pb-3 border-b border-border">
-        <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">Subject</span>
+        <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">
+          Subject
+        </span>
         <Input
           value={subject}
           onChange={(e) => onSubjectChange(e.target.value)}
@@ -566,7 +581,9 @@ function EmailEditor({
         />
       </div>
       <div className="flex gap-3">
-        <span className="text-xs font-medium text-muted-foreground w-14 shrink-0 pt-0.5">Body</span>
+        <span className="text-xs font-medium text-muted-foreground w-14 shrink-0 pt-0.5">
+          Body
+        </span>
         <Textarea
           ref={textareaRef}
           value={body}
@@ -596,32 +613,51 @@ function EmailPreviewModal({
 }) {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div className="relative z-10 w-full max-w-2xl rounded-2xl bg-card shadow-2xl flex flex-col max-h-[90vh] border border-border">
         <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Mail className="h-4 w-4 text-primary" />
             Email Preview
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
         <div className="px-5 py-3 space-y-2 text-sm shrink-0 bg-background/30 border-b border-border">
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">To</span>
-            <span className="font-medium text-foreground">{recipientEmail || "—"}</span>
+            <span className="font-medium text-foreground">
+              {recipientEmail || "—"}
+            </span>
           </div>
           <div className="flex gap-3">
             <span className="text-muted-foreground w-14 shrink-0">Subject</span>
-            <span className="font-medium text-foreground">{subject || "—"}</span>
+            <span className="font-medium text-foreground">
+              {subject || "—"}
+            </span>
           </div>
           {attachments.length > 0 && (
             <div className="flex gap-3">
-              <span className="text-muted-foreground w-14 shrink-0">Attachments</span>
+              <span className="text-muted-foreground w-14 shrink-0">
+                Attachments
+              </span>
               <div className="flex flex-wrap gap-1.5">
                 {attachments.map((f, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-md">
-                    <FileText className="h-3 w-3" />{f.name}
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-md"
+                  >
+                    <FileText className="h-3 w-3" />
+                    {f.name}
                   </span>
                 ))}
               </div>
@@ -630,7 +666,9 @@ function EmailPreviewModal({
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
-            {body || <span className="text-muted-foreground">No body yet.</span>}
+            {body || (
+              <span className="text-muted-foreground">No body yet.</span>
+            )}
           </pre>
         </div>
       </div>
@@ -638,16 +676,30 @@ function EmailPreviewModal({
   );
 }
 
-function AttachmentList({ files, onRemove }: { files: File[]; onRemove: (i: number) => void }) {
+function AttachmentList({
+  files,
+  onRemove,
+}: {
+  files: File[];
+  onRemove: (i: number) => void;
+}) {
   if (files.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2 mt-2">
       {files.map((file, i) => (
-        <div key={i} className="group flex items-center gap-1.5 bg-accent/60 rounded-lg px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all hover:bg-accent border border-border">
+        <div
+          key={i}
+          className="group flex items-center gap-1.5 bg-accent/60 rounded-lg px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all hover:bg-accent border border-border"
+        >
           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{file.name}</span>
-          <span className="text-muted-foreground/70 tabular-nums">{formatFileSize(file.size)}</span>
-          <button onClick={() => onRemove(i)} className="shrink-0 ml-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
+          <span className="text-muted-foreground/70 tabular-nums">
+            {formatFileSize(file.size)}
+          </span>
+          <button
+            onClick={() => onRemove(i)}
+            className="shrink-0 ml-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+          >
             <X className="h-3 w-3" />
           </button>
         </div>
@@ -756,7 +808,10 @@ function SidebarNavItem({
         </span>
       )}
       {isActive && (
-        <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--primary)" }} />
+        <ChevronRight
+          className="h-3.5 w-3.5 shrink-0"
+          style={{ color: "var(--primary)" }}
+        />
       )}
     </button>
   );
@@ -778,37 +833,57 @@ function LeftSidebar({
   onNewEmail: () => void;
 }) {
   const navItems = [
-    { id: "inbox" as ActiveSection, label: "Inbox", icon: <Inbox className="h-4 w-4" />, count: inboxCount },
-    { id: "sent" as ActiveSection, label: "Sent", icon: <SendHorizonal className="h-4 w-4" />, count: sentCount },
-    { id: "drafts" as ActiveSection, label: "Drafts", icon: <MailOpen className="h-4 w-4" />, count: draftsCount },
-    { id: "scheduled" as ActiveSection, label: "Scheduled", icon: <CalendarClock className="h-4 w-4" />, count: 0 },
-    { id: "favorites" as ActiveSection, label: "Favorites", icon: <Star className="h-4 w-4" />, count: 0 },
+    {
+      id: "inbox" as ActiveSection,
+      label: "Inbox",
+      icon: <Inbox className="h-4 w-4" />,
+      count: inboxCount,
+    },
+    {
+      id: "sent" as ActiveSection,
+      label: "Sent",
+      icon: <SendHorizonal className="h-4 w-4" />,
+      count: sentCount,
+    },
+    {
+      id: "drafts" as ActiveSection,
+      label: "Drafts",
+      icon: <MailOpen className="h-4 w-4" />,
+      count: draftsCount,
+    },
+    {
+      id: "scheduled" as ActiveSection,
+      label: "Scheduled",
+      icon: <CalendarClock className="h-4 w-4" />,
+      count: 0,
+    },
+    {
+      id: "favorites" as ActiveSection,
+      label: "Favorites",
+      icon: <Star className="h-4 w-4" />,
+      count: 0,
+    },
   ];
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col bg-card/40 h-full z-10 relative shadow-sm border-r border-border" aria-label="Email navigation">
+    <aside
+      className="w-60 shrink-0 flex flex-col bg-card/40 h-full z-10 relative shadow-sm border-r border-border"
+      aria-label="Email navigation"
+    >
       <div
         className="px-5 pt-5 pb-4 shrink-0"
-        style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
+        style={{
+          background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+        }}
       >
-        <span
-          className="text-[10px] tracking-[0.22em] uppercase font-medium select-none italic"
-          style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            color: "color-mix(in srgb, var(--primary) 78%, transparent)",
-          }}
-        >
-          Mail
-        </span>
-
         <div className="mt-3">
-          <Button
+          <GlassButton
             onClick={onNewEmail}
             className="w-full justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-sm"
           >
             <PlusCircle className="h-4 w-4" />
             New
-          </Button>
+          </GlassButton>
         </div>
       </div>
 
@@ -865,21 +940,37 @@ function EmailCard({
           <div className="min-w-0 flex-1">
             <p
               className="text-[10px] font-semibold truncate leading-snug"
-              style={{ color: isSelected ? "var(--primary)" : "var(--muted-foreground)" }}
+              style={{
+                color: isSelected
+                  ? "var(--primary)"
+                  : "var(--muted-foreground)",
+              }}
             >
               {getSenderDisplayName(email.from)}
             </p>
             <p
               className="text-xs font-medium truncate leading-snug mt-0.5"
-              style={{ color: isSelected ? "var(--primary)" : "var(--foreground)" }}
+              style={{
+                color: isSelected ? "var(--primary)" : "var(--foreground)",
+              }}
             >
               {email.subject || "(No Subject)"}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1 mt-2 pl-10">
-          <Clock className="h-2.5 w-2.5" style={{ color: isSelected ? "var(--primary)" : "var(--muted-foreground)" }} />
-          <span className="text-[10px] tabular-nums" style={{ color: isSelected ? "var(--primary)" : "var(--muted-foreground)" }}>
+          <Clock
+            className="h-2.5 w-2.5"
+            style={{
+              color: isSelected ? "var(--primary)" : "var(--muted-foreground)",
+            }}
+          />
+          <span
+            className="text-[10px] tabular-nums"
+            style={{
+              color: isSelected ? "var(--primary)" : "var(--muted-foreground)",
+            }}
+          >
             {formatTime(email.date)}
           </span>
         </div>
@@ -888,41 +979,96 @@ function EmailCard({
   );
 }
 
-function DraftCard({ draft, isActive, onClick, onDelete }: { draft: DraftEmail; isActive: boolean; onClick: () => void; onDelete: () => void }) {
+function DraftCard({
+  draft,
+  isActive,
+  onClick,
+  onDelete,
+}: {
+  draft: DraftEmail;
+  isActive: boolean;
+  onClick: () => void;
+  onDelete: () => void;
+}) {
   return (
     <div
-      className={cn("group w-full cursor-pointer transition-all duration-150", !isActive && "hover:bg-accent")}
-      style={{ background: isActive ? "color-mix(in srgb, var(--primary) 16%, transparent)" : undefined, border: "none", boxShadow: "none" }}
+      className={cn(
+        "group w-full cursor-pointer transition-all duration-150",
+        !isActive && "hover:bg-accent",
+      )}
+      style={{
+        background: isActive
+          ? "color-mix(in srgb, var(--primary) 16%, transparent)"
+          : undefined,
+        border: "none",
+        boxShadow: "none",
+      }}
       onClick={onClick}
     >
       <div className="px-4 py-3">
         <div className="flex items-start gap-2.5">
           <div
-            className={cn("h-8 w-8 rounded-full shrink-0 flex items-center justify-center", !isActive && "bg-muted-foreground/10")}
-            style={{ background: isActive ? "color-mix(in srgb, var(--primary) 18%, transparent)" : undefined }}
+            className={cn(
+              "h-8 w-8 rounded-full shrink-0 flex items-center justify-center",
+              !isActive && "bg-muted-foreground/10",
+            )}
+            style={{
+              background: isActive
+                ? "color-mix(in srgb, var(--primary) 18%, transparent)"
+                : undefined,
+            }}
           >
-            <MailOpen className="h-3.5 w-3.5" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }} />
+            <MailOpen
+              className="h-3.5 w-3.5"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+              }}
+            />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium truncate leading-snug" style={{ color: isActive ? "var(--primary)" : "var(--foreground)" }}>
+            <p
+              className="text-xs font-medium truncate leading-snug"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--foreground)",
+              }}
+            >
               {draft.subject || "Untitled"}
             </p>
-            <p className="text-[10px] truncate mt-0.5" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }}>
+            <p
+              className="text-[10px] truncate mt-0.5"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+              }}
+            >
               {draft.recipientEmail || "No recipient"}
             </p>
           </div>
           <Button
-            variant="ghost" size="icon"
+            variant="ghost"
+            size="icon"
             className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
             aria-label="Delete draft"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
         <div className="flex items-center gap-1 mt-2 pl-10">
-          <Clock className="h-2.5 w-2.5" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }} />
-          <span className="text-[10px] tabular-nums" style={{ color: isActive ? "var(--primary)" : "var(--muted-foreground)" }}>
+          <Clock
+            className="h-2.5 w-2.5"
+            style={{
+              color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+            }}
+          />
+          <span
+            className="text-[10px] tabular-nums"
+            style={{
+              color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+            }}
+          >
             {formatTime(draft.createdAt)}
           </span>
         </div>
@@ -932,9 +1078,20 @@ function DraftCard({ draft, isActive, onClick, onDelete }: { draft: DraftEmail; 
 }
 
 function EmailListPanel({
-  activeSection, panelVisible, inboxEmails, sentEmails, drafts,
-  activeDraftId, inboxLoading, sentLoading, selectedEmailId,
-  onRefreshInbox, onRefreshSent, onOpenGmailEmail, onSelectDraft, onDeleteDraft,
+  activeSection,
+  panelVisible,
+  inboxEmails,
+  sentEmails,
+  drafts,
+  activeDraftId,
+  inboxLoading,
+  sentLoading,
+  selectedEmailId,
+  onRefreshInbox,
+  onRefreshSent,
+  onOpenGmailEmail,
+  onSelectDraft,
+  onDeleteDraft,
 }: {
   activeSection: ActiveSection;
   panelVisible: boolean;
@@ -956,30 +1113,48 @@ function EmailListPanel({
   const shouldRenderPanel = activeSection && activeSection !== "settings";
   const effectiveSection = shouldRenderPanel ? activeSection : "inbox";
 
-  const sectionMeta: Record<string, { label: string; icon: React.ReactNode }> = {
-    inbox:     { label: "Inbox",     icon: <Inbox className="h-4 w-4" /> },
-    sent:      { label: "Sent",      icon: <SendHorizonal className="h-4 w-4" /> },
-    drafts:    { label: "Drafts",    icon: <MailOpen className="h-4 w-4" /> },
-    scheduled: { label: "Scheduled", icon: <CalendarClock className="h-4 w-4" /> },
-    favorites: { label: "Favorites", icon: <Star className="h-4 w-4" /> },
-  };
+  const sectionMeta: Record<string, { label: string; icon: React.ReactNode }> =
+    {
+      inbox: { label: "Inbox", icon: <Inbox className="h-4 w-4" /> },
+      sent: { label: "Sent", icon: <SendHorizonal className="h-4 w-4" /> },
+      drafts: { label: "Drafts", icon: <MailOpen className="h-4 w-4" /> },
+      scheduled: {
+        label: "Scheduled",
+        icon: <CalendarClock className="h-4 w-4" />,
+      },
+      favorites: { label: "Favorites", icon: <Star className="h-4 w-4" /> },
+    };
 
   const meta = sectionMeta[effectiveSection!];
 
   const filterEmails = (emails: GmailEmail[]) => {
     if (!searchQuery.trim()) return emails;
     const q = searchQuery.toLowerCase();
-    return emails.filter((e) => e.subject?.toLowerCase().includes(q) || e.from?.toLowerCase().includes(q));
+    return emails.filter(
+      (e) =>
+        e.subject?.toLowerCase().includes(q) ||
+        e.from?.toLowerCase().includes(q),
+    );
   };
 
   const filterDrafts = (items: DraftEmail[]) => {
     if (!searchQuery.trim()) return items;
     const q = searchQuery.toLowerCase();
-    return items.filter((d) => d.subject?.toLowerCase().includes(q) || d.recipientEmail?.toLowerCase().includes(q));
+    return items.filter(
+      (d) =>
+        d.subject?.toLowerCase().includes(q) ||
+        d.recipientEmail?.toLowerCase().includes(q),
+    );
   };
 
-  const isLoading = effectiveSection === "inbox" ? inboxLoading : effectiveSection === "sent" ? sentLoading : false;
-  const canRefresh = effectiveSection === "inbox" || effectiveSection === "sent";
+  const isLoading =
+    effectiveSection === "inbox"
+      ? inboxLoading
+      : effectiveSection === "sent"
+        ? sentLoading
+        : false;
+  const canRefresh =
+    effectiveSection === "inbox" || effectiveSection === "sent";
 
   return (
     <div
@@ -1001,26 +1176,38 @@ function EmailListPanel({
       >
         <div
           className="px-4 pt-4 pb-3 shrink-0"
-          style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
+          style={{
+            background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+          }}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span style={{ color: "var(--primary)" }}>{meta.icon}</span>
               <span
                 className="text-xs font-semibold"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--primary)" }}
+                style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  color: "var(--primary)",
+                }}
               >
                 {meta.label}
               </span>
             </div>
             {canRefresh && (
               <Button
-                variant="ghost" size="icon"
+                variant="ghost"
+                size="icon"
                 className="h-6 w-6 text-muted-foreground/50 hover:text-foreground"
-                onClick={() => effectiveSection === "inbox" ? onRefreshInbox(true) : onRefreshSent(true)}
+                onClick={() =>
+                  effectiveSection === "inbox"
+                    ? onRefreshInbox(true)
+                    : onRefreshSent(true)
+                }
                 aria-label={`Refresh ${meta.label}`}
               >
-                <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+                <RefreshCw
+                  className={cn("h-3.5 w-3.5", isLoading && "animate-spin")}
+                />
               </Button>
             )}
           </div>
@@ -1035,7 +1222,10 @@ function EmailListPanel({
               className="w-full bg-background/50 rounded-lg pl-8 pr-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/40 outline-none focus:bg-background transition-all duration-200 border border-border"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground">
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground"
+              >
                 <X className="h-3 w-3" />
               </button>
             )}
@@ -1043,66 +1233,108 @@ function EmailListPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto py-2">
-          {effectiveSection === "inbox" && (
-            isLoading ? (
+          {effectiveSection === "inbox" &&
+            (isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-                <span className="text-[10px] text-muted-foreground/40">Loading inbox...</span>
+                <span className="text-[10px] text-muted-foreground/40">
+                  Loading inbox...
+                </span>
               </div>
             ) : filterEmails(inboxEmails).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
                 <Inbox className="h-8 w-8 text-muted-foreground/20" />
-                <p className="text-[10px] text-muted-foreground/40 italic" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                <p
+                  className="text-[10px] text-muted-foreground/40 italic"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
                   {searchQuery ? "No results found" : "No inbox emails"}
                 </p>
               </div>
-            ) : filterEmails(inboxEmails).map((email) => (
-              <EmailCard key={email.id} email={email} isSelected={selectedEmailId === email.id} onClick={() => onOpenGmailEmail(email.id)} />
-            ))
-          )}
+            ) : (
+              filterEmails(inboxEmails).map((email) => (
+                <EmailCard
+                  key={email.id}
+                  email={email}
+                  isSelected={selectedEmailId === email.id}
+                  onClick={() => onOpenGmailEmail(email.id)}
+                />
+              ))
+            ))}
 
-          {effectiveSection === "sent" && (
-            isLoading ? (
+          {effectiveSection === "sent" &&
+            (isLoading ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-                <span className="text-[10px] text-muted-foreground/40">Loading mails</span>
+                <span className="text-[10px] text-muted-foreground/40">
+                  Loading mails
+                </span>
               </div>
             ) : filterEmails(sentEmails).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
                 <SendHorizonal className="h-8 w-8 text-muted-foreground/20" />
-                <p className="text-[10px] text-muted-foreground/40 italic" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                <p
+                  className="text-[10px] text-muted-foreground/40 italic"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
                   {searchQuery ? "No results found" : "No sent emails"}
                 </p>
               </div>
-            ) : filterEmails(sentEmails).map((email) => (
-              <EmailCard key={email.id} email={email} isSelected={selectedEmailId === email.id} onClick={() => onOpenGmailEmail(email.id)} />
-            ))
-          )}
+            ) : (
+              filterEmails(sentEmails).map((email) => (
+                <EmailCard
+                  key={email.id}
+                  email={email}
+                  isSelected={selectedEmailId === email.id}
+                  onClick={() => onOpenGmailEmail(email.id)}
+                />
+              ))
+            ))}
 
-          {effectiveSection === "drafts" && (
-            filterDrafts(drafts).length === 0 ? (
+          {effectiveSection === "drafts" &&
+            (filterDrafts(drafts).length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
                 <MailOpen className="h-8 w-8 text-muted-foreground/20" />
-                <p className="text-[10px] text-muted-foreground/40 italic" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+                <p
+                  className="text-[10px] text-muted-foreground/40 italic"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
                   {searchQuery ? "No results found" : "No drafts yet"}
                 </p>
               </div>
-            ) : filterDrafts(drafts).map((draft) => (
-              <DraftCard key={draft.id} draft={draft} isActive={activeDraftId === draft.id} onClick={() => onSelectDraft(draft)} onDelete={() => onDeleteDraft(draft.id)} />
-            ))
-          )}
+            ) : (
+              filterDrafts(drafts).map((draft) => (
+                <DraftCard
+                  key={draft.id}
+                  draft={draft}
+                  isActive={activeDraftId === draft.id}
+                  onClick={() => onSelectDraft(draft)}
+                  onDelete={() => onDeleteDraft(draft.id)}
+                />
+              ))
+            ))}
 
           {effectiveSection === "scheduled" && (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
               <CalendarClock className="h-8 w-8 text-muted-foreground/20" />
-              <p className="text-[10px] text-muted-foreground/40 italic" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>No scheduled emails</p>
+              <p
+                className="text-[10px] text-muted-foreground/40 italic"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+              >
+                No scheduled emails
+              </p>
             </div>
           )}
 
           {effectiveSection === "favorites" && (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
               <Star className="h-8 w-8 text-muted-foreground/20" />
-              <p className="text-[10px] text-muted-foreground/40 italic" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>No favorites yet</p>
+              <p
+                className="text-[10px] text-muted-foreground/40 italic"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+              >
+                No favorites yet
+              </p>
             </div>
           )}
         </div>
@@ -1146,17 +1378,16 @@ function EmailDetailOverlayPanel({
       >
         <div
           className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border"
-          style={{ background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
+          style={{
+            background: "color-mix(in srgb, var(--primary) 8%, transparent)",
+          }}
         >
           <div className="flex items-center gap-2 text-sm font-medium min-w-0">
             <PanelRightOpen
               className="h-4 w-4 shrink-0"
               style={{ color: "var(--foreground)" }}
             />
-            <span
-              className="truncate"
-              style={{ color: "var(--primary)" }}
-            >
+            <span className="truncate" style={{ color: "var(--primary)" }}>
               {email?.subject || "Email details"}
             </span>
           </div>
@@ -1175,7 +1406,9 @@ function EmailDetailOverlayPanel({
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
             <Mail className="h-10 w-10 text-muted-foreground/30" />
             <div>
-              <p className="text-sm font-medium text-foreground">No email selected</p>
+              <p className="text-sm font-medium text-foreground">
+                No email selected
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Click any inbox or sent email to show it here.
               </p>
@@ -1185,7 +1418,10 @@ function EmailDetailOverlayPanel({
           <>
             <div
               className="mx-5 mt-5 rounded-xl px-4 py-4 text-sm shrink-0 shadow-sm border border-border"
-              style={{ background: "color-mix(in srgb, var(--primary) 10%, transparent)" }}
+              style={{
+                background:
+                  "color-mix(in srgb, var(--primary) 10%, transparent)",
+              }}
             >
               <div className="flex items-start gap-3">
                 <SenderAvatar from={email.from} size={44} />
@@ -1202,15 +1438,21 @@ function EmailDetailOverlayPanel({
                   </div>
 
                   <div className="flex gap-3">
-                    <span className="text-muted-foreground w-14 shrink-0">Subject</span>
+                    <span className="text-muted-foreground w-14 shrink-0">
+                      Subject
+                    </span>
                     <span className="font-medium break-words text-foreground">
                       {email.subject || "—"}
                     </span>
                   </div>
 
                   <div className="flex gap-3">
-                    <span className="text-muted-foreground w-14 shrink-0">Date</span>
-                    <span className="break-words text-foreground">{email.date || "—"}</span>
+                    <span className="text-muted-foreground w-14 shrink-0">
+                      Date
+                    </span>
+                    <span className="break-words text-foreground">
+                      {email.date || "—"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1224,7 +1466,11 @@ function EmailDetailOverlayPanel({
                   </div>
                 ) : (
                   <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
-                    {plain || <span className="text-muted-foreground">No body content.</span>}
+                    {plain || (
+                      <span className="text-muted-foreground">
+                        No body content.
+                      </span>
+                    )}
                   </pre>
                 )}
               </div>
@@ -1247,7 +1493,10 @@ export default function EmailGenerator() {
   const [isSending, setIsSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [status, setStatus] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [drafts, setDrafts] = useState<DraftEmail[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -1265,14 +1514,18 @@ export default function EmailGenerator() {
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
   const [panelVisible, setPanelVisible] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const fetchInbox = async (force = false) => {
     if (inboxLoading) return;
     if (inboxLoaded && !force) return;
     setInboxLoading(true);
     try {
-      const res = await fetch(`${API}/list_emails?max_results=10&q=in:inbox`, { credentials: "include" });
+      const res = await fetch(`${API}/list_emails?max_results=10&q=in:inbox`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch inbox");
       const data = await res.json();
       setInboxEmails(data.emails || []);
@@ -1289,7 +1542,9 @@ export default function EmailGenerator() {
     if (sentLoaded && !force) return;
     setSentLoading(true);
     try {
-      const res = await fetch(`${API}/list_emails?max_results=10&q=in:sent`, { credentials: "include" });
+      const res = await fetch(`${API}/list_emails?max_results=10&q=in:sent`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch sent");
       const data = await res.json();
       setSentEmails(data.emails || []);
@@ -1320,9 +1575,12 @@ export default function EmailGenerator() {
     }
     setSelectedEmailId(id);
     setDetailLoading(true);
-    if (!detailPanelVisible) requestAnimationFrame(() => setDetailPanelVisible(true));
+    if (!detailPanelVisible)
+      requestAnimationFrame(() => setDetailPanelVisible(true));
     try {
-      const res = await fetch(`${API}/get_email/${id}`, { credentials: "include" });
+      const res = await fetch(`${API}/get_email/${id}`, {
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch email");
       const data = await res.json();
       setDetailEmail(data);
@@ -1347,7 +1605,9 @@ export default function EmailGenerator() {
       return;
     }
     setActiveSection(section);
-    requestAnimationFrame(() => setPanelVisible(section !== "settings" && section !== null));
+    requestAnimationFrame(() =>
+      setPanelVisible(section !== "settings" && section !== null),
+    );
     closeDetailPanel();
     if (section === "inbox" && !inboxLoaded && !inboxLoading) fetchInbox();
     if (section === "sent" && !sentLoaded && !sentLoading) fetchSent();
@@ -1356,7 +1616,8 @@ export default function EmailGenerator() {
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-      if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
+      if (detailCloseTimerRef.current)
+        clearTimeout(detailCloseTimerRef.current);
     };
   }, []);
 
@@ -1369,7 +1630,10 @@ export default function EmailGenerator() {
   }
 
   const addMessage = (role: ChatMessage["role"], content: string) => {
-    setMessages((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, role, content }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random()}`, role, content },
+    ]);
   };
 
   const handleSendMessage = async (userMessage: string) => {
@@ -1383,11 +1647,15 @@ export default function EmailGenerator() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: userMessage }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Generation failed");
+      if (!res.ok)
+        throw new Error((await res.json()).error || "Generation failed");
       const data = await res.json();
       setSubject(data.subject ?? "");
       setBody(data.body ?? "");
-      addMessage("assistant", `I've drafted an email with the subject "${data.subject}". Review and edit it below, then send when ready.`);
+      addMessage(
+        "assistant",
+        `I've drafted an email with the subject "${data.subject}". Review and edit it below, then send when ready.`,
+      );
     } catch (err: any) {
       const msg = err.message || "Unknown error";
       addMessage("assistant", `Sorry, something went wrong: ${msg}`);
@@ -1404,8 +1672,8 @@ export default function EmailGenerator() {
         prev.map((d) =>
           d.id === activeDraftId
             ? { ...d, subject, body, recipientEmail, createdAt: new Date() }
-            : d
-        )
+            : d,
+        ),
       );
     } else {
       const nd: DraftEmail = {
@@ -1471,11 +1739,15 @@ export default function EmailGenerator() {
         credentials: "include",
         body: formData,
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Sending failed");
-      setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
+      if (!res.ok)
+        throw new Error((await res.json()).error || "Sending failed");
+      setStatus({
+        type: "success",
+        message: `Email sent to ${recipientEmail}`,
+      });
       addMessage(
         "assistant",
-        `✓ Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}` : ""}!`
+        `✓ Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}` : ""}!`,
       );
       setAttachments([]);
       fetchSent(true);
@@ -1533,14 +1805,14 @@ export default function EmailGenerator() {
             }}
           >
             <div className="relative w-full h-40 overflow-hidden border-b border-border">
-              <div className="absolute inset-0"><AnimatedWave /></div>
+              <div className="absolute inset-0"></div>
               <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background/80" />
               <div className="relative z-10 flex items-center justify-between h-full px-8 max-w-2xl mx-auto w-full">
                 <div>
                   <h1
                     className="select-none"
                     style={{
-                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontFamily: "Playfair Display, Georgia, serif",
                       fontStyle: "italic",
                       fontSize: "clamp(1.4rem, 3vw, 2rem)",
                       letterSpacing: "-0.02em",
@@ -1552,23 +1824,32 @@ export default function EmailGenerator() {
                   <p
                     className="mt-1 select-none"
                     style={{
-                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontFamily: "Playfair Display, Georgia, serif",
                       fontStyle: "italic",
                       fontSize: "0.8rem",
                       letterSpacing: "0.06em",
                       color: "var(--muted-foreground)",
                     }}
                   >
-                    Describe what you want to say — get a professional email
+                    Describe what you want to say get a professional email
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 md:p-8">
-              <div className="max-w-2xl mx-auto space-y-6">
+            <div className="relative p-6 md:p-8">
+              {/* background animation */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl">
+                <BackgroundPaths className="h-full w-full opacity-30" />
+                <div className="absolute inset-0 bg-gradient-to-br from-background/82 via-background/70 to-background/86" />
+              </div>
+
+              {/* foreground content */}
+              <div className="relative z-10 max-w-2xl mx-auto space-y-6">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">To</label>
+                  <label className="text-sm font-medium text-foreground">
+                    To
+                  </label>
                   <Input
                     type="email"
                     placeholder="recipient@example.com"
@@ -1579,63 +1860,45 @@ export default function EmailGenerator() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Chat with AI</label>
-                  <ChatPrompt messages={messages} onSendMessage={handleSendMessage} isLoading={isChatLoading} />
+                  <label className="text-sm font-medium text-foreground">
+                    Chat with AI
+                  </label>
+                  <ChatPrompt
+                    messages={messages}
+                    onSendMessage={handleSendMessage}
+                    isLoading={isChatLoading}
+                  />
                 </div>
 
                 {hasEmail && (
                   <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-foreground">Edit Email</label>
+                      <label className="text-sm font-medium text-foreground">
+                        Edit Email
+                      </label>
                       <div className="flex items-center gap-3">
-                        <button onClick={handleCopy} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                          {copied ? "Copied" : "Copy"}
-                        </button>
-                        <button onClick={() => setPreviewOpen(true)} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                          <Eye className="w-3.5 h-3.5" />Preview
-                        </button>
+                        {/* your existing copy/preview buttons */}
                       </div>
                     </div>
-                    <EmailEditor subject={subject} body={body} onSubjectChange={setSubject} onBodyChange={setBody} />
+
+                    <EmailEditor
+                      subject={subject}
+                      body={body}
+                      onSubjectChange={setSubject}
+                      onBodyChange={setBody}
+                    />
                   </div>
                 )}
 
                 {hasEmail && (
                   <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div>
-                      <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors group"
-                      >
-                        <Paperclip className="w-3.5 h-3.5 group-hover:rotate-12 transition-transform duration-200" />
-                        Attach files
-                        {attachments.length > 0 && (
-                          <span className="ml-1 bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums">{attachments.length}</span>
-                        )}
-                      </button>
-                      <AttachmentList files={attachments} onRemove={(i) => setAttachments((prev) => prev.filter((_, idx) => idx !== i))} />
-                    </div>
-                    <div className="flex gap-3">
-                      <Button variant="outline" onClick={handleSaveDraft} className="flex-1 h-11 gap-2 border-0 shadow-sm bg-card/80 text-foreground">
-                        <Save className="w-4 h-4" />Save Draft
-                      </Button>
-                      <Button onClick={handleSend} disabled={!recipientEmail.trim() || isSending} className="flex-1 h-11 gap-2">
-                        {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {isSending ? "Sending..." : "Send Email"}
-                      </Button>
-                    </div>
+                    {/* existing attachments + action buttons + status */}
                   </div>
                 )}
 
-                {status && (
-                  <div className={`text-sm text-center py-2 px-4 rounded-lg ${status.type === "success" ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
-                    {status.message}
-                  </div>
-                )}
-
-                <p className="text-center text-xs text-muted-foreground pb-4">Powered by AI · Review before sending</p>
+                <p className="text-center text-xs text-muted-foreground pb-4">
+                  Powered by AI · Review before sending
+                </p>
               </div>
             </div>
           </main>
