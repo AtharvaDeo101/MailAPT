@@ -1,4 +1,5 @@
 # MailAPT
+![Uploading image.png…]()
 
 ## <span>Overview</span>
 
@@ -63,6 +64,4 @@ Write a professional follow-up email to a client after a product demo and keep t
   <li>Integrate with Gmail and Outlook APIs.</li>
 </ul>
 
-## <span>Contributing</span>
 
-<p>Contributions, feature requests, and suggestions are welcome.</p>
