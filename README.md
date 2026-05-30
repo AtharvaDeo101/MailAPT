@@ -1,12 +1,5 @@
 # MailAPT
 
-
-
-<h3 align="center">MailAPT is all about enabling user to generate emails using simple prompt and send instantly using
-single click efficiently.</h3>
-
-<hr>
-
 ## <span>Overview</span>
 
 <p>
@@ -35,40 +28,13 @@ professionals, managers, and any other individuals who require efficient email c
 ## <span>How It Works</span>
 
 <ol>
-  <li>User enters a prompt or selects an email context.</li>
+  <li>User enters a prompt </li>
   <li>MailAPT uses AI to generate a complete email draft.</li>
   <li>The user reviews the content and sends it in one click.</li>
-  <li>The platform can also summarize incoming or existing emails for quick understanding.</li>
+  <li>The platform can also summarize existing emails for quick understanding.</li>
 </ol>
 
-## <span>Use Cases</span>
 
-<table>
-  <thead>
-    <tr>
-      <th>Use Case</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>Sales Outreach</code></td>
-      <td>Generate persuasive cold emails quickly.</td>
-    </tr>
-    <tr>
-      <td><code>Customer Support</code></td>
-      <td>Draft clear and helpful email responses.</td>
-    </tr>
-    <tr>
-      <td><code>Internal Communication</code></td>
-      <td>Create team updates and status emails.</td>
-    </tr>
-    <tr>
-      <td><code>Email Review</code></td>
-      <td>Summarize lengthy email conversations into key points.</td>
-    </tr>
-  </tbody>
-</table>
 
 ## <span>Tech Stack</span>
 
@@ -79,26 +45,7 @@ professionals, managers, and any other individuals who require efficient email c
   <li><b>Email Service:</b> SMTP, SendGrid, or similar provider</li>
 </ul>
 
-## <span>HTML Tags Showcase</span>
 
-<p>This README intentionally uses many supported HTML tags that generally render inside GitHub README files.</p>
-
-<details>
-  <summary><strong>Click to view included HTML tags</strong></summary>
-
-  <ul>
-    <li><code>&lt;h1&gt;</code> to <code>&lt;h3&gt;</code></li>
-    <li><code>&lt;p&gt;</code></li>
-    <li><code>&lt;strong&gt;</code>, <code>&lt;b&gt;</code></li>
-    <li><code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;li&gt;</code></li>
-    <li><code>&lt;table&gt;</code>, <code>&lt;thead&gt;</code>, <code>&lt;tbody&gt;</code>, <code>&lt;tr&gt;</code>, <code>&lt;th&gt;</code>, <code>&lt;td&gt;</code></li>
-    <li><code>&lt;code&gt;</code></li>
-    <li><code>&lt;details&gt;</code>, <code>&lt;summary&gt;</code></li>
-    <li><code>&lt;hr&gt;</code></li>
-    <li><code>&lt;img&gt;</code></li>
-    <li><code>&lt;span&gt;</code></li>
-  </ul>
-</details>
 
 
 ## <span>Example Prompt</span>
