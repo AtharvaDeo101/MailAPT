@@ -17,7 +17,6 @@ import {
   Loader2,
   Copy,
   Check,
-  Eye,
   PlusCircle,
   Save,
   X,
@@ -1927,17 +1926,6 @@ export default function EmailGenerator() {
                             <Copy className="h-4 w-4" />
                           )}
                           {copied ? "Copied" : "Copy"}
-                        </Button>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPreviewOpen(true)}
-                          className="gap-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Preview
                         </Button>
                       </div>
                     </div>
