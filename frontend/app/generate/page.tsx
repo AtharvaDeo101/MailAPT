@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { Navigation } from "@/components/landing/navigation";
 import { GlassButton } from "@/components/landing/glassbutton";
 import { BackgroundPaths } from "@/components/landing/line-wave";
+import { LoadingSpinner } from "@/components//landing/loading-spinner";
+
 import {
   Send,
   User,
@@ -1638,13 +1640,13 @@ export default function EmailGenerator() {
     };
   }, []);
 
-  if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+ if (isAuthenticated === null) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <LoadingSpinner />
+    </div>
+  );
+}
 
   const addMessage = (role: ChatMessage["role"], content: string) => {
     setMessages((prev) => [
