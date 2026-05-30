@@ -2,18 +2,24 @@
 
 
 
-<h3 align="center">Generate AI-powered emails, send them in one click, and create instant email summaries.</h3>
+<h3 align="center">MailAPT is all about enabling user to generate emails using simple prompt and send instantly using
+single click efficiently.</h3>
 
 <hr>
 
 ## <span>Overview</span>
 
 <p>
-  <strong>MailAPT</strong> is an AI-powered email assistant that helps users generate professional emails, send them with a single click, and create quick summaries of received or drafted emails.
+  <strong>MailAPT</strong> is an AI-powered email system that helps users generate professional emails, send them, and create quick summaries of received or drafted emails.
 </p>
 
 <p>
   The project is designed to save time, improve writing quality, and make email communication more efficient for teams, professionals, and businesses.
+</p>
+
+<p>
+   Integrated Google Auth for secure login, this allows users from various field such as startups, students, working
+professionals, managers, and any other individuals who require efficient email communication.
 </p>
 
 ## <span>Features</span>
