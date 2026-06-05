@@ -1,19 +1,20 @@
 # MailAPT
-
-
-
-<h3 align="center">Generate AI-powered emails, send them in one click, and create instant email summaries.</h3>
-
-<hr>
-
+<p align = "center">
+  <img src="[[https://example.com/images/mailapt.png](https://search.brave.com/images?q=email+image&context=W3sic3JjIjoiaHR0cHM6Ly9tZWRpYS5pc3RvY2twaG90by5jb20vaWQvMTQ2MzMxOTY0NS9waG90by9uZXctZW1haWwtbm90aWZpY2F0aW9uLWNvbmNlcHQtZm9yLWJ1c2luZXNzLWUtbWFpbC1jb21tdW5pY2F0aW9uLWFuZC1kaWdpdGFsLW1hcmtldGluZy1pbmJveC5qcGc_cz02MTJ4NjEyJnc9MCZrPTIwJmM9T29GamR6MFpOanBlZFJ6ZDUtWmZsZE1oUHVicHF1eDJybHlwanZLUVhrND0iLCJ0ZXh0IjoiTmV3IGVtYWlsIG5vdGlmaWNhdGlvbiBjb25jZXB0IGZvciBidXNpbmVzcyBlLW1haWwgY29tbXVuaWNhdGlvbiBhbmQgZGlnaXRhbCBtYXJrZXRpbmcuIEluYm94IHJlY2VpdmluZyBlbGVjdHJvbmljIG1lc3NhZ2UgYWxlcnQuIGJ1c2luZXNzIHBlb3BsZSB0b3VjaCBvbiBlbWFpbCBpbiB2aXJ0dWFsIHNjcmVlbi4gaW50ZXJuZXQgdGVjaG5vbG9neSBOZXcgZW1haWwgbm90aWZpY2F0aW9uIGNvbmNlcHQgZm9yIGJ1c2luZXNzIGUtbWFpbCBjb21tdW5pY2F0aW9uIGFuZCBkaWdpdGFsIG1hcmtldGluZy4gSW5ib3ggcmVjZWl2aW5nIGVsZWN0cm9uaWMgbWVzc2FnZSBhbGVydC4gYnVzaW5lc3MgcGVvcGxlIHRvdWNoIG9uIGVtYWlsIGluIHZpcnR1YWwgc2NyZWVuLiBpbnRlcm5ldCB0ZWNobm9sb2d5IGVtYWlsIGluYm94IHN0b2NrIHBpY3R1cmVzLCByb3lhbHR5LWZyZWUgcGhvdG9zICYgaW1hZ2VzIiwicGFnZV91cmwiOiJodHRwczovL3d3dy5pc3RvY2twaG90by5jb20vcGhvdG9zL2VtYWlsLWluYm94In1d&sig=9e8e9ba6c6340a9d5e58f933a3c823fa4a48c3580c8f8b00fad1daa4b177b92f&nonce=b86c2f8954a60f34b03adf8f9f020722&source=imageCluster)](https://imgs.search.brave.com/WqHQCPA6tQ5ujZrRmt-ensWrm1mL8Zh93Tf7vk4-op0/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9tZWRp/YS5pc3RvY2twaG90/by5jb20vaWQvMTQ2/MzMxOTY0NS9waG90/by9uZXctZW1haWwt/bm90aWZpY2F0aW9u/LWNvbmNlcHQtZm9y/LWJ1c2luZXNzLWUt/bWFpbC1jb21tdW5p/Y2F0aW9uLWFuZC1k/aWdpdGFsLW1hcmtl/dGluZy1pbmJveC5q/cGc_cz02MTJ4NjEy/Jnc9MCZrPTIwJmM9/T29GamR6MFpOanBl/ZFJ6ZDUtWmZsZE1o/UHVicHF1eDJybHlw/anZLUVhrND0)" alt="MailAPT Overview" width="800">
+</p>
 ## <span>Overview</span>
 
 <p>
-  <strong>MailAPT</strong> is an AI-powered email assistant that helps users generate professional emails, send them with a single click, and create quick summaries of received or drafted emails.
+  <strong>MailAPT</strong> is an AI-powered email system that helps users generate professional emails, send them, and create quick summaries of received or drafted emails.
 </p>
 
 <p>
   The project is designed to save time, improve writing quality, and make email communication more efficient for teams, professionals, and businesses.
+</p>
+
+<p>
+   Integrated Google Auth for secure login, this allows users from various field such as startups, students, working
+professionals, managers, and any other individuals who require efficient email communication.
 </p>
 
 ## <span>Features</span>
@@ -29,40 +30,13 @@
 ## <span>How It Works</span>
 
 <ol>
-  <li>User enters a prompt or selects an email context.</li>
+  <li>User enters a prompt </li>
   <li>MailAPT uses AI to generate a complete email draft.</li>
   <li>The user reviews the content and sends it in one click.</li>
-  <li>The platform can also summarize incoming or existing emails for quick understanding.</li>
+  <li>The platform can also summarize existing emails for quick understanding.</li>
 </ol>
 
-## <span>Use Cases</span>
 
-<table>
-  <thead>
-    <tr>
-      <th>Use Case</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>Sales Outreach</code></td>
-      <td>Generate persuasive cold emails quickly.</td>
-    </tr>
-    <tr>
-      <td><code>Customer Support</code></td>
-      <td>Draft clear and helpful email responses.</td>
-    </tr>
-    <tr>
-      <td><code>Internal Communication</code></td>
-      <td>Create team updates and status emails.</td>
-    </tr>
-    <tr>
-      <td><code>Email Review</code></td>
-      <td>Summarize lengthy email conversations into key points.</td>
-    </tr>
-  </tbody>
-</table>
 
 ## <span>Tech Stack</span>
 
@@ -73,26 +47,7 @@
   <li><b>Email Service:</b> SMTP, SendGrid, or similar provider</li>
 </ul>
 
-## <span>HTML Tags Showcase</span>
 
-<p>This README intentionally uses many supported HTML tags that generally render inside GitHub README files.</p>
-
-<details>
-  <summary><strong>Click to view included HTML tags</strong></summary>
-
-  <ul>
-    <li><code>&lt;h1&gt;</code> to <code>&lt;h3&gt;</code></li>
-    <li><code>&lt;p&gt;</code></li>
-    <li><code>&lt;strong&gt;</code>, <code>&lt;b&gt;</code></li>
-    <li><code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;li&gt;</code></li>
-    <li><code>&lt;table&gt;</code>, <code>&lt;thead&gt;</code>, <code>&lt;tbody&gt;</code>, <code>&lt;tr&gt;</code>, <code>&lt;th&gt;</code>, <code>&lt;td&gt;</code></li>
-    <li><code>&lt;code&gt;</code></li>
-    <li><code>&lt;details&gt;</code>, <code>&lt;summary&gt;</code></li>
-    <li><code>&lt;hr&gt;</code></li>
-    <li><code>&lt;img&gt;</code></li>
-    <li><code>&lt;span&gt;</code></li>
-  </ul>
-</details>
 
 
 ## <span>Example Prompt</span>
@@ -110,6 +65,4 @@ Write a professional follow-up email to a client after a product demo and keep t
   <li>Integrate with Gmail and Outlook APIs.</li>
 </ul>
 
-## <span>Contributing</span>
 
-<p>Contributions, feature requests, and suggestions are welcome.</p>
