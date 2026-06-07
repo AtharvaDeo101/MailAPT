@@ -55,6 +55,16 @@ interface DraftEmail {
   createdAt: Date;
 }
 
+interface ScheduledEmail {
+  id: string;
+  subject: string;
+  body: string;
+  recipientEmail: string;
+  scheduledFor: string;
+  createdAt: Date;
+  attachments: File[];
+}
+
 interface GmailEmail {
   id: string;
   subject: string;
@@ -92,6 +102,25 @@ function formatTime(dateStr: string | Date): string {
   const diffHrs = Math.floor(diffMins / 60);
   if (diffHrs < 24) return `${diffHrs}h ago`;
   return date.toLocaleDateString();
+}
+
+function formatScheduledDateTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleString([], {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function toDateTimeLocalValue(date = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
 function formatFileSize(bytes: number): string {
@@ -361,6 +390,36 @@ async function fetchEmailDetail(id: string): Promise<GmailEmailDetail> {
   return res.json();
 }
 
+async function sendEmailRequest({
+  to,
+  subject,
+  body,
+  attachments,
+}: {
+  to: string;
+  subject: string;
+  body: string;
+  attachments: File[];
+}) {
+  const formData = new FormData();
+  formData.append("to", to.trim());
+  formData.append("subject", subject);
+  formData.append("body", body);
+  attachments.forEach((f) => formData.append("attachments", f));
+
+  const res = await fetch(`${API}/send_email`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error((await res.json()).error || "Sending failed");
+  }
+
+  return res.json();
+}
+
 function SenderAvatar({
   from,
   size = 32,
@@ -570,7 +629,6 @@ function ChatPrompt({
           disabled={isLoading}
           className="flex-1 resize-none overflow-y-auto max-h-[120px] bg-transparent border-0 border-b border-muted-foreground/30 rounded-none px-0 py-2 text-sm leading-6 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
         />
-
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
@@ -706,6 +764,86 @@ function EmailPreviewModal({
           <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
             {body || <span className="text-muted-foreground">No body yet.</span>}
           </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ScheduleEmailModal({
+  isOpen,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (scheduledFor: string) => void;
+}) {
+  const [scheduledFor, setScheduledFor] = useState(
+    toDateTimeLocalValue(new Date(Date.now() + 10 * 60 * 1000)),
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setScheduledFor(
+        toDateTimeLocalValue(new Date(Date.now() + 10 * 60 * 1000)),
+      );
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleConfirm = () => {
+    if (!scheduledFor) return;
+    onConfirm(new Date(scheduledFor).toISOString());
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-card shadow-2xl border border-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <CalendarClock className="h-4 w-4 text-primary" />
+            Schedule Email
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              Date and time
+            </label>
+            <Input
+              type="datetime-local"
+              value={scheduledFor}
+              min={toDateTimeLocalValue(new Date())}
+              onChange={(e) => setScheduledFor(e.target.value)}
+            />
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            This UI version sends scheduled emails only while this app stays open.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-border">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirm} disabled={!scheduledFor}>
+            Confirm Schedule
+          </Button>
         </div>
       </div>
     </div>
@@ -863,6 +1001,7 @@ function LeftSidebar({
   inboxCount,
   sentCount,
   draftsCount,
+  scheduledCount,
   onNewEmail,
 }: {
   activeSection: ActiveSection;
@@ -870,6 +1009,7 @@ function LeftSidebar({
   inboxCount: number;
   sentCount: number;
   draftsCount: number;
+  scheduledCount: number;
   onNewEmail: () => void;
 }) {
   const navItems = [
@@ -895,7 +1035,7 @@ function LeftSidebar({
       id: "scheduled" as ActiveSection,
       label: "Scheduled",
       icon: <CalendarClock className="h-4 w-4" />,
-      count: 0,
+      count: scheduledCount,
     },
     {
       id: "favorites" as ActiveSection,
@@ -1117,13 +1257,105 @@ function DraftCard({
   );
 }
 
+function ScheduledEmailCard({
+  item,
+  isActive,
+  onClick,
+  onDelete,
+}: {
+  item: ScheduledEmail;
+  isActive: boolean;
+  onClick: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "group w-full cursor-pointer transition-all duration-150",
+        !isActive && "hover:bg-accent",
+      )}
+      style={{
+        background: isActive
+          ? "color-mix(in srgb, var(--primary) 16%, transparent)"
+          : undefined,
+        border: "none",
+        boxShadow: "none",
+      }}
+      onClick={onClick}
+    >
+      <div className="px-4 py-3">
+        <div className="flex items-start gap-2.5">
+          <div
+            className={cn(
+              "h-8 w-8 rounded-full shrink-0 flex items-center justify-center",
+              !isActive && "bg-muted-foreground/10",
+            )}
+            style={{
+              background: isActive
+                ? "color-mix(in srgb, var(--primary) 18%, transparent)"
+                : undefined,
+            }}
+          >
+            <CalendarClock
+              className="h-3.5 w-3.5"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+              }}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-xs font-medium truncate leading-snug"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--foreground)",
+              }}
+            >
+              {item.subject || "Untitled"}
+            </p>
+            <p
+              className="text-[10px] truncate mt-0.5"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+              }}
+            >
+              {item.recipientEmail || "No recipient"}
+            </p>
+            <p
+              className="text-[10px] truncate mt-1"
+              style={{
+                color: isActive ? "var(--primary)" : "var(--muted-foreground)",
+              }}
+            >
+              Scheduled: {formatScheduledDateTime(item.scheduledFor)}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            aria-label="Delete scheduled email"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmailListPanel({
   activeSection,
   panelVisible,
   inboxEmails,
   sentEmails,
   drafts,
+  scheduledEmails,
   activeDraftId,
+  activeScheduledId,
   inboxLoading,
   sentLoading,
   selectedEmailId,
@@ -1132,13 +1364,17 @@ function EmailListPanel({
   onOpenGmailEmail,
   onSelectDraft,
   onDeleteDraft,
+  onSelectScheduled,
+  onDeleteScheduled,
 }: {
   activeSection: ActiveSection;
   panelVisible: boolean;
   inboxEmails: GmailEmail[];
   sentEmails: GmailEmail[];
   drafts: DraftEmail[];
+  scheduledEmails: ScheduledEmail[];
   activeDraftId: string | null;
+  activeScheduledId: string | null;
   inboxLoading: boolean;
   sentLoading: boolean;
   selectedEmailId: string | null;
@@ -1147,6 +1383,8 @@ function EmailListPanel({
   onOpenGmailEmail: (id: string) => void;
   onSelectDraft: (d: DraftEmail) => void;
   onDeleteDraft: (id: string) => void;
+  onSelectScheduled: (d: ScheduledEmail) => void;
+  onDeleteScheduled: (id: string) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -1178,6 +1416,16 @@ function EmailListPanel({
   };
 
   const filterDrafts = (items: DraftEmail[]) => {
+    if (!searchQuery.trim()) return items;
+    const q = searchQuery.toLowerCase();
+    return items.filter(
+      (d) =>
+        d.subject?.toLowerCase().includes(q) ||
+        d.recipientEmail?.toLowerCase().includes(q),
+    );
+  };
+
+  const filterScheduled = (items: ScheduledEmail[]) => {
     if (!searchQuery.trim()) return items;
     const q = searchQuery.toLowerCase();
     return items.filter(
@@ -1355,17 +1603,28 @@ function EmailListPanel({
               ))
             ))}
 
-          {effectiveSection === "scheduled" && (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-              <CalendarClock className="h-8 w-8 text-muted-foreground/20" />
-              <p
-                className="text-[10px] text-muted-foreground/40 italic"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-              >
-                No scheduled emails
-              </p>
-            </div>
-          )}
+          {effectiveSection === "scheduled" &&
+            (filterScheduled(scheduledEmails).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
+                <CalendarClock className="h-8 w-8 text-muted-foreground/20" />
+                <p
+                  className="text-[10px] text-muted-foreground/40 italic"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+                >
+                  {searchQuery ? "No results found" : "No scheduled emails"}
+                </p>
+              </div>
+            ) : (
+              filterScheduled(scheduledEmails).map((item) => (
+                <ScheduledEmailCard
+                  key={item.id}
+                  item={item}
+                  isActive={activeScheduledId === item.id}
+                  onClick={() => onSelectScheduled(item)}
+                  onDelete={() => onDeleteScheduled(item.id)}
+                />
+              ))
+            ))}
 
           {effectiveSection === "favorites" && (
             <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
@@ -1534,12 +1793,15 @@ export default function EmailGenerator() {
   const [isSending, setIsSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [status, setStatus] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
   const [drafts, setDrafts] = useState<DraftEmail[]>([]);
+  const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [activeScheduledId, setActiveScheduledId] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1606,6 +1868,8 @@ export default function EmailGenerator() {
       detailCloseTimerRef.current = null;
     }
     setSelectedEmailId(id);
+    setActiveDraftId(null);
+    setActiveScheduledId(null);
     if (!detailPanelVisible) {
       requestAnimationFrame(() => setDetailPanelVisible(true));
     } else {
@@ -1640,13 +1904,52 @@ export default function EmailGenerator() {
     };
   }, []);
 
- if (isAuthenticated === null) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <LoadingSpinner />
-    </div>
-  );
-}
+  useEffect(() => {
+    if (!scheduledEmails.length) return;
+
+    const interval = setInterval(async () => {
+      const now = Date.now();
+      const dueEmails = scheduledEmails.filter(
+        (item) => new Date(item.scheduledFor).getTime() <= now,
+      );
+
+      for (const item of dueEmails) {
+        try {
+          await sendEmailRequest({
+            to: item.recipientEmail,
+            subject: item.subject,
+            body: item.body,
+            attachments: item.attachments,
+          });
+
+          setScheduledEmails((prev) => prev.filter((s) => s.id !== item.id));
+          setStatus({
+            type: "success",
+            message: `Scheduled email sent to ${item.recipientEmail}`,
+          });
+          setTimeout(() => setStatus(null), 2500);
+          await queryClient.invalidateQueries({ queryKey: ["emails", "sent"] });
+        } catch (err: any) {
+          setStatus({
+            type: "error",
+            message:
+              err?.message ||
+              `Failed to send scheduled email to ${item.recipientEmail}`,
+          });
+        }
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [scheduledEmails, queryClient]);
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   const addMessage = (role: ChatMessage["role"], content: string) => {
     setMessages((prev) => [
@@ -1678,7 +1981,7 @@ export default function EmailGenerator() {
 
       addMessage(
         "assistant",
-        `I've drafted an email with the subject "${data.subject}". Review and edit it below, then send when ready.`,
+        `I've drafted an email with the subject "${data.subject}". Review and edit it below, then send or schedule it.`,
       );
     } catch (err: any) {
       const msg = err.message || "Unknown error";
@@ -1712,6 +2015,7 @@ export default function EmailGenerator() {
       setActiveDraftId(nd.id);
     }
 
+    setActiveScheduledId(null);
     setStatus({ type: "success", message: "Draft saved." });
     setTimeout(() => setStatus(null), 2000);
   };
@@ -1721,6 +2025,7 @@ export default function EmailGenerator() {
     setBody("");
     setRecipientEmail("");
     setActiveDraftId(null);
+    setActiveScheduledId(null);
     setMessages([]);
     setStatus(null);
     setAttachments([]);
@@ -1733,6 +2038,7 @@ export default function EmailGenerator() {
     setBody(draft.body);
     setRecipientEmail(draft.recipientEmail);
     setActiveDraftId(draft.id);
+    setActiveScheduledId(null);
     setMessages([]);
     setSelectedEmailId(null);
     closeDetailPanel();
@@ -1741,6 +2047,23 @@ export default function EmailGenerator() {
   const handleDeleteDraft = (id: string) => {
     setDrafts((prev) => prev.filter((d) => d.id !== id));
     if (activeDraftId === id) handleNewEmail();
+  };
+
+  const handleSelectScheduled = (item: ScheduledEmail) => {
+    setSubject(item.subject);
+    setBody(item.body);
+    setRecipientEmail(item.recipientEmail);
+    setAttachments(item.attachments);
+    setActiveScheduledId(item.id);
+    setActiveDraftId(null);
+    setMessages([]);
+    setSelectedEmailId(null);
+    closeDetailPanel();
+  };
+
+  const handleDeleteScheduled = (id: string) => {
+    setScheduledEmails((prev) => prev.filter((d) => d.id !== id));
+    if (activeScheduledId === id) handleNewEmail();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1757,21 +2080,12 @@ export default function EmailGenerator() {
     setStatus(null);
 
     try {
-      const formData = new FormData();
-      formData.append("to", recipientEmail.trim());
-      formData.append("subject", subject);
-      formData.append("body", body);
-      attachments.forEach((f) => formData.append("attachments", f));
-
-      const res = await fetch(`${API}/send_email`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
+      await sendEmailRequest({
+        to: recipientEmail,
+        subject,
+        body,
+        attachments,
       });
-
-      if (!res.ok) {
-        throw new Error((await res.json()).error || "Sending failed");
-      }
 
       setStatus({
         type: "success",
@@ -1790,13 +2104,56 @@ export default function EmailGenerator() {
       );
 
       setAttachments([]);
-
       await queryClient.invalidateQueries({ queryKey: ["emails", "sent"] });
     } catch (err: any) {
       setStatus({ type: "error", message: err.message || "Unknown error" });
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleScheduleConfirm = (scheduledFor: string) => {
+    if (!body.trim() || !recipientEmail.trim()) {
+      setStatus({
+        type: "error",
+        message: "Recipient and email body are required to schedule.",
+      });
+      return;
+    }
+
+    const when = new Date(scheduledFor);
+    if (isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+      setStatus({
+        type: "error",
+        message: "Please choose a future date and time.",
+      });
+      return;
+    }
+
+    const newScheduled: ScheduledEmail = {
+      id: `${Date.now()}-${Math.random()}`,
+      subject,
+      body,
+      recipientEmail,
+      scheduledFor,
+      createdAt: new Date(),
+      attachments: [...attachments],
+    };
+
+    setScheduledEmails((prev) =>
+      [...prev, newScheduled].sort(
+        (a, b) =>
+          new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime(),
+      ),
+    );
+    setActiveScheduledId(newScheduled.id);
+    setActiveDraftId(null);
+    setScheduleOpen(false);
+    setStatus({
+      type: "success",
+      message: `Email scheduled for ${formatScheduledDateTime(scheduledFor)}`,
+    });
+    setTimeout(() => setStatus(null), 2500);
   };
 
   const handleCopy = () => {
@@ -1818,6 +2175,7 @@ export default function EmailGenerator() {
           inboxCount={inboxEmails.length}
           sentCount={sentEmails.length}
           draftsCount={drafts.length}
+          scheduledCount={scheduledEmails.length}
           onNewEmail={handleNewEmail}
         />
 
@@ -1827,7 +2185,9 @@ export default function EmailGenerator() {
           inboxEmails={inboxEmails}
           sentEmails={sentEmails}
           drafts={drafts}
+          scheduledEmails={scheduledEmails}
           activeDraftId={activeDraftId}
+          activeScheduledId={activeScheduledId}
           inboxLoading={inboxLoading}
           sentLoading={sentLoading}
           selectedEmailId={selectedEmailId}
@@ -1836,6 +2196,8 @@ export default function EmailGenerator() {
           onOpenGmailEmail={handleOpenGmailEmail}
           onSelectDraft={handleSelectDraft}
           onDeleteDraft={handleDeleteDraft}
+          onSelectScheduled={handleSelectScheduled}
+          onDeleteScheduled={handleDeleteScheduled}
         />
 
         <div className="flex-1 min-w-0 relative overflow-hidden bg-background/50">
@@ -1929,6 +2291,17 @@ export default function EmailGenerator() {
                           )}
                           {copied ? "Copied" : "Copy"}
                         </Button>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPreviewOpen(true)}
+                          className="gap-2"
+                        >
+                          <Mail className="h-4 w-4" />
+                          Preview
+                        </Button>
                       </div>
                     </div>
 
@@ -1963,7 +2336,7 @@ export default function EmailGenerator() {
                         </Button>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
                         <Button
                           type="button"
                           variant="outline"
@@ -1972,6 +2345,17 @@ export default function EmailGenerator() {
                         >
                           <Save className="h-4 w-4" />
                           Save Draft
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setScheduleOpen(true)}
+                          disabled={!recipientEmail.trim() || !body.trim()}
+                          className="gap-2"
+                        >
+                          <CalendarClock className="h-4 w-4" />
+                          Schedule
                         </Button>
 
                         <Button
@@ -2011,10 +2395,6 @@ export default function EmailGenerator() {
                     )}
                   </div>
                 )}
-
-                <p className="text-center text-xs text-muted-foreground pb-4">
-                  Powered by AI · Review before sending
-                </p>
               </div>
             </div>
           </main>
@@ -2035,6 +2415,12 @@ export default function EmailGenerator() {
         subject={subject}
         body={body}
         attachments={attachments}
+      />
+
+      <ScheduleEmailModal
+        isOpen={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        onConfirm={handleScheduleConfirm}
       />
     </div>
   );
