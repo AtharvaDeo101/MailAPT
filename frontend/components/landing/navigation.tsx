@@ -81,7 +81,7 @@ export function Navigation() {
               transition: "font-size 0.5s ease",
             }}
           >
-            MailAPT
+            Mailly
           </span>
 
           {/* ── Desktop right actions ── */}

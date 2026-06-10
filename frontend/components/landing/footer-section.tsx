@@ -23,9 +23,9 @@ const playfair = "'Playfair Display', Georgia, serif";
 
 export function FooterSection() {
   return (
-    <footer className="relative border-t border-foreground/10">
+    <footer className="relative bg-black border-t border-white/10">
       {/* Animated wave background */}
-      <div className="absolute inset-0 h-64 opacity-20 pointer-events-none overflow-hidden">
+      <div className="absolute inset-0 h-64 opacity-10 pointer-events-none overflow-hidden">
         <AnimatedWave />
       </div>
 
@@ -43,11 +43,11 @@ export function FooterSection() {
                     fontWeight: 500,
                     fontSize: "clamp(1.5rem, 3vw, 2rem)",
                     letterSpacing: "-0.03em",
-                    color: "hsl(var(--foreground))",
+                    color: "rgba(255,255,255,0.95)",
                     lineHeight: 1,
                   }}
                 >
-                  MailAPT
+                  Mailly
                 </span>
               </a>
 
@@ -58,7 +58,7 @@ export function FooterSection() {
                   fontStyle: "italic",
                   fontWeight: 400,
                   fontSize: "clamp(0.95rem, 1.4vw, 1.05rem)",
-                  color: "hsl(var(--muted-foreground) / 0.72)",
+                  color: "rgba(255,255,255,0.68)",
                   lineHeight: 1.8,
                   letterSpacing: "0.01em",
                 }}
@@ -76,13 +76,13 @@ export function FooterSection() {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="transition-colors flex items-center gap-1 group"
+                    className="transition-colors flex items-center gap-1 group hover:text-white"
                     style={{
                       fontFamily: playfair,
                       fontStyle: "italic",
                       fontWeight: 400,
                       fontSize: "0.92rem",
-                      color: "hsl(var(--muted-foreground) / 0.72)",
+                      color: "rgba(255,255,255,0.68)",
                       textDecoration: "none",
                       letterSpacing: "0.01em",
                     }}
@@ -104,7 +104,7 @@ export function FooterSection() {
                     fontStyle: "italic",
                     fontWeight: 500,
                     fontSize: "0.95rem",
-                    color: "hsl(var(--foreground))",
+                    color: "rgba(255,255,255,0.94)",
                     letterSpacing: "-0.01em",
                   }}
                 >
@@ -116,20 +116,20 @@ export function FooterSection() {
                     <li key={link.name}>
                       <a
                         href={link.href}
-                        className="inline-flex items-center gap-2 transition-colors"
+                        className="inline-flex items-center gap-2 transition-colors hover:text-white"
                         style={{
                           fontFamily: playfair,
                           fontStyle: "italic",
                           fontWeight: 400,
                           fontSize: "0.92rem",
-                          color: "hsl(var(--muted-foreground) / 0.72)",
+                          color: "rgba(255,255,255,0.68)",
                           textDecoration: "none",
                           letterSpacing: "0.01em",
                         }}
                       >
                         {link.name}
                         {"badge" in link && link.badge && (
-                          <span className="text-xs px-2 py-0.5 bg-foreground text-background rounded-full">
+                          <span className="text-xs px-2 py-0.5 bg-white text-black rounded-full">
                             {link.badge}
                           </span>
                         )}
@@ -143,18 +143,18 @@ export function FooterSection() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="py-8 border-t border-foreground/10 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="py-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p
             style={{
               fontFamily: playfair,
               fontStyle: "italic",
               fontWeight: 400,
               fontSize: "0.9rem",
-              color: "hsl(var(--muted-foreground) / 0.7)",
+              color: "rgba(255,255,255,0.62)",
               letterSpacing: "0.02em",
             }}
           >
-            2026 MailAPT
+            2026 Mailly
           </p>
         </div>
       </div>

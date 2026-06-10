@@ -11,7 +11,7 @@ import './globals.css'
 
 
 export const metadata: Metadata = {
-  title: 'MailAPT',
+  title: 'Mailly',
   description: 'Generate and summarize emails with AI. Compose professional emails faster and understand email content instantly.',
   icons: {
     // Modern browsers — SVG scales perfectly at any size
