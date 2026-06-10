@@ -31,9 +31,7 @@ import {
   RefreshCw,
   Paperclip,
   FileText,
-  Star,
   CalendarClock,
-  Settings,
   Search,
   ChevronRight,
   PanelRightOpen,
@@ -87,8 +85,6 @@ type ActiveSection =
   | "sent"
   | "drafts"
   | "scheduled"
-  | "favorites"
-  | "settings"
   | null;
 
 function formatTime(dateStr: string | Date): string {
@@ -858,7 +854,6 @@ function AttachmentList({
   onRemove: (i: number) => void;
 }) {
   if (files.length === 0) return null;
-
   return (
     <div className="flex flex-wrap gap-2 mt-2">
       {files.map((file, i) => (
@@ -1037,12 +1032,6 @@ function LeftSidebar({
       icon: <CalendarClock className="h-4 w-4" />,
       count: scheduledCount,
     },
-    {
-      id: "favorites" as ActiveSection,
-      label: "Favorites",
-      icon: <Star className="h-4 w-4" />,
-      count: 0,
-    },
   ];
 
   return (
@@ -1076,12 +1065,6 @@ function LeftSidebar({
             onClick={() => onSelect(item.id)}
           />
         ))}
-        <div className="mx-4 my-2 h-px bg-border" />
-        <SidebarNavItem
-          item={{ label: "Settings", icon: <Settings className="h-4 w-4" /> }}
-          isActive={activeSection === "settings"}
-          onClick={() => onSelect("settings")}
-        />
       </nav>
     </aside>
   );
@@ -1388,7 +1371,7 @@ function EmailListPanel({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const shouldRenderPanel = activeSection && activeSection !== "settings";
+  const shouldRenderPanel = !!activeSection;
   const effectiveSection = shouldRenderPanel ? activeSection : "inbox";
 
   const sectionMeta: Record<string, { label: string; icon: React.ReactNode }> =
@@ -1400,7 +1383,6 @@ function EmailListPanel({
         label: "Scheduled",
         icon: <CalendarClock className="h-4 w-4" />,
       },
-      favorites: { label: "Favorites", icon: <Star className="h-4 w-4" /> },
     };
 
   const meta = sectionMeta[effectiveSection!];
@@ -1625,18 +1607,6 @@ function EmailListPanel({
                 />
               ))
             ))}
-
-          {effectiveSection === "favorites" && (
-            <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-              <Star className="h-8 w-8 text-muted-foreground/20" />
-              <p
-                className="text-[10px] text-muted-foreground/40 italic"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-              >
-                No favorites yet
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -1891,9 +1861,7 @@ export default function EmailGenerator() {
     }
 
     setActiveSection(section);
-    requestAnimationFrame(() =>
-      setPanelVisible(section !== "settings" && section !== null),
-    );
+    requestAnimationFrame(() => setPanelVisible(section !== null));
     closeDetailPanel();
   };
 

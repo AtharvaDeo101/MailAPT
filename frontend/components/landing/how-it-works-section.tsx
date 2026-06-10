@@ -105,7 +105,7 @@ export function HowItWorksSection() {
       id="how-it-works"
       ref={sectionRef}
       className="relative py-24 lg:py-32 text-background overflow-hidden"
-      style={{ backgroundColor: "#06202B" }}
+      style={{ backgroundColor: "#000000" }}
     >
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
         <div
