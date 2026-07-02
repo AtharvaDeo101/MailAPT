@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/landing/loading-spinner";
 
 import { fetchEmailDetail, fetchEmails, sendEmailRequest, API } from "./_lib/api";
@@ -30,7 +28,6 @@ export default function EmailGenerator() {
 
   const queryClient = useQueryClient();
 
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState("");
@@ -83,8 +80,6 @@ export default function EmailGenerator() {
   const {
     data: detailEmail,
     isLoading: detailLoading,
-    isError: detailError,
-    error: detailErrorValue,
   } = useQuery<GmailEmailDetail>({
     queryKey: ["email", selectedEmailId],
     queryFn: () => fetchEmailDetail(selectedEmailId as string),
@@ -379,68 +374,54 @@ export default function EmailGenerator() {
   }
 
   return (
-    <div className={isDarkMode ? "dark h-screen bg-white flex flex-col overflow-hidden" : "h-screen bg-white flex flex-col overflow-hidden"}>
-      <div className="flex items-center justify-end px-6 md:px-8 py-4 border-b border-border bg-white">
-        <Button
-          type="button"
-          variant="outline"
-          className="rounded-none gap-2 bg-white"
-          onClick={() => setIsDarkMode((prev) => !prev)}
-        >
-          {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {isDarkMode ? "Light" : "Dark"}
-        </Button>
+    <div className="h-screen bg-white flex overflow-hidden">
+      <div className="h-full self-stretch">
+        <LeftSidebar
+          activeSection={activeSection}
+          onSelect={handleSectionSelect}
+          inboxCount={inboxEmails.length}
+          sentCount={sentEmails.length}
+          draftsCount={drafts.length}
+          scheduledCount={scheduledEmails.length}
+          onNewEmail={handleNewEmail}
+        />
       </div>
 
-      <div className="flex flex-1 min-h-0 overflow-hidden bg-white">
-        <div className="h-full self-stretch">
-          <LeftSidebar
+      <div className="flex-1 min-w-0 relative overflow-hidden bg-white h-full">
+        <main
+          className="h-full transition-all duration-300"
+          style={{
+            filter: detailPanelVisible ? "blur(1.5px)" : "none",
+            transform: detailPanelVisible ? "scale(0.995)" : "scale(1)",
+          }}
+        >
+          <EmailListView
             activeSection={activeSection}
-            onSelect={handleSectionSelect}
-            inboxCount={inboxEmails.length}
-            sentCount={sentEmails.length}
-            draftsCount={drafts.length}
-            scheduledCount={scheduledEmails.length}
-            onNewEmail={handleNewEmail}
+            inboxEmails={inboxEmails}
+            sentEmails={sentEmails}
+            drafts={drafts}
+            scheduledEmails={scheduledEmails}
+            activeDraftId={activeDraftId}
+            activeScheduledId={activeScheduledId}
+            inboxLoading={inboxLoading}
+            sentLoading={sentLoading}
+            selectedEmailId={selectedEmailId}
+            onRefreshInbox={refetchInbox}
+            onRefreshSent={refetchSent}
+            onOpenGmailEmail={handleOpenGmailEmail}
+            onSelectDraft={handleSelectDraft}
+            onDeleteDraft={handleDeleteDraft}
+            onSelectScheduled={handleSelectScheduled}
+            onDeleteScheduled={handleDeleteScheduled}
           />
-        </div>
+        </main>
 
-        <div className="flex-1 min-w-0 relative overflow-hidden bg-white h-full">
-          <main
-            className="h-full transition-all duration-300"
-            style={{
-              filter: detailPanelVisible ? "blur(1.5px)" : "none",
-              transform: detailPanelVisible ? "scale(0.995)" : "scale(1)",
-            }}
-          >
-            <EmailListView
-              activeSection={activeSection}
-              inboxEmails={inboxEmails}
-              sentEmails={sentEmails}
-              drafts={drafts}
-              scheduledEmails={scheduledEmails}
-              activeDraftId={activeDraftId}
-              activeScheduledId={activeScheduledId}
-              inboxLoading={inboxLoading}
-              sentLoading={sentLoading}
-              selectedEmailId={selectedEmailId}
-              onRefreshInbox={refetchInbox}
-              onRefreshSent={refetchSent}
-              onOpenGmailEmail={handleOpenGmailEmail}
-              onSelectDraft={handleSelectDraft}
-              onDeleteDraft={handleDeleteDraft}
-              onSelectScheduled={handleSelectScheduled}
-              onDeleteScheduled={handleDeleteScheduled}
-            />
-          </main>
-
-          <EmailDetailOverlayPanel
-            isVisible={detailPanelVisible}
-            email={detailEmail ?? null}
-            isLoading={!!selectedEmailId && detailLoading}
-            onClose={closeDetailPanel}
-          />
-        </div>
+        <EmailDetailOverlayPanel
+          isVisible={detailPanelVisible}
+          email={detailEmail ?? null}
+          isLoading={!!selectedEmailId && detailLoading}
+          onClose={closeDetailPanel}
+        />
       </div>
 
       <ComposeModal
