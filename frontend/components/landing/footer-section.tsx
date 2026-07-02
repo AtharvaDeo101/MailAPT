@@ -2,10 +2,11 @@
 
 import { ArrowUpRight } from "lucide-react";
 
+
 const footerLinks = {
-  Product: [
+  Links: [
     { name: "Generate", href: "/generate" },
-    { name: "Summarize", href: "/summarize" },
+    // { name: "Summarize", href: "/summarize" },
   ],
 };
 
@@ -22,7 +23,7 @@ const playfair = "'Playfair Display', Georgia, serif";
 
 export function FooterSection() {
   return (
-    <footer className="relative bg-black border-t border-white/10">
+    <footer className="relative bg-[#121931] border-t border-white/10">
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Main Footer */}
         <div className="py-16 lg:py-24">

@@ -22,7 +22,6 @@ const securityFeatures = [
   },
 ];
 
-const certifications = ["SOC 2", "ISO 27001", "HIPAA", "GDPR", "CCPA"];
 
 const playfair = "'Playfair Display', Georgia, serif";
 
@@ -120,7 +119,8 @@ export function SecuritySection() {
           </div>
 
           {/* Right: Features */}
-          <div className="grid gap-6">
+          <div className="grid gap-6 " >
+            
             {securityFeatures.map((feature, index) => (
               <div
                 key={feature.title}
@@ -178,24 +178,7 @@ export function SecuritySection() {
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
           }`}
         >
-          <div className="flex flex-wrap gap-3">
-            {certifications.map((item) => (
-              <span
-                key={item}
-                className="px-4 py-2 border border-foreground/10 rounded-full"
-                style={{
-                  fontFamily: playfair,
-                  fontStyle: "italic",
-                  fontWeight: 400,
-                  fontSize: "0.85rem",
-                  color: "hsl(var(--muted-foreground) / 0.7)",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
+  
         </div>
       </div>
     </section>

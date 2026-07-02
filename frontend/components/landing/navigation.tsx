@@ -22,7 +22,9 @@ export function Navigation() {
     const checkAuth = async () => {
       setCheckingAuth(true);
       try {
-        const res = await fetch("http://localhost:5000/me", { credentials: "include" });
+        const res = await fetch("http://localhost:5000/me", {
+          credentials: "include",
+        });
         if (res.ok) {
           const data = await res.json();
           setIsAuthenticated("emailAddress" in data);
@@ -40,7 +42,10 @@ export function Navigation() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:5000/logout", { method: "POST", credentials: "include" });
+      await fetch("http://localhost:5000/logout", {
+        method: "POST",
+        credentials: "include",
+      });
     } catch {
       // silently fail
     } finally {
@@ -48,6 +53,17 @@ export function Navigation() {
       window.location.href = "/";
     }
   };
+
+  const topTextColor = isScrolled ? "hsl(var(--foreground))" : "#ffffff";
+  const topMutedTextColor = isScrolled
+    ? "hsl(var(--foreground) / 0.72)"
+    : "rgba(255,255,255,0.88)";
+  const topBorderColor = isScrolled
+    ? "hsl(var(--foreground) / 0.2)"
+    : "rgba(255,255,255,0.28)";
+  const topHoverBg = isScrolled
+    ? "hsl(var(--foreground) / 0.05)"
+    : "rgba(255,255,255,0.08)";
 
   return (
     <header
@@ -67,43 +83,61 @@ export function Navigation() {
             isScrolled ? "h-14" : "h-20"
           }`}
         >
-
-          {/* ── Logo — no link, just text ── */}
-          <span
+          {/* Logo */}
+          <a
+            href="/"
             style={{
               fontFamily: playfair,
               fontStyle: "italic",
               fontWeight: 500,
               letterSpacing: "-0.03em",
               lineHeight: 1,
-              color: "hsl(var(--foreground))",
+              color: topTextColor,
               fontSize: isScrolled ? "1.2rem" : "1.5rem",
-              transition: "font-size 0.5s ease",
+              transition: "font-size 0.5s ease, color 0.3s ease",
+              textDecoration: "none",
             }}
           >
             Mailly
-          </span>
+          </a>
 
-          {/* ── Desktop right actions ── */}
+
+
+          {/* Desktop right actions */}
           <div className="hidden md:flex items-center gap-3">
             <ThemeToggle isScrolled={isScrolled} />
+
             {checkingAuth ? (
-              <div className="w-28 h-9 rounded-full bg-foreground/10 animate-pulse" />
+              <div
+                className="w-28 h-9 rounded-full animate-pulse"
+                style={{
+                  background: isScrolled
+                    ? "hsl(var(--foreground) / 0.1)"
+                    : "rgba(255,255,255,0.16)",
+                }}
+              />
             ) : isAuthenticated ? (
               <button
                 onClick={handleLogout}
-                className="rounded-full border border-foreground/20 transition-all duration-300 hover:border-foreground/50 hover:bg-foreground/5"
+                className="rounded-full transition-all duration-300"
                 style={{
                   fontFamily: playfair,
                   fontStyle: "italic",
                   fontWeight: 400,
                   fontSize: isScrolled ? "0.75rem" : "0.875rem",
-                  color: "hsl(var(--foreground) / 0.7)",
+                  color: topMutedTextColor,
                   padding: isScrolled ? "0.3rem 1rem" : "0.45rem 1.25rem",
                   letterSpacing: "0.01em",
                   transition: "all 0.3s ease",
                   background: "transparent",
                   cursor: "pointer",
+                  border: `1px solid ${topBorderColor}`,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = topHoverBg;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
                 }}
               >
                 Sign out
@@ -117,13 +151,19 @@ export function Navigation() {
                   fontStyle: "italic",
                   fontWeight: 500,
                   fontSize: isScrolled ? "0.75rem" : "0.875rem",
-                  color: "hsl(var(--primary-foreground))",
-                  background: "hsl(var(--primary))",
+                  color: isScrolled ? "hsl(var(--primary-foreground))" : "#ffffff",
+                  background: isScrolled
+                    ? "hsl(var(--primary))"
+                    : "rgba(255,255,255,0.12)",
+                  border: isScrolled
+                    ? "1px solid transparent"
+                    : "1px solid rgba(255,255,255,0.24)",
                   padding: isScrolled ? "0.3rem 1rem" : "0.45rem 1.5rem",
                   letterSpacing: "-0.01em",
                   textDecoration: "none",
                   display: "inline-block",
                   transition: "all 0.3s ease",
+                  backdropFilter: isScrolled ? "none" : "blur(8px)",
                 }}
               >
                 Get Started
@@ -131,13 +171,14 @@ export function Navigation() {
             )}
           </div>
 
-          {/* ── Mobile right actions ── */}
+          {/* Mobile right actions */}
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle isScrolled={isScrolled} />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2"
+              className="p-2 transition-colors duration-300"
               aria-label="Toggle menu"
+              style={{ color: topTextColor }}
             >
               {isMobileMenuOpen ? (
                 <X className="w-6 h-6" />
@@ -148,7 +189,7 @@ export function Navigation() {
           </div>
         </div>
 
-        {/* ── Mobile menu ── */}
+        {/* Mobile menu */}
         <div
           className={`md:hidden fixed inset-0 bg-background z-40 transition-all duration-500 ${
             isMobileMenuOpen
@@ -158,6 +199,16 @@ export function Navigation() {
           style={{ top: 0 }}
         >
           <div className="flex flex-col h-full px-8 pt-28 pb-8">
+            <div
+              className={`flex flex-col gap-6 transition-all duration-500 ${
+                isMobileMenuOpen
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-4"
+              }`}
+            >
+
+            </div>
+
             <div
               className={`flex gap-4 pt-8 border-t border-foreground/10 mt-auto transition-all duration-500 ${
                 isMobileMenuOpen

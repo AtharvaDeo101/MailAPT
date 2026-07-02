@@ -227,14 +227,12 @@ def send_email():
     try:
         content_type = request.content_type or ""
 
-        # FormData path (with or without attachments)
         if "multipart/form-data" in content_type:
             to = request.form.get("to", "").strip()
             subject = request.form.get("subject", "")
             body = request.form.get("body", "")
             uploaded_files = request.files.getlist("attachments")
         else:
-            # Safe JSON parse — won't throw on wrong content-type
             data = request.get_json(force=True, silent=True) or {}
             to = (data.get("to") or "").strip()
             subject = data.get("subject", "")
@@ -275,7 +273,6 @@ def send_email():
     except Exception as e:
         app.logger.error(f"send_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-    
 
 
 @app.route("/list_emails", methods=["GET"])
@@ -365,10 +362,9 @@ def list_emails():
         })
 
     except Exception as e:
+        app.logger.error(f"list_emails error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-    
 
-    
 
 def _decode_body(data: str) -> str:
     if not data:
@@ -424,25 +420,30 @@ def get_email(email_id):
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
-    msg = (
-        service.users()
-        .messages()
-        .get(userId="me", id=email_id, format="full")
-        .execute()
-    )
-    payload = msg.get("payload", {})
-    headers = payload.get("headers", [])
-    bodies = extract_email_body(payload)
+    try:
+        msg = (
+            service.users()
+            .messages()
+            .get(userId="me", id=email_id, format="full")
+            .execute()
+        )
 
-    return jsonify({
-        "id": email_id,
-        "subject": next((h["value"] for h in headers if h["name"] == "Subject"), ""),
-        "from": next((h["value"] for h in headers if h["name"] == "From"), ""),
-        "date": next((h["value"] for h in headers if h["name"] == "Date"), ""),
-        "body": bodies["plain_body"],
-        "plain_body": bodies["plain_body"],
-        "html_body": bodies["html_body"],
-    })
+        payload = msg.get("payload", {})
+        headers = payload.get("headers", [])
+        bodies = extract_email_body(payload)
+
+        return jsonify({
+            "id": email_id,
+            "subject": next((h.get("value", "") for h in headers if h.get("name") == "Subject"), ""),
+            "from": next((h.get("value", "") for h in headers if h.get("name") == "From"), ""),
+            "date": next((h.get("value", "") for h in headers if h.get("name") == "Date"), ""),
+            "body": bodies.get("plain_body", ""),
+            "plain_body": bodies.get("plain_body", ""),
+            "html_body": bodies.get("html_body", ""),
+        })
+    except Exception as e:
+        app.logger.error(f"get_email error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/create_draft", methods=["POST"])

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatedSphere } from "./animated-sphere";
 
 const words = ["write", "generate", "summarize", "send"];
 
@@ -26,7 +25,7 @@ export function HeroSection() {
       {/* Background image */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <img
-          src="/image1.jpg"
+          src="/1.jpg"
           alt=""
           width={1400}
           height={800}
@@ -40,7 +39,6 @@ export function HeroSection() {
 
       {/* Animated sphere */}
       <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] lg:w-[800px] lg:h-[800px] opacity-40 pointer-events-none z-10">
-        <AnimatedSphere />
       </div>
 
       {/* Grid lines */}
