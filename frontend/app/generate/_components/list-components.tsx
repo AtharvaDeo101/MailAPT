@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import DOMPurify from "dompurify";
 import {
   CalendarClock,
   Folder,
@@ -10,7 +11,7 @@ import {
   MailOpen,
   RefreshCw,
   Search,
-  SendHorizonal,
+  SendHorizontal,
   Trash2,
   X,
   PanelRightOpen,
@@ -26,7 +27,7 @@ import {
   getSenderDisplayName,
   getSenderInitial,
 } from "../_lib/generate-utils";
-import {
+import type {
   ActiveSection,
   DraftEmail,
   FolderItem,
@@ -40,12 +41,6 @@ type SidebarSection = ActiveSection | "folder";
 
 type GmailEmailWithFolder = GmailEmail & {
   folderId?: string | null;
-};
-
-type FolderItem = {
-  id: string;
-  name: string;
-  count?: number;
 };
 
 function SenderAvatar({
@@ -272,6 +267,7 @@ function DraftCard({
               }}
             />
           </div>
+
           <div className="min-w-0 flex-1">
             <p
               className="text-sm font-medium truncate leading-snug"
@@ -290,6 +286,7 @@ function DraftCard({
               {draft.recipientEmail || "No recipient"}
             </p>
           </div>
+
           <Button
             variant="ghost"
             size="icon"
@@ -303,6 +300,7 @@ function DraftCard({
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
+
         <div className="flex items-center gap-1 mt-2 pl-10">
           <span
             className="text-[10px] tabular-nums"
@@ -369,6 +367,7 @@ function ScheduledEmailCard({
               }}
             />
           </div>
+
           <div className="min-w-0 flex-1">
             <p
               className="text-sm font-medium truncate leading-snug"
@@ -395,6 +394,7 @@ function ScheduledEmailCard({
               Scheduled {formatScheduledDateTime(item.scheduledFor)}
             </p>
           </div>
+
           <Button
             variant="ghost"
             size="icon"
@@ -467,8 +467,8 @@ export function EmailListView({
 
   const filterEmails = (emails: GmailEmailWithFolder[]) => {
     if (!searchQuery.trim()) return emails;
-
     const q = searchQuery.toLowerCase();
+
     return emails.filter(
       (e) =>
         e.subject?.toLowerCase().includes(q) ||
@@ -479,6 +479,7 @@ export function EmailListView({
   const filterDrafts = (items: DraftEmail[]) => {
     if (!searchQuery.trim()) return items;
     const q = searchQuery.toLowerCase();
+
     return items.filter(
       (d) =>
         d.subject?.toLowerCase().includes(q) ||
@@ -489,6 +490,7 @@ export function EmailListView({
   const filterScheduled = (items: ScheduledEmail[]) => {
     if (!searchQuery.trim()) return items;
     const q = searchQuery.toLowerCase();
+
     return items.filter(
       (d) =>
         d.subject?.toLowerCase().includes(q) ||
@@ -534,7 +536,7 @@ export function EmailListView({
     },
     sent: {
       label: "Sent",
-      icon: <SendHorizonal className="h-5 w-5" />,
+      icon: <SendHorizontal className="h-5 w-5" />,
       description: "Emails you've already sent",
     },
     drafts: {
@@ -574,6 +576,7 @@ export function EmailListView({
               >
                 {meta.icon}
               </span>
+
               <div>
                 <h1
                   style={{
@@ -597,9 +600,7 @@ export function EmailListView({
                 variant="outline"
                 size="icon"
                 className="h-9 w-9 text-muted-foreground rounded-none bg-card"
-                onClick={
-                  activeSection === "inbox" ? onRefreshInbox : onRefreshSent
-                }
+                onClick={activeSection === "inbox" ? onRefreshInbox : onRefreshSent}
                 aria-label={`Refresh ${meta.label}`}
               >
                 <RefreshCw
@@ -681,7 +682,7 @@ export function EmailListView({
                 </div>
               ) : visibleEmails.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <SendHorizonal className="h-10 w-10 text-muted-foreground/20" />
+                  <SendHorizontal className="h-10 w-10 text-muted-foreground/20" />
                   <p
                     className="text-sm text-muted-foreground/40 italic"
                     style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
@@ -790,16 +791,23 @@ export function EmailDetailOverlayPanel({
   isVisible,
   email,
   isLoading,
+  errorMessage,
   onClose,
 }: {
   isVisible: boolean;
   email: GmailEmailDetail | null;
   isLoading: boolean;
+  errorMessage?: string | null;
   onClose: () => void;
 }) {
-  const plain = email?.plain_body || email?.body;
-  const html = email?.html_body;
+  const plain = email?.plain_body || email?.body || "";
+  const html = email?.html_body || "";
   const hasHtml = Boolean(html && html.trim());
+
+  const sanitizedHtml = useMemo(() => {
+    if (!hasHtml) return "";
+    return DOMPurify.sanitize(html);
+  }, [hasHtml, html]);
 
   return (
     <div
@@ -848,9 +856,9 @@ export function EmailDetailOverlayPanel({
         {isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Loading email</p>
+            <p className="text-sm text-muted-foreground">Loading email...</p>
           </div>
-        ) : !email ? (
+        ) : errorMessage ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
             <Mail className="h-10 w-10 text-muted-foreground/30" />
             <div>
@@ -858,7 +866,19 @@ export function EmailDetailOverlayPanel({
                 Unable to load email
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                The message details could not be fetched.
+                {errorMessage}
+              </p>
+            </div>
+          </div>
+        ) : !email ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
+            <Mail className="h-10 w-10 text-muted-foreground/30" />
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                No email selected
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Select an email to view its details.
               </p>
             </div>
           </div>
@@ -867,8 +887,7 @@ export function EmailDetailOverlayPanel({
             <div
               className="mx-5 mt-5 rounded-none px-4 py-4 text-sm shrink-0 border border-border bg-card"
               style={{
-                background:
-                  "color-mix(in oklab, #121931 8%, white)",
+                background: "color-mix(in oklab, #121931 8%, white)",
                 boxShadow:
                   "0 0 0 1px color-mix(in srgb, #121931 8%, var(--border)), 0 8px 22px color-mix(in srgb, #121931 8%, transparent)",
               }}
@@ -901,7 +920,7 @@ export function EmailDetailOverlayPanel({
                       Date
                     </span>
                     <span className="break-words text-foreground">
-                      {email.date}
+                      {email.date || "—"}
                     </span>
                   </div>
                 </div>
@@ -919,7 +938,7 @@ export function EmailDetailOverlayPanel({
                 {hasHtml ? (
                   <div
                     className="prose prose-sm max-w-none dark:prose-invert"
-                    dangerouslySetInnerHTML={{ __html: html! }}
+                    dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                   />
                 ) : (
                   <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">

@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_session import Session
 from huggingface_hub import InferenceClient
@@ -18,6 +18,8 @@ os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
 def create_app():
     app = Flask(__name__)
     app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(24)
+
+    frontend_origin = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
 
     app.config.update(
         SESSION_TYPE="filesystem",
@@ -48,11 +50,19 @@ def create_app():
 
     CORS(
         app,
-        resources={r"/*": {"origins": "http://localhost:3000"}},
         supports_credentials=True,
+        resources={
+            r"/*": {
+                "origins": [frontend_origin]
+            }
+        },
     )
 
     app.hf_client = InferenceClient(token=app.config["HF_API_TOKEN"])
+
+    @app.get("/health")
+    def health():
+        return jsonify({"ok": True, "frontend_origin": frontend_origin})
 
     app.register_blueprint(oauth_bp)
     app.register_blueprint(email_bp)

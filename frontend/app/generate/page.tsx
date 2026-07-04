@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/landing/loading-spinner";
 
 import { fetchEmailDetail, fetchEmails, sendEmailRequest, API } from "./_lib/api";
-import {
+import type {
   ActiveSection,
   ChatMessage,
   DraftEmail,
@@ -19,7 +19,11 @@ import { formatScheduledDateTime } from "./_lib/generate-utils";
 
 import { LeftSidebar } from "./_components/sidebar-components";
 import { EmailDetailOverlayPanel, EmailListView } from "./_components/list-components";
-import { ComposeModal, EmailPreviewModal, ScheduleEmailModal } from "./_components/compose-components";
+import {
+  ComposeModal,
+  EmailPreviewModal,
+  ScheduleEmailModal,
+} from "./_components/compose-components";
 
 type SidebarSection = ActiveSection | "folder";
 
@@ -111,10 +115,13 @@ export default function EmailGenerator() {
       if (!selectedEmailId) {
         throw new Error("No email selected");
       }
+
       const data = await fetchEmailDetail(selectedEmailId);
+
       if (!data || !data.id) {
         throw new Error("Email detail response was empty");
       }
+
       return data;
     },
     enabled: !!user && !!selectedEmailId,
@@ -123,6 +130,12 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
     retry: false,
   });
+
+  const detailErrorMessage = useMemo(() => {
+    if (!detailIsError) return null;
+    if (detailError instanceof Error) return detailError.message;
+    return "Failed to load email details.";
+  }, [detailIsError, detailError]);
 
   useEffect(() => {
     if (detailIsError) {
@@ -138,20 +151,33 @@ export default function EmailGenerator() {
   }, [detailIsError, detailError]);
 
   const closeDetailPanel = () => {
-    if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
+    const closingEmailId = selectedEmailId;
+
+    if (detailCloseTimerRef.current) {
+      clearTimeout(detailCloseTimerRef.current);
+    }
+
     detailCloseTimerRef.current = null;
     setDetailPanelVisible(false);
+
     detailCloseTimerRef.current = setTimeout(() => {
       setSelectedEmailId(null);
-      queryClient.removeQueries({ queryKey: ["email"] });
+
+      if (closingEmailId) {
+        queryClient.removeQueries({ queryKey: ["email", closingEmailId], exact: true });
+      }
+
+      detailCloseTimerRef.current = null;
     }, 500);
   };
 
   const handleOpenGmailEmail = (id: string) => {
     if (!id) return;
 
-    if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
-    detailCloseTimerRef.current = null;
+    if (detailCloseTimerRef.current) {
+      clearTimeout(detailCloseTimerRef.current);
+      detailCloseTimerRef.current = null;
+    }
 
     setStatus(null);
     setSelectedEmailId(id);
@@ -169,6 +195,7 @@ export default function EmailGenerator() {
       setActiveSection(section);
       setSelectedFolderId(null);
     }
+
     closeDetailPanel();
   };
 
@@ -552,6 +579,7 @@ export default function EmailGenerator() {
           isVisible={detailPanelVisible}
           email={detailIsError ? null : detailEmail ?? null}
           isLoading={!!selectedEmailId && (detailLoading || detailFetching)}
+          errorMessage={detailErrorMessage}
           onClose={closeDetailPanel}
         />
       </div>
@@ -576,7 +604,9 @@ export default function EmailGenerator() {
         fileInputRef={fileInputRef}
         onAddAttachmentClick={() => fileInputRef.current?.click()}
         onFileChange={handleFileChange}
-        onRemoveAttachment={(i) => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+        onRemoveAttachment={(i) =>
+          setAttachments((prev) => prev.filter((_, idx) => idx !== i))
+        }
         onSaveDraft={handleSaveDraft}
         onSchedule={() => setScheduleOpen(true)}
         onSend={handleSend}
