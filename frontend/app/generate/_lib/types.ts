@@ -27,6 +27,7 @@ export interface GmailEmail {
   subject: string;
   from: string;
   date: string;
+  folderId?: string | null;
 }
 
 export interface GmailEmailDetail {
@@ -39,7 +40,13 @@ export interface GmailEmailDetail {
   html_body?: string;
 }
 
-export type ActiveSection = "inbox" | "sent" | "drafts" | "scheduled";
+export interface FolderItem {
+  id: string;
+  name: string;
+  count?: number;
+}
+
+export type ActiveSection = "inbox" | "sent" | "drafts" | "scheduled" | "folder";
 
 export type StatusMessage = {
   type: "success" | "error";

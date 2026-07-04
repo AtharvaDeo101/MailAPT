@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -20,6 +20,25 @@ import { formatScheduledDateTime } from "./_lib/generate-utils";
 import { LeftSidebar } from "./_components/sidebar-components";
 import { EmailDetailOverlayPanel, EmailListView } from "./_components/list-components";
 import { ComposeModal, EmailPreviewModal, ScheduleEmailModal } from "./_components/compose-components";
+
+type SidebarSection = ActiveSection | "folder";
+
+type FolderItem = {
+  id: string;
+  name: string;
+  count?: number;
+};
+
+type FolderCapableEmail = {
+  id: string;
+  folderId?: string | null;
+  labelIds?: string[];
+  [key: string]: any;
+};
+
+function normalizeFolderId(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, "-");
+}
 
 export default function EmailGenerator() {
   const auth = useAuth();
@@ -48,8 +67,11 @@ export default function EmailGenerator() {
 
   const [detailPanelVisible, setDetailPanelVisible] = useState(false);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<ActiveSection>("inbox");
+  const [activeSection, setActiveSection] = useState<SidebarSection>("inbox");
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const {
     data: inboxEmails = [],
@@ -58,7 +80,7 @@ export default function EmailGenerator() {
   } = useQuery({
     queryKey: ["emails", "inbox"],
     queryFn: () => fetchEmails("in:inbox"),
-    enabled: !!user && activeSection === "inbox",
+    enabled: !!user && (activeSection === "inbox" || activeSection === "folder"),
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
@@ -80,9 +102,21 @@ export default function EmailGenerator() {
   const {
     data: detailEmail,
     isLoading: detailLoading,
+    isFetching: detailFetching,
+    isError: detailIsError,
+    error: detailError,
   } = useQuery<GmailEmailDetail>({
     queryKey: ["email", selectedEmailId],
-    queryFn: () => fetchEmailDetail(selectedEmailId as string),
+    queryFn: async () => {
+      if (!selectedEmailId) {
+        throw new Error("No email selected");
+      }
+      const data = await fetchEmailDetail(selectedEmailId);
+      if (!data || !data.id) {
+        throw new Error("Email detail response was empty");
+      }
+      return data;
+    },
     enabled: !!user && !!selectedEmailId,
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60 * 24,
@@ -90,25 +124,77 @@ export default function EmailGenerator() {
     retry: false,
   });
 
+  useEffect(() => {
+    if (detailIsError) {
+      console.error("Failed to load email detail:", detailError);
+      setStatus({
+        type: "error",
+        message:
+          detailError instanceof Error
+            ? detailError.message
+            : "Failed to load email details.",
+      });
+    }
+  }, [detailIsError, detailError]);
+
   const closeDetailPanel = () => {
     if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
     detailCloseTimerRef.current = null;
     setDetailPanelVisible(false);
-    detailCloseTimerRef.current = setTimeout(() => setSelectedEmailId(null), 500);
+    detailCloseTimerRef.current = setTimeout(() => {
+      setSelectedEmailId(null);
+      queryClient.removeQueries({ queryKey: ["email"] });
+    }, 500);
   };
 
   const handleOpenGmailEmail = (id: string) => {
+    if (!id) return;
+
     if (detailCloseTimerRef.current) clearTimeout(detailCloseTimerRef.current);
     detailCloseTimerRef.current = null;
+
+    setStatus(null);
     setSelectedEmailId(id);
     setActiveDraftId(null);
     setActiveScheduledId(null);
     setDetailPanelVisible(true);
+
+    console.log("Opening email id:", id);
   };
 
-  const handleSectionSelect = (section: ActiveSection) => {
-    setActiveSection(section);
+  const handleSectionSelect = (section: SidebarSection) => {
+    if (section === "folder") {
+      setActiveSection("folder");
+    } else {
+      setActiveSection(section);
+      setSelectedFolderId(null);
+    }
     closeDetailPanel();
+  };
+
+  const handleSelectFolder = (folderId: string) => {
+    setSelectedFolderId(folderId);
+    setActiveSection("folder");
+    setActiveDraftId(null);
+    setActiveScheduledId(null);
+    closeDetailPanel();
+  };
+
+  const handleAddFolder = () => {
+    const rawName = window.prompt("Enter folder name");
+    if (!rawName?.trim()) return;
+
+    const name = rawName.trim();
+    const id = normalizeFolderId(name);
+
+    setFolders((prev) => {
+      if (prev.some((f) => f.id === id)) {
+        setStatus({ type: "error", message: "A folder with this name already exists." });
+        setTimeout(() => setStatus(null), 2200);
+        return prev;
+      }
+      return [...prev, { id, name, count: 0 }];
+    });
   };
 
   useEffect(() => {
@@ -235,6 +321,7 @@ export default function EmailGenerator() {
       setStatus(null);
       setIsComposeOpen(false);
       setActiveSection("drafts");
+      setSelectedFolderId(null);
     }, 900);
   };
 
@@ -299,6 +386,7 @@ export default function EmailGenerator() {
       setTimeout(() => {
         setIsComposeOpen(false);
         setActiveSection("sent");
+        setSelectedFolderId(null);
         resetComposeFields();
       }, 900);
     } catch (err: any) {
@@ -354,6 +442,7 @@ export default function EmailGenerator() {
       setStatus(null);
       setIsComposeOpen(false);
       setActiveSection("scheduled");
+      setSelectedFolderId(null);
     }, 1200);
   };
 
@@ -364,6 +453,43 @@ export default function EmailGenerator() {
   };
 
   const hasEmail = Boolean(subject || body);
+
+  const inboxWithFolders = useMemo(() => {
+    if (!folders.length) {
+      return inboxEmails.map((email: FolderCapableEmail) => ({
+        ...email,
+        folderId: email.folderId ?? null,
+      }));
+    }
+
+    return inboxEmails.map((email: FolderCapableEmail, index: number) => ({
+      ...email,
+      folderId: email.folderId ?? folders[index % folders.length]?.id ?? null,
+    }));
+  }, [inboxEmails, folders]);
+
+  const sentWithFolders = useMemo(() => {
+    if (!folders.length) {
+      return sentEmails.map((email: FolderCapableEmail) => ({
+        ...email,
+        folderId: email.folderId ?? null,
+      }));
+    }
+
+    return sentEmails.map((email: FolderCapableEmail, index: number) => ({
+      ...email,
+      folderId: email.folderId ?? folders[index % folders.length]?.id ?? null,
+    }));
+  }, [sentEmails, folders]);
+
+  const computedFolders = useMemo(() => {
+    return folders.map((folder) => ({
+      ...folder,
+      count: [...inboxWithFolders, ...sentWithFolders].filter(
+        (email: FolderCapableEmail) => email.folderId === folder.id,
+      ).length,
+    }));
+  }, [folders, inboxWithFolders, sentWithFolders]);
 
   if (loading) {
     return (
@@ -379,11 +505,15 @@ export default function EmailGenerator() {
         <LeftSidebar
           activeSection={activeSection}
           onSelect={handleSectionSelect}
-          inboxCount={inboxEmails.length}
-          sentCount={sentEmails.length}
+          inboxCount={inboxWithFolders.length}
+          sentCount={sentWithFolders.length}
           draftsCount={drafts.length}
           scheduledCount={scheduledEmails.length}
           onNewEmail={handleNewEmail}
+          folders={computedFolders}
+          selectedFolderId={selectedFolderId}
+          onSelectFolder={handleSelectFolder}
+          onAddFolder={handleAddFolder}
         />
       </div>
 
@@ -391,14 +521,14 @@ export default function EmailGenerator() {
         <main
           className="h-full transition-all duration-300"
           style={{
-            filter: detailPanelVisible ? "blur(1.5px)" : "none",
-            transform: detailPanelVisible ? "scale(0.995)" : "scale(1)",
+            filter: "none",
+            transform: "scale(1)",
           }}
         >
           <EmailListView
             activeSection={activeSection}
-            inboxEmails={inboxEmails}
-            sentEmails={sentEmails}
+            inboxEmails={inboxWithFolders}
+            sentEmails={sentWithFolders}
             drafts={drafts}
             scheduledEmails={scheduledEmails}
             activeDraftId={activeDraftId}
@@ -406,6 +536,8 @@ export default function EmailGenerator() {
             inboxLoading={inboxLoading}
             sentLoading={sentLoading}
             selectedEmailId={selectedEmailId}
+            selectedFolderId={selectedFolderId}
+            folders={computedFolders}
             onRefreshInbox={refetchInbox}
             onRefreshSent={refetchSent}
             onOpenGmailEmail={handleOpenGmailEmail}
@@ -418,8 +550,8 @@ export default function EmailGenerator() {
 
         <EmailDetailOverlayPanel
           isVisible={detailPanelVisible}
-          email={detailEmail ?? null}
-          isLoading={!!selectedEmailId && detailLoading}
+          email={detailIsError ? null : detailEmail ?? null}
+          isLoading={!!selectedEmailId && (detailLoading || detailFetching)}
           onClose={closeDetailPanel}
         />
       </div>

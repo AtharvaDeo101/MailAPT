@@ -101,7 +101,7 @@ function md5cycle(x: number[], k: number[]) {
 }
 
 function md5blk(s: string) {
-  const md5blks = [];
+  const md5blks: number[] = [];
   for (let i = 0; i < 64; i += 4) {
     md5blks[i >> 2] =
       s.charCodeAt(i) +
@@ -155,6 +155,16 @@ function md5(s: string) {
   return md51(unescape(encodeURIComponent(s))).map(rhex).join("");
 }
 
+async function parseJsonResponse(res: Response) {
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw new Error(data?.error || data?.message || `Request failed (${res.status})`);
+  }
+
+  return data;
+}
+
 export function getGravatarUrl(from: string, size = 80) {
   const email = extractEmailAddress(from);
   if (!email) return null;
@@ -164,15 +174,11 @@ export function getGravatarUrl(from: string, size = 80) {
 
 export async function fetchEmails(query: string): Promise<GmailEmail[]> {
   const res = await fetch(
-    `${API}/list_emails?max_results=10&q=${encodeURIComponent(query)}`,
+    `${API}/list_emails?max_results=50&q=${encodeURIComponent(query)}`,
     { credentials: "include" },
   );
 
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok) {
-    throw new Error(data?.error || data?.message || "Failed to fetch emails");
-  }
+  const data = await parseJsonResponse(res);
 
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.emails)) return data.emails;
@@ -180,29 +186,33 @@ export async function fetchEmails(query: string): Promise<GmailEmail[]> {
 }
 
 export async function fetchEmailDetail(id: string): Promise<GmailEmailDetail> {
+  if (!id?.trim()) {
+    throw new Error("Email ID is required");
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
-    const res = await fetch(`${API}/get_email/${id}`, {
+    const safeId = encodeURIComponent(id);
+    const res = await fetch(`${API}/get_email/${safeId}`, {
       credentials: "include",
       signal: controller.signal,
     });
 
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok) {
-      throw new Error(data?.error || data?.message || "Failed to fetch email");
-    }
-
+    const data = await parseJsonResponse(res);
     const email = data?.email ?? data;
 
     if (!email || typeof email !== "object") {
       throw new Error("Invalid email detail response");
     }
 
+    if (!email.id) {
+      throw new Error("Email detail is missing id");
+    }
+
     return {
-      id: String(email.id ?? id),
+      id: String(email.id),
       subject: String(email.subject ?? ""),
       from: String(email.from ?? ""),
       date: String(email.date ?? ""),
@@ -243,11 +253,5 @@ export async function sendEmailRequest({
     body: formData,
   });
 
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok) {
-    throw new Error(data?.error || data?.message || "Sending failed");
-  }
-
-  return data;
+  return parseJsonResponse(res);
 }

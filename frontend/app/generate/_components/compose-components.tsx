@@ -11,7 +11,6 @@ import {
   Paperclip,
   Save,
   Send,
-  Sparkles,
   User,
   X,
 } from "lucide-react";
@@ -21,6 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ChatMessage, StatusMessage } from "../_lib/types";
 import { formatFileSize, toDateTimeLocalValue } from "../_lib/generate-utils";
+
+const ACCENT_COLOR = "#121931";
+const AI_BUBBLE_BG = "rgba(18, 25, 49, 0.12)";
+const AI_BUBBLE_TEXT = "#121931";
 
 function ChatBoxBackgroundAnimation() {
   return (
@@ -78,7 +81,7 @@ function ChatPrompt({
 
   return (
     <div
-      className="relative flex flex-col h-64 rounded-none overflow-hidden border border-border bg-card/30 backdrop-blur-sm"
+      className="relative flex flex-col h-64 rounded-none overflow-hidden border border-border bg-card/30"
       style={{
         boxShadow:
           "0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent), 0 8px 22px color-mix(in srgb, var(--foreground) 6%, transparent)",
@@ -101,23 +104,29 @@ function ChatPrompt({
             <div
               className={cn(
                 "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
-                msg.role === "user" ? "bg-primary" : "bg-accent",
+                msg.role === "user" ? "text-white" : "",
               )}
+              style={
+                msg.role === "user"
+                  ? { backgroundColor: ACCENT_COLOR }
+                  : { backgroundColor: "rgba(18, 25, 49, 0.12)" }
+              }
             >
-              {msg.role === "user" ? (
-                <User className="h-3.5 w-3.5 text-primary-foreground" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
-              )}
             </div>
 
             <div
-              className={cn(
-                "rounded-none px-3.5 py-2.5 text-sm leading-relaxed backdrop-blur-[2px]",
+              className="rounded-none px-3.5 py-2.5 text-sm leading-relaxed"
+              style={
                 msg.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-accent/90 text-accent-foreground",
-              )}
+                  ? {
+                      backgroundColor: ACCENT_COLOR,
+                      color: "#ffffff",
+                    }
+                  : {
+                      backgroundColor: AI_BUBBLE_BG,
+                      color: AI_BUBBLE_TEXT,
+                    }
+              }
             >
               {msg.content}
             </div>
@@ -126,10 +135,15 @@ function ChatPrompt({
 
         {isLoading && (
           <div className="flex gap-2.5">
-            <div className="h-7 w-7 rounded-full bg-accent flex items-center justify-center shrink-0">
-              <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
+            <div
+              className="h-7 w-7 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: AI_BUBBLE_BG }}
+            >
             </div>
-            <div className="bg-accent/90 rounded-none px-4 py-3 flex gap-1 backdrop-blur-[2px]">
+            <div
+              className="rounded-none px-4 py-3 flex gap-1"
+              style={{ backgroundColor: AI_BUBBLE_BG }}
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "0ms" }} />
               <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "150ms" }} />
               <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "300ms" }} />
@@ -143,7 +157,7 @@ function ChatPrompt({
           e.preventDefault();
           submitMessage();
         }}
-        className="relative z-10 px-4 py-3 flex items-end gap-3 bg-background/10 backdrop-blur-md"
+        className="relative z-10 px-4 py-3 flex items-end gap-3 bg-transparent"
       >
         <textarea
           ref={textareaRef}
@@ -158,13 +172,17 @@ function ChatPrompt({
           placeholder="Describe the email you want to generate..."
           rows={1}
           disabled={isLoading}
-          className="flex-1 resize-none overflow-y-auto max-h-[120px] bg-transparent border-0 border-b border-muted-foreground/30 rounded-none px-0 py-2 text-sm leading-6 text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+          className="flex-1 resize-none overflow-y-auto max-h-[120px] bg-transparent border-0 border-b rounded-none px-0 py-2 text-sm leading-6 text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+          style={{
+            borderBottom: "1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent)",
+          }}
         />
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="shrink-0 pb-2 text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="shrink-0 pb-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Send prompt"
+          style={{ color: ACCENT_COLOR }}
         >
           <Send className="h-4 w-4" />
         </button>
@@ -279,11 +297,11 @@ export function EmailPreviewModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-transparent" onClick={onClose} />
       <div className="relative z-10 w-full max-w-2xl rounded-none bg-card shadow-2xl flex flex-col max-h-[90vh] border border-border">
         <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Mail className="h-4 w-4 text-primary" />
+            <Mail className="h-4 w-4" style={{ color: ACCENT_COLOR }} />
             Email Preview
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-none">
@@ -357,11 +375,11 @@ export function ScheduleEmailModal({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-transparent" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-none bg-card shadow-2xl border border-border">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CalendarClock className="h-4 w-4 text-primary" />
+            <CalendarClock className="h-4 w-4" style={{ color: ACCENT_COLOR }} />
             Schedule Email
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-none">
@@ -390,7 +408,12 @@ export function ScheduleEmailModal({
           <Button variant="outline" onClick={onClose} className="rounded-none">
             Cancel
           </Button>
-          <Button onClick={handleConfirm} disabled={!scheduledFor} className="rounded-none">
+          <Button
+            onClick={handleConfirm}
+            disabled={!scheduledFor}
+            className="rounded-none text-white"
+            style={{ backgroundColor: ACCENT_COLOR }}
+          >
             Confirm Schedule
           </Button>
         </div>
@@ -456,7 +479,7 @@ export function ComposeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-transparent" onClick={onClose} />
 
       <div className="relative z-10 w-full max-w-2xl rounded-none bg-card shadow-2xl flex flex-col max-h-[92vh] border border-border">
         <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border">
@@ -464,7 +487,6 @@ export function ComposeModal({
             className="flex items-center gap-2 text-base font-medium text-foreground"
             style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
           >
-            <Sparkles className="h-4 w-4 text-primary" />
             New Email
           </div>
 
@@ -481,7 +503,7 @@ export function ComposeModal({
               value={recipientEmail}
               onChange={(e) => onRecipientChange(e.target.value)}
               placeholder="recipient@example.com"
-              className="w-full bg-transparent border-0 border-b border-muted-foreground/30 rounded-none px-0 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+              className="w-full bg-transparent border-0 border-b border-muted-foreground/30 rounded-none px-0 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
             />
           </div>
 
@@ -568,7 +590,8 @@ export function ComposeModal({
               type="button"
               onClick={onSend}
               disabled={isSending || !recipientEmail.trim() || !body.trim()}
-              className="gap-2 rounded-none"
+              className="gap-2 rounded-none text-white"
+              style={{ backgroundColor: ACCENT_COLOR }}
             >
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {isSending ? "Sending..." : "Send Email"}
