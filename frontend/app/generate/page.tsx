@@ -45,9 +45,8 @@ function normalizeFolderId(value: string) {
 }
 
 export default function EmailGenerator() {
-  const auth = useAuth();
-  const user = auth?.user;
-  const loading = auth?.loading ?? false;
+  const isAuthenticated = useAuth();
+  const authLoading = isAuthenticated === null;
 
   const queryClient = useQueryClient();
 
@@ -70,7 +69,7 @@ export default function EmailGenerator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [detailPanelVisible, setDetailPanelVisible] = useState(false);
-  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [openedEmailId, setOpenedEmailId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SidebarSection>("inbox");
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -84,7 +83,7 @@ export default function EmailGenerator() {
   } = useQuery({
     queryKey: ["emails", "inbox"],
     queryFn: () => fetchEmails("in:inbox"),
-    enabled: !!user && (activeSection === "inbox" || activeSection === "folder"),
+    enabled: isAuthenticated === true,
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
@@ -97,7 +96,7 @@ export default function EmailGenerator() {
   } = useQuery({
     queryKey: ["emails", "sent"],
     queryFn: () => fetchEmails("in:sent"),
-    enabled: !!user && activeSection === "sent",
+    enabled: isAuthenticated === true,
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
@@ -110,23 +109,17 @@ export default function EmailGenerator() {
     isError: detailIsError,
     error: detailError,
   } = useQuery<GmailEmailDetail>({
-    queryKey: ["email", selectedEmailId],
+    queryKey: ["email-detail", openedEmailId],
     queryFn: async () => {
-      if (!selectedEmailId) {
-        throw new Error("No email selected");
+      if (!openedEmailId) {
+        throw new Error("No email selected.");
       }
 
-      const data = await fetchEmailDetail(selectedEmailId);
-
-      if (!data || !data.id) {
-        throw new Error("Email detail response was empty");
-      }
-
-      return data;
+      return await fetchEmailDetail(openedEmailId);
     },
-    enabled: !!user && !!selectedEmailId,
-    staleTime: 1000 * 60 * 10,
-    gcTime: 1000 * 60 * 60 * 24,
+    enabled: isAuthenticated === true && !!openedEmailId && detailPanelVisible,
+    staleTime: 1000 * 60,
+    gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
     retry: false,
   });
@@ -139,7 +132,6 @@ export default function EmailGenerator() {
 
   useEffect(() => {
     if (detailIsError) {
-      console.error("Failed to load email detail:", detailError);
       setStatus({
         type: "error",
         message:
@@ -151,24 +143,16 @@ export default function EmailGenerator() {
   }, [detailIsError, detailError]);
 
   const closeDetailPanel = () => {
-    const closingEmailId = selectedEmailId;
+    setDetailPanelVisible(false);
 
     if (detailCloseTimerRef.current) {
       clearTimeout(detailCloseTimerRef.current);
     }
 
-    detailCloseTimerRef.current = null;
-    setDetailPanelVisible(false);
-
     detailCloseTimerRef.current = setTimeout(() => {
-      setSelectedEmailId(null);
-
-      if (closingEmailId) {
-        queryClient.removeQueries({ queryKey: ["email", closingEmailId], exact: true });
-      }
-
+      setOpenedEmailId(null);
       detailCloseTimerRef.current = null;
-    }, 500);
+    }, 400);
   };
 
   const handleOpenGmailEmail = (id: string) => {
@@ -180,12 +164,10 @@ export default function EmailGenerator() {
     }
 
     setStatus(null);
-    setSelectedEmailId(id);
     setActiveDraftId(null);
     setActiveScheduledId(null);
+    setOpenedEmailId(id);
     setDetailPanelVisible(true);
-
-    console.log("Opening email id:", id);
   };
 
   const handleSectionSelect = (section: SidebarSection) => {
@@ -316,7 +298,6 @@ export default function EmailGenerator() {
 
   const handleNewEmail = () => {
     resetComposeFields();
-    setSelectedEmailId(null);
     closeDetailPanel();
     setIsComposeOpen(true);
   };
@@ -327,7 +308,9 @@ export default function EmailGenerator() {
     if (activeDraftId) {
       setDrafts((prev) =>
         prev.map((d) =>
-          d.id === activeDraftId ? { ...d, subject, body, recipientEmail, createdAt: new Date() } : d,
+          d.id === activeDraftId
+            ? { ...d, subject, body, recipientEmail, createdAt: new Date() }
+            : d,
         ),
       );
     } else {
@@ -359,7 +342,6 @@ export default function EmailGenerator() {
     setActiveDraftId(draft.id);
     setActiveScheduledId(null);
     setMessages([]);
-    setSelectedEmailId(null);
     closeDetailPanel();
     setIsComposeOpen(true);
   };
@@ -377,7 +359,6 @@ export default function EmailGenerator() {
     setActiveScheduledId(item.id);
     setActiveDraftId(null);
     setMessages([]);
-    setSelectedEmailId(null);
     closeDetailPanel();
     setIsComposeOpen(true);
   };
@@ -405,7 +386,11 @@ export default function EmailGenerator() {
       setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
       addMessage(
         "assistant",
-        `Email successfully sent to ${recipientEmail}${attachments.length > 0 ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}.` : "."}`,
+        `Email successfully sent to ${recipientEmail}${
+          attachments.length > 0
+            ? ` with ${attachments.length} attachment${attachments.length > 1 ? "s" : ""}.`
+            : "."
+        }`,
       );
       setAttachments([]);
       await queryClient.invalidateQueries({ queryKey: ["emails", "sent"] });
@@ -518,7 +503,23 @@ export default function EmailGenerator() {
     }));
   }, [folders, inboxWithFolders, sentWithFolders]);
 
-  if (loading) {
+  const panelIsLoading =
+    detailPanelVisible && !!openedEmailId && detailLoading;
+
+  const panelEmail =
+    detailPanelVisible && openedEmailId && !detailLoading && !detailIsError && detailEmail
+      ? detailEmail
+      : null;
+
+  const panelError =
+    detailPanelVisible &&
+    !!openedEmailId &&
+    !detailLoading &&
+    detailIsError
+      ? detailErrorMessage
+      : null;
+
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <LoadingSpinner />
@@ -562,11 +563,11 @@ export default function EmailGenerator() {
             activeScheduledId={activeScheduledId}
             inboxLoading={inboxLoading}
             sentLoading={sentLoading}
-            selectedEmailId={selectedEmailId}
+            selectedEmailId={openedEmailId}
             selectedFolderId={selectedFolderId}
             folders={computedFolders}
-            onRefreshInbox={refetchInbox}
-            onRefreshSent={refetchSent}
+            onRefreshInbox={() => refetchInbox()}
+            onRefreshSent={() => refetchSent()}
             onOpenGmailEmail={handleOpenGmailEmail}
             onSelectDraft={handleSelectDraft}
             onDeleteDraft={handleDeleteDraft}
@@ -577,9 +578,9 @@ export default function EmailGenerator() {
 
         <EmailDetailOverlayPanel
           isVisible={detailPanelVisible}
-          email={detailIsError ? null : detailEmail ?? null}
-          isLoading={!!selectedEmailId && (detailLoading || detailFetching)}
-          errorMessage={detailErrorMessage}
+          email={panelEmail}
+          isLoading={panelIsLoading}
+          errorMessage={panelError}
           onClose={closeDetailPanel}
         />
       </div>

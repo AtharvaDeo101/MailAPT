@@ -109,36 +109,70 @@ def _get_header(headers, name: str) -> str:
 
 
 def extract_email_body(payload):
-    plain_body = ""
-    html_body = ""
+    plain_chunks = []
+    html_chunks = []
 
     def walk_parts(part):
-        nonlocal plain_body, html_body
+        if not part:
+            return
 
         mime_type = (part.get("mimeType") or "").lower()
         filename = part.get("filename", "")
         body = part.get("body", {}) or {}
         body_data = body.get("data")
+        parts = part.get("parts", []) or []
 
-        if filename:
-            return
+        if mime_type == "text/plain" and body_data:
+            decoded = _decode_body(body_data)
+            if decoded.strip():
+                plain_chunks.append(decoded)
 
-        if mime_type == "text/plain" and body_data and not plain_body:
-            plain_body = _decode_body(body_data)
+        elif mime_type == "text/html" and body_data:
+            decoded = _decode_body(body_data)
+            if decoded.strip():
+                html_chunks.append(decoded)
 
-        elif mime_type == "text/html" and body_data and not html_body:
-            html_body = _decode_body(body_data)
-
-        for sub in part.get("parts", []) or []:
-            walk_parts(sub)
+        if not filename:
+            for sub in parts:
+                walk_parts(sub)
 
     if payload:
+        payload_body = (payload.get("body", {}) or {}).get("data")
+        payload_mime = (payload.get("mimeType") or "").lower()
+
+        if payload_body:
+            decoded = _decode_body(payload_body)
+            if payload_mime == "text/plain" and decoded.strip():
+                plain_chunks.append(decoded)
+            elif payload_mime == "text/html" and decoded.strip():
+                html_chunks.append(decoded)
+
         walk_parts(payload)
+
+    html_body = "\n\n".join(chunk for chunk in html_chunks if chunk.strip()).strip()
+    plain_body = "\n\n".join(chunk for chunk in plain_chunks if chunk.strip()).strip()
 
     if not plain_body and html_body:
         plain_body = _html_to_text(html_body)
 
-    return {"plain_body": plain_body or "", "html_body": html_body or ""}
+    return {
+        "plain_body": plain_body or "",
+        "html_body": html_body or "",
+    }
+
+
+def _parse_http_error(e: HttpError):
+    status_code = getattr(getattr(e, "resp", None), "status", 500)
+    reason = ""
+
+    try:
+        if getattr(e, "content", None):
+            parsed = json.loads(e.content.decode("utf-8"))
+            reason = parsed.get("error", {}).get("message", "")
+    except Exception:
+        reason = ""
+
+    return status_code, reason or str(e) or "Google API request failed"
 
 
 @email_bp.route("/send_email", methods=["POST"])
@@ -169,7 +203,7 @@ def send_email():
             message = MIMEMultipart()
             message["to"] = to
             message["subject"] = subject
-            message.attach(MIMEText(body, "plain"))
+            message.attach(MIMEText(body, "plain", "utf-8"))
 
             for f in uploaded_files:
                 part = MIMEBase("application", "octet-stream")
@@ -195,6 +229,11 @@ def send_email():
                 "attachments_count": len(uploaded_files),
             }
         )
+
+    except HttpError as e:
+        current_app.logger.error(f"send_email HttpError: {e}", exc_info=True)
+        status_code, reason = _parse_http_error(e)
+        return jsonify({"error": reason, "status": status_code}), status_code
 
     except Exception as e:
         current_app.logger.error(f"send_email error: {e}", exc_info=True)
@@ -240,12 +279,17 @@ def list_emails():
 
         def batch_callback(request_id, response, exception):
             if exception is not None:
+                current_app.logger.warning(
+                    f"Batch get failed for message {request_id}: {exception}"
+                )
                 email_map[request_id] = {
                     "id": request_id,
                     "subject": "",
                     "from": "",
                     "date": "",
                     "snippet": "",
+                    "threadId": "",
+                    "labelIds": [],
                 }
                 return
 
@@ -289,6 +333,11 @@ def list_emails():
             }
         )
 
+    except HttpError as e:
+        current_app.logger.error(f"list_emails HttpError: {e}", exc_info=True)
+        status_code, reason = _parse_http_error(e)
+        return jsonify({"error": reason, "status": status_code}), status_code
+
     except Exception as e:
         current_app.logger.error(f"list_emails error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -300,6 +349,9 @@ def get_email(email_id):
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
+    if not email_id or not email_id.strip():
+        return jsonify({"error": "email_id is required"}), 400
+
     try:
         current_app.logger.info(f"GET /get_email called with id={email_id}")
 
@@ -310,7 +362,7 @@ def get_email(email_id):
                 userId="me",
                 id=email_id,
                 format="full",
-                fields="id,threadId,labelIds,snippet,payload"
+                fields="id,threadId,labelIds,snippet,payload",
             )
             .execute()
         )
@@ -331,44 +383,37 @@ def get_email(email_id):
         if not plain_body and not html_body:
             plain_body = msg.get("snippet", "") or ""
 
-        return jsonify(
-            {
-                "id": msg.get("id", email_id),
-                "threadId": msg.get("threadId", ""),
-                "labelIds": msg.get("labelIds", []),
-                "snippet": msg.get("snippet", ""),
-                "subject": subject,
-                "from": from_value,
-                "to": to_value,
-                "cc": cc_value,
-                "date": date_value,
-                "body": plain_body,
-                "plain_body": plain_body,
-                "html_body": html_body,
-            }
+        email = {
+            "id": msg.get("id", email_id),
+            "threadId": msg.get("threadId", ""),
+            "labelIds": msg.get("labelIds", []),
+            "snippet": msg.get("snippet", ""),
+            "subject": subject,
+            "from": from_value,
+            "to": to_value,
+            "cc": cc_value,
+            "date": date_value,
+            "body": plain_body,
+            "plain_body": plain_body,
+            "html_body": html_body,
+        }
+
+        current_app.logger.info(
+            "Fetched email successfully",
+            extra={
+                "email_id": email.get("id"),
+                "subject": email.get("subject"),
+                "has_plain_body": bool(email.get("plain_body")),
+                "has_html_body": bool(email.get("html_body")),
+            },
         )
+
+        return jsonify({"email": email})
 
     except HttpError as e:
         current_app.logger.error(f"Gmail API HttpError in get_email: {e}", exc_info=True)
-        status_code = getattr(getattr(e, "resp", None), "status", 500)
-
-        reason = ""
-        try:
-            if getattr(e, "content", None):
-                parsed = json.loads(e.content.decode("utf-8"))
-                reason = (
-                    parsed.get("error", {})
-                    .get("message", "")
-                )
-        except Exception:
-            reason = ""
-
-        return jsonify(
-            {
-                "error": reason or str(e) or "Failed to fetch Gmail message",
-                "status": status_code,
-            }
-        ), status_code
+        status_code, reason = _parse_http_error(e)
+        return jsonify({"error": reason, "status": status_code}), status_code
 
     except Exception as e:
         current_app.logger.error(f"get_email error: {e}", exc_info=True)
@@ -387,19 +432,29 @@ def create_draft():
     if not all([to, subject, body]):
         return jsonify({"error": "to, subject, body are required"}), 400
 
-    message = MIMEText(body, "plain", "utf-8")
-    message["to"] = to
-    message["subject"] = subject
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    try:
+        message = MIMEText(body, "plain", "utf-8")
+        message["to"] = to
+        message["subject"] = subject
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
-    draft = (
-        service.users()
-        .drafts()
-        .create(userId="me", body={"message": {"raw": raw}})
-        .execute()
-    )
+        draft = (
+            service.users()
+            .drafts()
+            .create(userId="me", body={"message": {"raw": raw}})
+            .execute()
+        )
 
-    return jsonify({"message": "draft_created", "id": draft.get("id")})
+        return jsonify({"message": "draft_created", "id": draft.get("id")})
+
+    except HttpError as e:
+        current_app.logger.error(f"create_draft HttpError: {e}", exc_info=True)
+        status_code, reason = _parse_http_error(e)
+        return jsonify({"error": reason, "status": status_code}), status_code
+
+    except Exception as e:
+        current_app.logger.error(f"create_draft error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @email_bp.route("/list_labels", methods=["GET"])
@@ -408,8 +463,18 @@ def list_labels():
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
-    result = service.users().labels().list(userId="me").execute()
-    return jsonify({"labels": result.get("labels", [])})
+    try:
+        result = service.users().labels().list(userId="me").execute()
+        return jsonify({"labels": result.get("labels", [])})
+
+    except HttpError as e:
+        current_app.logger.error(f"list_labels HttpError: {e}", exc_info=True)
+        status_code, reason = _parse_http_error(e)
+        return jsonify({"error": reason, "status": status_code}), status_code
+
+    except Exception as e:
+        current_app.logger.error(f"list_labels error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @email_bp.route("/generate_email", methods=["POST"])
@@ -430,7 +495,7 @@ def generate_email():
 
         for i, line in enumerate(lines):
             if line.lower().startswith("subject:"):
-                subject = line[len("subject:"):].strip()
+                subject = line[len("subject:") :].strip()
                 body_lines = lines[i + 1 :]
                 break
 

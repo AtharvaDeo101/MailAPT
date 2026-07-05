@@ -126,7 +126,9 @@ function EmailCard({
 
   return (
     <div
-      className="w-full cursor-pointer overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      role="button"
+      tabIndex={0}
+      className="w-full cursor-pointer overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none"
       style={{
         background: isSelected
           ? "#121931"
@@ -135,8 +137,7 @@ function EmailCard({
               ? "color-mix(in oklab, #121931 18%, white)"
               : "color-mix(in srgb, #121931 16%, transparent)"
             : "transparent",
-        borderBottom:
-          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+        borderBottom: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
         boxShadow: isSelected
           ? "inset 3px 0 0 #ffffff, 0 10px 24px color-mix(in srgb, #121931 18%, transparent)"
           : hoverOnly
@@ -148,8 +149,16 @@ function EmailCard({
         transformOrigin: "left center",
       }}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      aria-pressed={isSelected}
+      aria-label={`Open email ${email.subject || "(No Subject)"}`}
     >
       <div className="px-4 py-3 flex items-center gap-3">
         <SenderAvatar from={email.from} size={36} selected={isSelected} />
@@ -238,8 +247,7 @@ function DraftCard({
           : hovered
             ? "color-mix(in oklab, #121931 8%, white)"
             : "transparent",
-        borderBottom:
-          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+        borderBottom: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
         boxShadow: hovered && !isActive
           ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
           : isActive
@@ -338,8 +346,7 @@ function ScheduledEmailCard({
           : hovered
             ? "color-mix(in oklab, #121931 8%, white)"
             : "transparent",
-        borderBottom:
-          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+        borderBottom: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
         boxShadow: hovered && !isActive
           ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
           : isActive
@@ -806,8 +813,12 @@ export function EmailDetailOverlayPanel({
 
   const sanitizedHtml = useMemo(() => {
     if (!hasHtml) return "";
-    return DOMPurify.sanitize(html);
+    return DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+    });
   }, [hasHtml, html]);
+
+  const shouldRenderEmptyState = isVisible && !isLoading && !errorMessage && !email;
 
   return (
     <div
@@ -816,12 +827,12 @@ export function EmailDetailOverlayPanel({
       style={{ pointerEvents: isVisible ? "auto" : "none" }}
     >
       <div
-        className="absolute inset-0 bg-transparent transition-opacity duration-500"
+        className="absolute inset-0 bg-black/10 backdrop-blur-[1px] transition-opacity duration-500"
         style={{ opacity: isVisible ? 1 : 0 }}
         onClick={onClose}
       />
       <aside
-        className="absolute inset-0 w-full h-full bg-background shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col border-l border-border overflow-hidden"
+        className="absolute inset-y-0 right-0 w-full h-full bg-background shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col border-l border-border overflow-hidden"
         style={{
           transform: isVisible ? "translateX(0)" : "translateX(100%)",
           opacity: isVisible ? 1 : 0.98,
@@ -870,7 +881,7 @@ export function EmailDetailOverlayPanel({
               </p>
             </div>
           </div>
-        ) : !email ? (
+        ) : shouldRenderEmptyState ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
             <Mail className="h-10 w-10 text-muted-foreground/30" />
             <div>
@@ -882,7 +893,7 @@ export function EmailDetailOverlayPanel({
               </p>
             </div>
           </div>
-        ) : (
+        ) : email ? (
           <>
             <div
               className="mx-5 mt-5 rounded-none px-4 py-4 text-sm shrink-0 border border-border bg-card"
@@ -948,7 +959,7 @@ export function EmailDetailOverlayPanel({
               </div>
             </div>
           </>
-        )}
+        ) : null}
       </aside>
     </div>
   );

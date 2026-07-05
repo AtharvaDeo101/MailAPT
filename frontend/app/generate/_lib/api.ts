@@ -184,50 +184,32 @@ export async function fetchEmails(query: string): Promise<GmailEmail[]> {
   if (Array.isArray(data?.emails)) return data.emails;
   return [];
 }
-
 export async function fetchEmailDetail(id: string): Promise<GmailEmailDetail> {
   if (!id?.trim()) {
     throw new Error("Email ID is required");
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const safeId = encodeURIComponent(id);
+  const res = await fetch(`${API}/get_email/${safeId}`, {
+    credentials: "include",
+  });
 
-  try {
-    const safeId = encodeURIComponent(id);
-    const res = await fetch(`${API}/get_email/${safeId}`, {
-      credentials: "include",
-      signal: controller.signal,
-    });
+  const data = await parseJsonResponse(res);
+  const email = data?.email ?? data;
 
-    const data = await parseJsonResponse(res);
-    const email = data?.email ?? data;
-
-    if (!email || typeof email !== "object") {
-      throw new Error("Invalid email detail response");
-    }
-
-    if (!email.id) {
-      throw new Error("Email detail is missing id");
-    }
-
-    return {
-      id: String(email.id),
-      subject: String(email.subject ?? ""),
-      from: String(email.from ?? ""),
-      date: String(email.date ?? ""),
-      body: String(email.body ?? email.plain_body ?? ""),
-      plain_body: typeof email.plain_body === "string" ? email.plain_body : undefined,
-      html_body: typeof email.html_body === "string" ? email.html_body : undefined,
-    };
-  } catch (error: any) {
-    if (error?.name === "AbortError") {
-      throw new Error("Email request timed out");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
+  if (!email || typeof email !== "object") {
+    throw new Error("Invalid email detail response");
   }
+
+  return {
+    id: String(email.id ?? ""),
+    subject: String(email.subject ?? ""),
+    from: String(email.from ?? ""),
+    date: String(email.date ?? ""),
+    body: String(email.body ?? email.plain_body ?? email.snippet ?? ""),
+    plain_body: typeof email.plain_body === "string" ? email.plain_body : undefined,
+    html_body: typeof email.html_body === "string" ? email.html_body : undefined,
+  };
 }
 
 export async function sendEmailRequest({

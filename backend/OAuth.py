@@ -1,21 +1,58 @@
 import base64
 import hashlib
-import os
 import secrets
 
 from flask import Blueprint, jsonify, redirect, request, session, current_app
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
 
 oauth_bp = Blueprint("oauth_bp", __name__)
 
 
+def _credentials_to_dict(creds: Credentials):
+    return {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": list(creds.scopes) if creds.scopes else [],
+    }
+
+
 def get_gmail_service():
-    if "credentials" not in session:
+    creds_data = session.get("credentials")
+    if not creds_data:
+        current_app.logger.warning("No credentials found in session")
         return None
-    creds = Credentials(**session["credentials"])
-    return build("gmail", "v1", credentials=creds)
+
+    try:
+        creds = Credentials(**creds_data)
+    except Exception as e:
+        current_app.logger.error(f"Failed to load credentials from session: {e}", exc_info=True)
+        session.pop("credentials", None)
+        return None
+
+    try:
+        if creds.expired and creds.refresh_token:
+            current_app.logger.info("Refreshing expired Google access token")
+            creds.refresh(Request())
+            session["credentials"] = _credentials_to_dict(creds)
+            session.modified = True
+
+        elif creds.expired and not creds.refresh_token:
+            current_app.logger.warning("Credentials expired and no refresh token available")
+            session.pop("credentials", None)
+            return None
+
+        return build("gmail", "v1", credentials=creds)
+
+    except Exception as e:
+        current_app.logger.error(f"Failed to refresh/build Gmail service: {e}", exc_info=True)
+        session.pop("credentials", None)
+        return None
 
 
 def build_google_flow(state=None):
@@ -65,6 +102,7 @@ def login():
     )
 
     session["state"] = state
+    session.modified = True
     return redirect(authorization_url)
 
 
@@ -85,14 +123,8 @@ def oauth2callback():
     )
 
     creds = flow.credentials
-    session["credentials"] = {
-        "token": creds.token,
-        "refresh_token": creds.refresh_token,
-        "token_uri": creds.token_uri,
-        "client_id": creds.client_id,
-        "client_secret": creds.client_secret,
-        "scopes": list(creds.scopes) if creds.scopes else [],
-    }
+    session["credentials"] = _credentials_to_dict(creds)
+    session.modified = True
 
     return redirect(current_app.config["FRONTEND_URL"], code=302)
 
@@ -109,5 +141,9 @@ def me():
     if service is None:
         return jsonify({"error": "not_authenticated"}), 401
 
-    profile = service.users().getProfile(userId="me").execute()
-    return jsonify(profile)
+    try:
+        profile = service.users().getProfile(userId="me").execute()
+        return jsonify(profile)
+    except Exception as e:
+        current_app.logger.error(f"/me error: {e}", exc_info=True)
+        return jsonify({"error": "Failed to fetch profile"}), 500
