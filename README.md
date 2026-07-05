@@ -1,6 +1,6 @@
 # MailAPT
 <p align = "center">
-  <img src="icon.png" alt="MailAPT Overview" width="800">
+  <img src="https://github.com/AtharvaDeo101/MailAPT/blob/main/frontend/public/icon.png" alt="MailAPT Overview" width="800">
 </p>
 ## <span>Overview</span>
 
