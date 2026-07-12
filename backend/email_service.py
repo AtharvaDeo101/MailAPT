@@ -1,5 +1,6 @@
 import base64
 import json
+from datetime import datetime
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -12,8 +13,14 @@ from googleapiclient.errors import HttpError
 
 from OAuth import get_gmail_service
 
+# NEW: import DB session and models
+from db import SessionLocal
+from models import Email as EmailModel, Folder as FolderModel, ScheduledEmail as ScheduledEmailModel
+
 email_bp = Blueprint("email_bp", __name__)
 
+
+# ---------- LLM helpers ----------
 
 def generate_with_api(prompt: str) -> str:
     messages = [
@@ -70,6 +77,8 @@ def summarize_with_api(content: str, summary_type: str = "brief") -> str:
     )
     return response.choices[0].message.content.strip()
 
+
+# ---------- decoding / parsing helpers ----------
 
 def _decode_body(data: str) -> str:
     if not data:
@@ -175,6 +184,15 @@ def _parse_http_error(e: HttpError):
     return status_code, reason or str(e) or "Google API request failed"
 
 
+# ---------- DB helper ----------
+
+def get_db_session():
+    """Simple helper to get a SQLAlchemy session; caller must close it."""
+    return SessionLocal()
+
+
+# ---------- Gmail send + DB store ----------
+
 @email_bp.route("/send_email", methods=["POST"])
 def send_email():
     service = get_gmail_service()
@@ -199,6 +217,7 @@ def send_email():
         if not to or not body:
             return jsonify({"error": "to and body are required"}), 400
 
+        # Build MIME message
         if uploaded_files:
             message = MIMEMultipart()
             message["to"] = to
@@ -222,11 +241,36 @@ def send_email():
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
         sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
+        gmail_id = sent.get("id")
+        attachments_count = len(uploaded_files)
+
+        # --- NEW: store sent email in Postgres ---
+        db = get_db_session()
+        try:
+            email_row = EmailModel(
+                subject=subject,
+                body=body,
+                to_address=to,
+                from_address="me",  # or your Gmail account / user email
+                is_draft=False,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                gmail_message_id=gmail_id,
+            )
+            db.add(email_row)
+            db.commit()
+            db.refresh(email_row)
+        except Exception as db_exc:
+            db.rollback()
+            current_app.logger.error(f"DB error storing sent email: {db_exc}", exc_info=True)
+        finally:
+            db.close()
+
         return jsonify(
             {
                 "message": "sent",
-                "id": sent.get("id"),
-                "attachments_count": len(uploaded_files),
+                "id": gmail_id,
+                "attachments_count": attachments_count,
             }
         )
 
@@ -239,6 +283,8 @@ def send_email():
         current_app.logger.error(f"send_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+
+# ---------- Gmail list (unchanged, still from Gmail) ----------
 
 @email_bp.route("/list_emails", methods=["GET"])
 def list_emails():
@@ -343,6 +389,8 @@ def list_emails():
         return jsonify({"error": str(e)}), 500
 
 
+# ---------- Gmail get (unchanged) ----------
+
 @email_bp.route("/get_email/<string:email_id>", methods=["GET"])
 def get_email(email_id):
     service = get_gmail_service()
@@ -420,6 +468,8 @@ def get_email(email_id):
         return jsonify({"error": str(e)}), 500
 
 
+# ---------- Gmail draft + DB store ----------
+
 @email_bp.route("/create_draft", methods=["POST"])
 def create_draft():
     service = get_gmail_service()
@@ -445,7 +495,33 @@ def create_draft():
             .execute()
         )
 
-        return jsonify({"message": "draft_created", "id": draft.get("id")})
+        gmail_draft_id = draft.get("id")
+        gmail_msg_id = draft.get("message", {}).get("id")
+
+        # --- NEW: store draft email in Postgres ---
+        db = get_db_session()
+        try:
+            email_row = EmailModel(
+                subject=subject,
+                body=body,
+                to_address=to,
+                from_address="me",
+                is_draft=True,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                gmail_message_id=gmail_msg_id,
+                gmail_draft_id=gmail_draft_id,
+            )
+            db.add(email_row)
+            db.commit()
+            db.refresh(email_row)
+        except Exception as db_exc:
+            db.rollback()
+            current_app.logger.error(f"DB error storing draft email: {db_exc}", exc_info=True)
+        finally:
+            db.close()
+
+        return jsonify({"message": "draft_created", "id": gmail_draft_id})
 
     except HttpError as e:
         current_app.logger.error(f"create_draft HttpError: {e}", exc_info=True)
@@ -456,6 +532,8 @@ def create_draft():
         current_app.logger.error(f"create_draft error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+
+# ---------- Gmail labels (unchanged) ----------
 
 @email_bp.route("/list_labels", methods=["GET"])
 def list_labels():
@@ -477,6 +555,8 @@ def list_labels():
         return jsonify({"error": str(e)}), 500
 
 
+# ---------- LLM generate + DB store ----------
+
 @email_bp.route("/generate_email", methods=["POST"])
 def generate_email():
     if "credentials" not in session:
@@ -484,6 +564,7 @@ def generate_email():
 
     data = request.get_json() or {}
     prompt = data.get("prompt")
+    folder_id = data.get("folder_id")  # optional folder for generated drafts
 
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
@@ -509,12 +590,36 @@ def generate_email():
         if not body:
             body = text.strip()
 
+        # --- NEW: store generated email as draft in Postgres ---
+        db = get_db_session()
+        try:
+            email_row = EmailModel(
+                subject=subject,
+                body=body,
+                to_address="",  # unknown until user sets receiver
+                from_address="me",
+                is_draft=True,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                folder_id=folder_id,
+            )
+            db.add(email_row)
+            db.commit()
+            db.refresh(email_row)
+        except Exception as db_exc:
+            db.rollback()
+            current_app.logger.error(f"DB error storing generated email: {db_exc}", exc_info=True)
+        finally:
+            db.close()
+
         return jsonify({"subject": subject, "body": body, "raw_output": text})
 
     except Exception as e:
         current_app.logger.error(f"generate_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
+
+# ---------- LLM summarize (unchanged) ----------
 
 @email_bp.route("/summarize_email", methods=["POST"])
 def summarize_email():
@@ -542,3 +647,118 @@ def summarize_email():
     except Exception as e:
         current_app.logger.error(f"summarize_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
+# ---------- NEW: list stored emails from Postgres ----------
+
+@email_bp.route("/stored_emails", methods=["GET"])
+def stored_emails():
+    """
+    List emails stored in Postgres (generated, drafts, sent).
+    Optional query params:
+      - is_draft=true/false
+      - folder_id=<int>
+    """
+    is_draft_param = request.args.get("is_draft")
+    folder_id = request.args.get("folder_id", type=int)
+
+    db = get_db_session()
+    try:
+        query = db.query(EmailModel)
+
+        if is_draft_param is not None:
+            if is_draft_param.lower() in ("true", "1", "yes"):
+                query = query.filter(EmailModel.is_draft.is_(True))
+            elif is_draft_param.lower() in ("false", "0", "no"):
+                query = query.filter(EmailModel.is_draft.is_(False))
+
+        if folder_id is not None:
+            query = query.filter(EmailModel.folder_id == folder_id)
+
+        emails = query.order_by(EmailModel.created_at.desc()).all()
+
+        result = [
+            {
+                "id": e.id,
+                "subject": e.subject,
+                "body": e.body,
+                "to_address": e.to_address,
+                "from_address": e.from_address,
+                "is_draft": e.is_draft,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+                "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+                "folder_id": e.folder_id,
+                "gmail_message_id": getattr(e, "gmail_message_id", None),
+            }
+            for e in emails
+        ]
+
+        return jsonify({"emails": result})
+
+    except Exception as e:
+        current_app.logger.error(f"stored_emails error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()
+
+
+# ---------- NEW: folders CRUD in Postgres ----------
+
+@email_bp.route("/folders", methods=["GET"])
+def list_folders():
+    db = get_db_session()
+    try:
+        folders = db.query(FolderModel).order_by(FolderModel.name.asc()).all()
+        result = [
+            {
+                "id": f.id,
+                "name": f.name,
+                "description": f.description,
+            }
+            for f in folders
+        ]
+        return jsonify({"folders": result})
+    except Exception as e:
+        current_app.logger.error(f"list_folders error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@email_bp.route("/folders", methods=["POST"])
+def create_folder():
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    description = data.get("description")
+
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+
+    db = get_db_session()
+    try:
+        # unique by name
+        existing = db.query(FolderModel).filter(FolderModel.name == name).first()
+        if existing:
+            return jsonify({"error": "folder with this name already exists"}), 409
+
+        folder = FolderModel(name=name, description=description)
+        db.add(folder)
+        db.commit()
+        db.refresh(folder)
+
+        return jsonify(
+            {
+                "id": folder.id,
+                "name": folder.name,
+                "description": folder.description,
+            }
+        )
+
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f"create_folder error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()

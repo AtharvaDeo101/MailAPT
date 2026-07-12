@@ -1,0 +1,7 @@
+.env
+flask_session
+try.py
+
+emails.txt
+
+train_model.py

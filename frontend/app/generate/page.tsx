@@ -6,7 +6,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/landing/loading-spinner";
 
-import { fetchEmailDetail, fetchEmails, sendEmailRequest, API } from "./_lib/api";
+import {
+  fetchEmailDetail,
+  fetchEmails,
+  sendEmailRequest,
+  API,
+  fetchStoredEmails,
+  fetchFolders,
+  createFolder,
+} from "./_lib/api";
 import type {
   ActiveSection,
   ChatMessage,
@@ -44,6 +52,26 @@ function normalizeFolderId(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, "-");
 }
 
+// DB-backed types (mirroring api.ts)
+type StoredEmail = {
+  id: number;
+  subject: string;
+  body: string;
+  to_address: string;
+  from_address: string;
+  is_draft: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  folder_id: number | null;
+  gmail_message_id?: string | null;
+};
+
+type DbFolder = {
+  id: number;
+  name: string;
+  description?: string | null;
+};
+
 export default function EmailGenerator() {
   const isAuthenticated = useAuth();
   const authLoading = isAuthenticated === null;
@@ -73,9 +101,9 @@ export default function EmailGenerator() {
   const [activeSection, setActiveSection] = useState<SidebarSection>("inbox");
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [folders, setFolders] = useState<FolderItem[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
+  // Gmail inbox emails
   const {
     data: inboxEmails = [],
     isFetching: inboxLoading,
@@ -89,6 +117,7 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
   });
 
+  // Gmail sent emails
   const {
     data: sentEmails = [],
     isFetching: sentLoading,
@@ -102,6 +131,7 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
   });
 
+  // Gmail email detail
   const {
     data: detailEmail,
     isLoading: detailLoading,
@@ -114,7 +144,6 @@ export default function EmailGenerator() {
       if (!openedEmailId) {
         throw new Error("No email selected.");
       }
-
       return await fetchEmailDetail(openedEmailId);
     },
     enabled: isAuthenticated === true && !!openedEmailId && detailPanelVisible,
@@ -122,6 +151,40 @@ export default function EmailGenerator() {
     gcTime: 1000 * 60 * 30,
     refetchOnWindowFocus: false,
     retry: false,
+  });
+
+  // DB-backed folders
+  const {
+    data: dbFolders = [],
+    isFetching: foldersLoading,
+    refetch: refetchFolders,
+  } = useQuery<DbFolder[]>({
+    queryKey: ["db-folders"],
+    queryFn: () => fetchFolders(),
+    enabled: isAuthenticated === true,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
+
+  // DB-backed stored emails (filtered by selectedFolderId when in folder section)
+  const {
+    data: storedEmails = [],
+    isFetching: storedLoading,
+    refetch: refetchStored,
+  } = useQuery<StoredEmail[]>({
+    queryKey: ["stored-emails", selectedFolderId],
+    queryFn: () =>
+      fetchStoredEmails({
+        folder_id:
+          activeSection === "folder" && selectedFolderId
+            ? Number(selectedFolderId)
+            : undefined,
+      }),
+    enabled: isAuthenticated === true,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
   });
 
   const detailErrorMessage = useMemo(() => {
@@ -182,28 +245,33 @@ export default function EmailGenerator() {
   };
 
   const handleSelectFolder = (folderId: string) => {
-    setSelectedFolderId(folderId);
+    setSelectedFolderId(folderId); // folderId = DbFolder.id as string
     setActiveSection("folder");
     setActiveDraftId(null);
     setActiveScheduledId(null);
     closeDetailPanel();
+    // storedEmails query will refetch based on selectedFolderId
+    queryClient.invalidateQueries({ queryKey: ["stored-emails", folderId] });
   };
 
-  const handleAddFolder = () => {
+  const handleAddFolder = async () => {
     const rawName = window.prompt("Enter folder name");
     if (!rawName?.trim()) return;
 
     const name = rawName.trim();
-    const id = normalizeFolderId(name);
-
-    setFolders((prev) => {
-      if (prev.some((f) => f.id === id)) {
-        setStatus({ type: "error", message: "A folder with this name already exists." });
-        setTimeout(() => setStatus(null), 2200);
-        return prev;
-      }
-      return [...prev, { id, name, count: 0 }];
-    });
+    try {
+      setStatus(null);
+      await createFolder({ name });
+      await refetchFolders();
+      setStatus({ type: "success", message: `Folder "${name}" created.` });
+      setTimeout(() => setStatus(null), 2000);
+    } catch (err: any) {
+      setStatus({
+        type: "error",
+        message: err?.message || "Failed to create folder.",
+      });
+      setTimeout(() => setStatus(null), 2200);
+    }
   };
 
   useEffect(() => {
@@ -212,6 +280,7 @@ export default function EmailGenerator() {
     };
   }, []);
 
+  // Local scheduled sending (frontend only; backend can later handle scheduled DB sends)
   useEffect(() => {
     if (!scheduledEmails.length) return;
 
@@ -237,6 +306,7 @@ export default function EmailGenerator() {
           });
           setTimeout(() => setStatus(null), 2500);
           await queryClient.invalidateQueries({ queryKey: ["emails", "sent"] });
+          await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
         } catch (err: any) {
           setStatus({
             type: "error",
@@ -276,6 +346,8 @@ export default function EmailGenerator() {
         "assistant",
         `I've drafted an email with the subject "${data?.subject ?? ""}". Review and edit it below, then send or schedule it.`,
       );
+      // After generate_email, backend stores generated draft → refresh stored emails
+      await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
     } catch (err: any) {
       const msg = err?.message || "Unknown error";
       addMessage("assistant", `Sorry, something went wrong. ${msg}`);
@@ -394,6 +466,7 @@ export default function EmailGenerator() {
       );
       setAttachments([]);
       await queryClient.invalidateQueries({ queryKey: ["emails", "sent"] });
+      await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
 
       setTimeout(() => {
         setIsComposeOpen(false);
@@ -466,45 +539,38 @@ export default function EmailGenerator() {
 
   const hasEmail = Boolean(subject || body);
 
+  // Gmail emails with "folderId" info removed (folders are DB-only now)
   const inboxWithFolders = useMemo(() => {
-    if (!folders.length) {
-      return inboxEmails.map((email: FolderCapableEmail) => ({
-        ...email,
-        folderId: email.folderId ?? null,
-      }));
-    }
-
-    return inboxEmails.map((email: FolderCapableEmail, index: number) => ({
+    return inboxEmails.map((email: FolderCapableEmail) => ({
       ...email,
-      folderId: email.folderId ?? folders[index % folders.length]?.id ?? null,
+      folderId: email.folderId ?? null,
     }));
-  }, [inboxEmails, folders]);
+  }, [inboxEmails]);
 
   const sentWithFolders = useMemo(() => {
-    if (!folders.length) {
-      return sentEmails.map((email: FolderCapableEmail) => ({
-        ...email,
-        folderId: email.folderId ?? null,
-      }));
-    }
-
-    return sentEmails.map((email: FolderCapableEmail, index: number) => ({
+    return sentEmails.map((email: FolderCapableEmail) => ({
       ...email,
-      folderId: email.folderId ?? folders[index % folders.length]?.id ?? null,
+      folderId: email.folderId ?? null,
     }));
-  }, [sentEmails, folders]);
+  }, [sentEmails]);
 
-  const computedFolders = useMemo(() => {
-    return folders.map((folder) => ({
+  // Sidebar folders: DB folders + count based on storedEmails only
+  const computedFolders = useMemo<FolderItem[]>(() => {
+    const baseFolders: FolderItem[] = dbFolders.map((f) => ({
+      id: String(f.id),
+      name: f.name,
+    }));
+
+    return baseFolders.map((folder) => ({
       ...folder,
-      count: [...inboxWithFolders, ...sentWithFolders].filter(
-        (email: FolderCapableEmail) => email.folderId === folder.id,
+      count: storedEmails.filter(
+        (email: StoredEmail) => String(email.folder_id) === folder.id,
       ).length,
     }));
-  }, [folders, inboxWithFolders, sentWithFolders]);
+  }, [dbFolders, storedEmails]);
 
   const panelIsLoading =
-    detailPanelVisible && !!openedEmailId && detailLoading;
+    detailPanelVisible && !!openedEmailId && (detailLoading || detailFetching);
 
   const panelEmail =
     detailPanelVisible && openedEmailId && !detailLoading && !detailIsError && detailEmail
@@ -573,6 +639,9 @@ export default function EmailGenerator() {
             onDeleteDraft={handleDeleteDraft}
             onSelectScheduled={handleSelectScheduled}
             onDeleteScheduled={handleDeleteScheduled}
+            // NEW: DB-backed emails for folder view
+            storedEmails={storedEmails}
+            storedLoading={storedLoading}
           />
         </main>
 

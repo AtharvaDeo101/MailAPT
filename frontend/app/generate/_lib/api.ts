@@ -3,6 +3,8 @@ import { extractEmailAddress } from "./generate-utils";
 
 export const API = "http://localhost:5000";
 
+// ----------------- MD5 + helpers (unchanged) -----------------
+
 function md5cycle(x: number[], k: number[]) {
   let [a, b, c, d] = x;
 
@@ -165,6 +167,8 @@ async function parseJsonResponse(res: Response) {
   return data;
 }
 
+// ----------------- existing helpers -----------------
+
 export function getGravatarUrl(from: string, size = 80) {
   const email = extractEmailAddress(from);
   if (!email) return null;
@@ -172,6 +176,7 @@ export function getGravatarUrl(from: string, size = 80) {
   return `https://www.gravatar.com/avatar/${hash}?s=${size}&d=404`;
 }
 
+// Gmail (remote) emails
 export async function fetchEmails(query: string): Promise<GmailEmail[]> {
   const res = await fetch(
     `${API}/list_emails?max_results=50&q=${encodeURIComponent(query)}`,
@@ -184,6 +189,7 @@ export async function fetchEmails(query: string): Promise<GmailEmail[]> {
   if (Array.isArray(data?.emails)) return data.emails;
   return [];
 }
+
 export async function fetchEmailDetail(id: string): Promise<GmailEmailDetail> {
   if (!id?.trim()) {
     throw new Error("Email ID is required");
@@ -212,6 +218,7 @@ export async function fetchEmailDetail(id: string): Promise<GmailEmailDetail> {
   };
 }
 
+// Send via Gmail (and backend stores to Postgres)
 export async function sendEmailRequest({
   to,
   subject,
@@ -233,6 +240,89 @@ export async function sendEmailRequest({
     method: "POST",
     credentials: "include",
     body: formData,
+  });
+
+  return parseJsonResponse(res);
+}
+
+// ----------------- NEW: DB-backed emails & folders -----------------
+
+// Types for stored emails/folders (align with EmailModel/FolderModel JSON)
+export type StoredEmail = {
+  id: number;
+  subject: string;
+  body: string;
+  to_address: string;
+  from_address: string;
+  is_draft: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  folder_id: number | null;
+  gmail_message_id?: string | null;
+};
+
+export type Folder = {
+  id: number;
+  name: string;
+  description?: string | null;
+};
+
+// Fetch emails stored in Postgres (generated/drafts/sent)
+export async function fetchStoredEmails(params?: {
+  is_draft?: boolean;
+  folder_id?: number;
+}): Promise<StoredEmail[]> {
+  const searchParams = new URLSearchParams();
+
+  if (typeof params?.is_draft === "boolean") {
+    searchParams.set("is_draft", params.is_draft ? "true" : "false");
+  }
+  if (typeof params?.folder_id === "number") {
+    searchParams.set("folder_id", String(params.folder_id));
+  }
+
+  const queryString = searchParams.toString();
+  const url = queryString ? `${API}/stored_emails?${queryString}` : `${API}/stored_emails`;
+
+  const res = await fetch(url, {
+    credentials: "include",
+  });
+
+  const data = await parseJsonResponse(res);
+
+  if (Array.isArray(data?.emails)) return data.emails;
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
+// Fetch folders from Postgres
+export async function fetchFolders(): Promise<Folder[]> {
+  const res = await fetch(`${API}/folders`, {
+    credentials: "include",
+  });
+
+  const data = await parseJsonResponse(res);
+
+  if (Array.isArray(data?.folders)) return data.folders;
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
+// Create folder in Postgres
+export async function createFolder({
+  name,
+  description,
+}: {
+  name: string;
+  description?: string;
+}): Promise<Folder> {
+  const res = await fetch(`${API}/folders`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, description }),
   });
 
   return parseJsonResponse(res);

@@ -15,3 +15,6 @@ pytest-cov
 flake8
 black
 isort
+
+sqlalchemy
+psycopg2-binary

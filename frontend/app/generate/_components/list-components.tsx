@@ -120,7 +120,11 @@ function EmailCard({
     setMounted(true);
   }, []);
 
-  const activeTheme = mounted ? (theme === "system" ? resolvedTheme : theme) : "light";
+  const activeTheme = mounted
+    ? theme === "system"
+      ? resolvedTheme
+      : theme
+    : "light";
   const isDark = activeTheme === "dark";
   const hoverOnly = hovered && !isSelected;
 
@@ -137,7 +141,8 @@ function EmailCard({
               ? "color-mix(in oklab, #121931 18%, white)"
               : "color-mix(in srgb, #121931 16%, transparent)"
             : "transparent",
-        borderBottom: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+        borderBottom:
+          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
         boxShadow: isSelected
           ? "inset 3px 0 0 #ffffff, 0 10px 24px color-mix(in srgb, #121931 18%, transparent)"
           : hoverOnly
@@ -145,7 +150,9 @@ function EmailCard({
               ? "inset 3px 0 0 color-mix(in oklab, #121931 72%, white), 0 8px 18px color-mix(in srgb, #121931 12%, transparent)"
               : "inset 3px 0 0 #121931, 0 8px 18px color-mix(in srgb, #121931 8%, transparent)"
             : "none",
-        transform: hoverOnly ? "scale(1.01) translateX(1px)" : "scale(1) translateX(0)",
+        transform: hoverOnly
+          ? "scale(1.01) translateX(1px)"
+          : "scale(1) translateX(0)",
         transformOrigin: "left center",
       }}
       onClick={onClick}
@@ -247,12 +254,14 @@ function DraftCard({
           : hovered
             ? "color-mix(in oklab, #121931 8%, white)"
             : "transparent",
-        borderBottom: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
-        boxShadow: hovered && !isActive
-          ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
-          : isActive
-            ? "inset 3px 0 0 #121931"
-            : "none",
+        borderBottom:
+          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+        boxShadow:
+          hovered && !isActive
+            ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
+            : isActive
+              ? "inset 3px 0 0 #121931"
+              : "none",
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
@@ -263,15 +272,17 @@ function DraftCard({
           <div
             className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center"
             style={{
-              background: isActive || hovered
-                ? "color-mix(in oklab, #121931 14%, white)"
-                : "color-mix(in srgb, var(--muted-foreground) 10%, transparent)",
+              background:
+                isActive || hovered
+                  ? "color-mix(in oklab, #121931 14%, white)"
+                  : "color-mix(in srgb, var(--muted-foreground) 10%, transparent)",
             }}
           >
             <MailOpen
               className="h-3.5 w-3.5"
               style={{
-                color: isActive || hovered ? "#121931" : "var(--muted-foreground)",
+                color:
+                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
               }}
             />
           </div>
@@ -288,7 +299,8 @@ function DraftCard({
             <p
               className="text-xs truncate mt-0.5"
               style={{
-                color: isActive || hovered ? "#121931" : "var(--muted-foreground)",
+                color:
+                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
               }}
             >
               {draft.recipientEmail || "No recipient"}
@@ -313,7 +325,8 @@ function DraftCard({
           <span
             className="text-[10px] tabular-nums"
             style={{
-              color: isActive || hovered ? "#121931" : "var(--muted-foreground)",
+              color:
+                isActive || hovered ? "#121931" : "var(--muted-foreground)",
             }}
           >
             {formatTime(draft.createdAt)}
@@ -346,12 +359,14 @@ function ScheduledEmailCard({
           : hovered
             ? "color-mix(in oklab, #121931 8%, white)"
             : "transparent",
-        borderBottom: "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
-        boxShadow: hovered && !isActive
-          ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
-          : isActive
-            ? "inset 3px 0 0 #121931"
-            : "none",
+        borderBottom:
+          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+        boxShadow:
+          hovered && !isActive
+            ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
+            : isActive
+              ? "inset 3px 0 0 #121931"
+              : "none",
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
@@ -362,15 +377,17 @@ function ScheduledEmailCard({
           <div
             className="h-8 w-8 rounded-full shrink-0 flex items-center justify-center"
             style={{
-              background: isActive || hovered
-                ? "color-mix(in oklab, #121931 14%, white)"
-                : "color-mix(in srgb, var(--muted-foreground) 10%, transparent)",
+              background:
+                isActive || hovered
+                  ? "color-mix(in oklab, #121931 14%, white)"
+                  : "color-mix(in srgb, var(--muted-foreground) 10%, transparent)",
             }}
           >
             <CalendarClock
               className="h-3.5 w-3.5"
               style={{
-                color: isActive || hovered ? "#121931" : "var(--muted-foreground)",
+                color:
+                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
               }}
             />
           </div>
@@ -387,7 +404,8 @@ function ScheduledEmailCard({
             <p
               className="text-xs truncate mt-0.5"
               style={{
-                color: isActive || hovered ? "#121931" : "var(--muted-foreground)",
+                color:
+                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
               }}
             >
               {item.recipientEmail || "No recipient"}
@@ -395,7 +413,8 @@ function ScheduledEmailCard({
             <p
               className="text-[10px] truncate mt-1"
               style={{
-                color: isActive || hovered ? "#121931" : "var(--muted-foreground)",
+                color:
+                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
               }}
             >
               Scheduled {formatScheduledDateTime(item.scheduledFor)}
@@ -462,10 +481,24 @@ export function EmailListView({
   onDeleteScheduled: (id: string) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { theme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setSearchQuery("");
   }, [activeSection, selectedFolderId]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const activeTheme = mounted
+    ? theme === "system"
+      ? resolvedTheme
+      : theme
+    : "light";
+  const isDark = activeTheme === "dark";
+  const topAccentColor = isDark ? "#FF9E20" : "#121931";
 
   const selectedFolder = useMemo(
     () => folders.find((folder) => folder.id === selectedFolderId) ?? null,
@@ -508,7 +541,9 @@ export function EmailListView({
   const folderEmails = useMemo(() => {
     if (!selectedFolderId) return [];
     const combined = [...inboxEmails, ...sentEmails];
-    return filterEmails(combined.filter((e) => e.folderId === selectedFolderId));
+    return filterEmails(
+      combined.filter((e) => e.folderId === selectedFolderId),
+    );
   }, [inboxEmails, sentEmails, selectedFolderId, searchQuery]);
 
   const visibleEmails = useMemo(() => {
@@ -517,7 +552,10 @@ export function EmailListView({
     return [];
   }, [activeSection, inboxEmails, sentEmails, searchQuery]);
 
-  const filteredDrafts = useMemo(() => filterDrafts(drafts), [drafts, searchQuery]);
+  const filteredDrafts = useMemo(
+    () => filterDrafts(drafts),
+    [drafts, searchQuery],
+  );
   const filteredScheduled = useMemo(
     () => filterScheduled(scheduledEmails),
     [scheduledEmails, searchQuery],
@@ -538,27 +576,31 @@ export function EmailListView({
   > = {
     inbox: {
       label: "Inbox",
-      icon: <Inbox className="h-5 w-5" />,
+      icon: <Inbox className="h-5 w-5" style={{ color: topAccentColor }} />,
       description: "Everything that's landed in your inbox",
     },
     sent: {
       label: "Sent",
-      icon: <SendHorizontal className="h-5 w-5" />,
+      icon: (
+        <SendHorizontal className="h-5 w-5" style={{ color: topAccentColor }} />
+      ),
       description: "Emails you've already sent",
     },
     drafts: {
       label: "Drafts",
-      icon: <MailOpen className="h-5 w-5" />,
+      icon: <MailOpen className="h-5 w-5" style={{ color: topAccentColor }} />,
       description: "Unfinished emails, ready to pick back up",
     },
     scheduled: {
       label: "Scheduled",
-      icon: <CalendarClock className="h-5 w-5" />,
+      icon: (
+        <CalendarClock className="h-5 w-5" style={{ color: topAccentColor }} />
+      ),
       description: "Queued up to send automatically",
     },
     folder: {
       label: selectedFolder?.name || "Folder",
-      icon: <Folder className="h-5 w-5" />,
+      icon: <Folder className="h-5 w-5" style={{ color: topAccentColor }} />,
       description: selectedFolder
         ? `Emails inside folder: ${selectedFolder.name}`
         : "Choose a folder from the sidebar",
@@ -576,7 +618,7 @@ export function EmailListView({
               <span
                 className="flex items-center justify-center h-10 w-10 rounded-none border border-border bg-card"
                 style={{
-                  color: "#121931",
+                  color: topAccentColor,
                   boxShadow:
                     "0 0 0 1px color-mix(in srgb, #121931 10%, var(--border))",
                 }}
@@ -596,7 +638,7 @@ export function EmailListView({
                 >
                   {meta.label}
                 </h1>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs mt-0.5" style={{ color: topAccentColor }}>
                   {meta.description}
                 </p>
               </div>
@@ -604,15 +646,17 @@ export function EmailListView({
 
             {canRefresh && (
               <Button
-                variant="outline"
+                variant="ghost"
                 size="icon"
-                className="h-9 w-9 text-muted-foreground rounded-none bg-card"
-                onClick={activeSection === "inbox" ? onRefreshInbox : onRefreshSent}
+                className="h-9 w-9 rounded-none bg-transparent border-0 shadow-none ring-0 outline-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-110"
+                onClick={
+                  activeSection === "inbox" ? onRefreshInbox : onRefreshSent
+                }
                 aria-label={`Refresh ${meta.label}`}
               >
                 <RefreshCw
                   className={cn("h-4 w-4", isLoading && "animate-spin")}
-                  style={{ color: "#121931" }}
+                  style={{ color: topAccentColor }}
                 />
               </Button>
             )}
@@ -674,7 +718,9 @@ export function EmailListView({
                     email={email}
                     isSelected={selectedEmailId === email.id}
                     onClick={() => onOpenGmailEmail(email.id)}
-                    folderName={folders.find((f) => f.id === email.folderId)?.name ?? null}
+                    folderName={
+                      folders.find((f) => f.id === email.folderId)?.name ?? null
+                    }
                   />
                 ))
               ))}
@@ -704,7 +750,9 @@ export function EmailListView({
                     email={email}
                     isSelected={selectedEmailId === email.id}
                     onClick={() => onOpenGmailEmail(email.id)}
-                    folderName={folders.find((f) => f.id === email.folderId)?.name ?? null}
+                    folderName={
+                      folders.find((f) => f.id === email.folderId)?.name ?? null
+                    }
                   />
                 ))
               ))}
@@ -727,7 +775,9 @@ export function EmailListView({
                     className="text-sm text-muted-foreground/40 italic"
                     style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
                   >
-                    {searchQuery ? "No results found" : "No emails in this folder"}
+                    {searchQuery
+                      ? "No results found"
+                      : "No emails in this folder"}
                   </p>
                 </div>
               ) : (
@@ -793,7 +843,6 @@ export function EmailListView({
     </div>
   );
 }
-
 export function EmailDetailOverlayPanel({
   isVisible,
   email,
@@ -807,6 +856,21 @@ export function EmailDetailOverlayPanel({
   errorMessage?: string | null;
   onClose: () => void;
 }) {
+  const { theme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const activeTheme = mounted
+    ? theme === "system"
+      ? resolvedTheme
+      : theme
+    : "light";
+  const isDark = activeTheme === "dark";
+  const detailAccentColor = isDark ? "#FF9E20" : "#121931";
+
   const plain = email?.plain_body || email?.body || "";
   const html = email?.html_body || "";
   const hasHtml = Boolean(html && html.trim());
@@ -818,7 +882,8 @@ export function EmailDetailOverlayPanel({
     });
   }, [hasHtml, html]);
 
-  const shouldRenderEmptyState = isVisible && !isLoading && !errorMessage && !email;
+  const shouldRenderEmptyState =
+    isVisible && !isLoading && !errorMessage && !email;
 
   return (
     <div
@@ -841,16 +906,15 @@ export function EmailDetailOverlayPanel({
         <div
           className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border bg-card"
           style={{
-            boxShadow:
-              "0 1px 0 color-mix(in srgb, #121931 8%, var(--border))",
+            boxShadow: "0 1px 0 color-mix(in srgb, #121931 8%, var(--border))",
           }}
         >
           <div className="flex items-center gap-2 text-sm font-medium min-w-0">
             <PanelRightOpen
               className="h-4 w-4 shrink-0"
-              style={{ color: "var(--foreground)" }}
+              style={{ color: detailAccentColor }}
             />
-            <span className="truncate" style={{ color: "#121931" }}>
+            <span className="truncate" style={{ color: detailAccentColor }}>
               {email?.subject || "Email details"}
             </span>
           </div>
@@ -898,9 +962,11 @@ export function EmailDetailOverlayPanel({
             <div
               className="mx-5 mt-5 rounded-none px-4 py-4 text-sm shrink-0 border border-border bg-card"
               style={{
-                background: "color-mix(in oklab, #121931 8%, white)",
+                background: isDark
+                  ? "color-mix(in oklab, #2a2b28 82%, black)"
+                  : "color-mix(in oklab, #2a2b28 8%, white)",
                 boxShadow:
-                  "0 0 0 1px color-mix(in srgb, #121931 8%, var(--border)), 0 8px 22px color-mix(in srgb, #121931 8%, transparent)",
+                  "0 0 0 1px color-mix(in srgb, #2a2b28 8%, var(--border)), 0 8px 22px color-mix(in srgb, #121931 8%, transparent)",
               }}
             >
               <div className="flex items-start gap-3">

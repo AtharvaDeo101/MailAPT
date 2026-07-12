@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mailapt-backend
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - db
+    ports:
+      - "5000:5000"
+    networks:
+      - mailapt-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mailapt-frontend
+    env_file:
+      - ./frontend/.env.local
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    networks:
+      - mailapt-net
+
+  db:
+    image: postgres:16
+    container_name: mailapt-db
+    environment:
+      POSTGRES_USER: mailapt
+      POSTGRES_PASSWORD: mailaptpassword
+      POSTGRES_DB: mailapt
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - mailapt-net
+
+networks:
+  mailapt-net:
+
+volumes:
+  pgdata:

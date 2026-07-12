@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir gunicorn  # Add production WSGI server
 RUN mkdir -p ./flask_session
 
 # Environment variables (keep if your app uses them)
-ENV FLASK_APP=backend/OAuth.py
+ENV FLASK_APP=backend/main.py
 ENV FLASK_ENV=production
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_RUN_PORT=5000
