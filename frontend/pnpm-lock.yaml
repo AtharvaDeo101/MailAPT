@@ -104,6 +104,15 @@ importers:
       '@react-three/fiber':
         specifier: 9.5.0
         version: 9.5.0(@types/react@19.2.14)(expo-asset@55.0.14(expo@55.0.14)(react-native@0.85.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.5))(react@19.2.5)(typescript@5.9.3))(expo-file-system@55.0.16(expo@55.0.14)(react-native@0.85.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.5)))(expo-gl@55.0.13(expo@55.0.14)(react-dom@19.2.5(react@19.2.5))(react-native@0.85.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.5))(react@19.2.5))(expo@55.0.14)(react-dom@19.2.5(react@19.2.5))(react-native@0.85.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.5))(react@19.2.5)(three@0.183.2)
+      '@tanstack/query-sync-storage-persister':
+        specifier: ^5.100.14
+        version: 5.101.2
+      '@tanstack/react-query':
+        specifier: ^5.100.14
+        version: 5.101.2(react@19.2.5)
+      '@tanstack/react-query-persist-client':
+        specifier: ^5.100.14
+        version: 5.101.2(@tanstack/react-query@5.101.2(react@19.2.5))(react@19.2.5)
       '@vercel/analytics':
         specifier: 1.3.1
         version: 1.3.1(next@16.0.10(@babel/core@7.29.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5)
@@ -123,8 +132,8 @@ importers:
         specifier: 4.1.0
         version: 4.1.0
       dompurify:
-        specifier: ^3.4.0
-        version: 3.4.1
+        specifier: ^3.4.11
+        version: 3.4.12
       embla-carousel-react:
         specifier: 8.5.1
         version: 8.5.1(react@19.2.5)
@@ -140,9 +149,15 @@ importers:
       expo-gl:
         specifier: latest
         version: 55.0.13(expo@55.0.14)(react-dom@19.2.5(react@19.2.5))(react-native@0.85.0(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.5))(react@19.2.5)
+      framer-motion:
+        specifier: ^12.40.0
+        version: 12.42.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       geist:
         specifier: 1.7.0
         version: 1.7.0(next@16.0.10(@babel/core@7.29.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))
+      gsap:
+        specifier: ^3.15.0
+        version: 3.15.0
       input-otp:
         specifier: 1.4.1
         version: 1.4.1(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -1947,6 +1962,26 @@ packages:
   '@tailwindcss/postcss@4.2.2':
     resolution: {integrity: sha512-n4goKQbW8RVXIbNKRB/45LzyUqN451deQK0nzIeauVEqjlI49slUlgKYJM2QyUzap/PcpnS7kzSUmPb1sCRvYQ==}
 
+  '@tanstack/query-core@5.101.2':
+    resolution: {integrity: sha512-hH5MLoJhF7KaIGd7q3xTXGXvslI+GYlM1Z/35aSHHWaCJWB7XvTSHYuV3eM7tw+aE0mT/xMro4M4Q9rCGHT0lw==}
+
+  '@tanstack/query-persist-client-core@5.101.2':
+    resolution: {integrity: sha512-rgMsbvBVpSPDUsprC9FYxojdG0Q1LH6yq1i3DXz2aps4VEqv2l4Msj3YDqIifU3xkl/DrYe9YWntZAJLrM6xTg==}
+
+  '@tanstack/query-sync-storage-persister@5.101.2':
+    resolution: {integrity: sha512-hRyLEJvkUWtfCUA3Lf5vD1CrXbHHK4pZNM/iNd7JM5GgC4CWzGIHkVkeg8zC2LV11KceKObKgjNuMSg3b6NOjA==}
+
+  '@tanstack/react-query-persist-client@5.101.2':
+    resolution: {integrity: sha512-19UpaRtf0lvB2QAJ2MoixxtGf3osMOd508g99EsttUj4+3eLs+ulnNgYjB7AkQMHrRlcbVXqpVNqWkB4a7g8Zw==}
+    peerDependencies:
+      '@tanstack/react-query': ^5.101.2
+      react: ^18 || ^19
+
+  '@tanstack/react-query@5.101.2':
+    resolution: {integrity: sha512-seDkr6kzGzX1okaaTtZPtgA688CDPlXUz1C6xSg0ESqn04Vuc8tlrYms1s3de+znBqhPVxFRfpAfUf+6XvfPWg==}
+    peerDependencies:
+      react: ^18 || ^19
+
   '@types/d3-array@3.2.2':
     resolution: {integrity: sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==}
 
@@ -2439,8 +2474,8 @@ packages:
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
-  dompurify@3.4.1:
-    resolution: {integrity: sha512-JahakDAIg1gyOm7dlgWSDjV4n7Ip2PKR55NIT6jrMfIgLFgWo81vdr1/QGqWtFNRqXP9UV71oVePtjqS2ebnPw==}
+  dompurify@3.4.12:
+    resolution: {integrity: sha512-zQvGet8Z2sWbQhCmfFz/T5QWH2oBmjnqK3qvOjaqaNLrLEF912WamU+ohnTp0TCep/MFVHpdJuCZEdFOdTnEFg==}
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
@@ -2637,6 +2672,20 @@ packages:
   fraction.js@5.3.4:
     resolution: {integrity: sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==}
 
+  framer-motion@12.42.2:
+    resolution: {integrity: sha512-5XY9luDiu0oHfHBjpDthFMh0ES+122w6p/papSJBweMkO8Sn+PW2QaEgRblQBpWFnuvZS5qvarpt/hO2pjGmnw==}
+    peerDependencies:
+      '@emotion/is-prop-valid': '*'
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@emotion/is-prop-valid':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
@@ -2678,6 +2727,9 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  gsap@3.15.0:
+    resolution: {integrity: sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==}
 
   has-flag@3.0.0:
     resolution: {integrity: sha512-sKJf1+ceQBr4SMkvQnBDNDtf4TXpVhVGateu0t918bl30FnbE2m4vNLX+VWe/dpjlb+HugGYzW7uQXH98HPEYw==}
@@ -3124,6 +3176,12 @@ packages:
     resolution: {integrity: sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==}
     engines: {node: '>=10'}
     hasBin: true
+
+  motion-dom@12.42.2:
+    resolution: {integrity: sha512-5gIMWLp/PycBtJRJWRgjxke5n8dlvkSn2DrYW+tr3XcqAZY1xZh6BJyooJXCM8wdfM7wfMjkBJNLge1CKPUIRA==}
+
+  motion-utils@12.39.0:
+    resolution: {integrity: sha512-8nadJAJjTtqRkmRF36FoJTrywK9nnFmnPwnSMyxaOCU7GDjN9RTMJIxx9De8ErM+vpPhMccr/6fo5WciyQLnMQ==}
 
   ms@2.0.0:
     resolution: {integrity: sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==}
@@ -5915,6 +5973,28 @@ snapshots:
       postcss: 8.5.9
       tailwindcss: 4.2.2
 
+  '@tanstack/query-core@5.101.2': {}
+
+  '@tanstack/query-persist-client-core@5.101.2':
+    dependencies:
+      '@tanstack/query-core': 5.101.2
+
+  '@tanstack/query-sync-storage-persister@5.101.2':
+    dependencies:
+      '@tanstack/query-core': 5.101.2
+      '@tanstack/query-persist-client-core': 5.101.2
+
+  '@tanstack/react-query-persist-client@5.101.2(@tanstack/react-query@5.101.2(react@19.2.5))(react@19.2.5)':
+    dependencies:
+      '@tanstack/query-persist-client-core': 5.101.2
+      '@tanstack/react-query': 5.101.2(react@19.2.5)
+      react: 19.2.5
+
+  '@tanstack/react-query@5.101.2(react@19.2.5)':
+    dependencies:
+      '@tanstack/query-core': 5.101.2
+      react: 19.2.5
+
   '@types/d3-array@3.2.2': {}
 
   '@types/d3-color@3.1.3': {}
@@ -5941,7 +6021,7 @@ snapshots:
 
   '@types/dompurify@3.2.0':
     dependencies:
-      dompurify: 3.4.1
+      dompurify: 3.4.12
 
   '@types/istanbul-lib-coverage@2.0.6': {}
 
@@ -6410,7 +6490,7 @@ snapshots:
       '@babel/runtime': 7.29.2
       csstype: 3.2.3
 
-  dompurify@3.4.1:
+  dompurify@3.4.12:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -6605,6 +6685,15 @@ snapshots:
 
   fraction.js@5.3.4: {}
 
+  framer-motion@12.42.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5):
+    dependencies:
+      motion-dom: 12.42.2
+      motion-utils: 12.39.0
+      tslib: 2.8.1
+    optionalDependencies:
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
+
   fresh@0.5.2: {}
 
   fs.realpath@1.0.0: {}
@@ -6639,6 +6728,8 @@ snapshots:
       path-is-absolute: 1.0.1
 
   graceful-fs@4.2.11: {}
+
+  gsap@3.15.0: {}
 
   has-flag@3.0.0: {}
 
@@ -7261,6 +7352,12 @@ snapshots:
   minipass@7.1.3: {}
 
   mkdirp@1.0.4: {}
+
+  motion-dom@12.42.2:
+    dependencies:
+      motion-utils: 12.39.0
+
+  motion-utils@12.39.0: {}
 
   ms@2.0.0: {}
 
