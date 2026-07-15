@@ -26,7 +26,10 @@ import type {
 import { formatScheduledDateTime } from "./_lib/generate-utils";
 
 import { LeftSidebar } from "./_components/sidebar-components";
-import { EmailDetailOverlayPanel, EmailListView } from "./_components/list-components";
+import {
+  EmailDetailOverlayPanel,
+  EmailListView,
+} from "./_components/list-components";
 import {
   ComposeModal,
   EmailPreviewModal,
@@ -45,14 +48,10 @@ type FolderCapableEmail = {
   id: string;
   folderId?: string | null;
   labelIds?: string[];
+  readLater?: boolean;
   [key: string]: any;
 };
 
-function normalizeFolderId(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, "-");
-}
-
-// DB-backed types (mirroring api.ts)
 type StoredEmail = {
   id: number;
   subject: string;
@@ -92,18 +91,27 @@ export default function EmailGenerator() {
   const [drafts, setDrafts] = useState<DraftEmail[]>([]);
   const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
-  const [activeScheduledId, setActiveScheduledId] = useState<string | null>(null);
+  const [activeScheduledId, setActiveScheduledId] = useState<string | null>(
+    null,
+  );
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [detailPanelVisible, setDetailPanelVisible] = useState(false);
   const [openedEmailId, setOpenedEmailId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SidebarSection>("inbox");
-  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
-  // Gmail inbox emails
+  const [deletedEmailIds, setDeletedEmailIds] = useState<string[]>([]);
+  const [emailFolderAssignments, setEmailFolderAssignments] = useState<
+    Record<string, string | null>
+  >({});
+  const [readLaterEmailIds, setReadLaterEmailIds] = useState<string[]>([]);
+
   const {
     data: inboxEmails = [],
     isFetching: inboxLoading,
@@ -117,7 +125,6 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
   });
 
-  // Gmail sent emails
   const {
     data: sentEmails = [],
     isFetching: sentLoading,
@@ -131,7 +138,6 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
   });
 
-  // Gmail email detail
   const {
     data: detailEmail,
     isLoading: detailLoading,
@@ -153,7 +159,6 @@ export default function EmailGenerator() {
     retry: false,
   });
 
-  // DB-backed folders
   const {
     data: dbFolders = [],
     isFetching: foldersLoading,
@@ -167,7 +172,6 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
   });
 
-  // DB-backed stored emails (filtered by selectedFolderId when in folder section)
   const {
     data: storedEmails = [],
     isFetching: storedLoading,
@@ -245,12 +249,11 @@ export default function EmailGenerator() {
   };
 
   const handleSelectFolder = (folderId: string) => {
-    setSelectedFolderId(folderId); // folderId = DbFolder.id as string
+    setSelectedFolderId(folderId);
     setActiveSection("folder");
     setActiveDraftId(null);
     setActiveScheduledId(null);
     closeDetailPanel();
-    // storedEmails query will refetch based on selectedFolderId
     queryClient.invalidateQueries({ queryKey: ["stored-emails", folderId] });
   };
 
@@ -280,7 +283,6 @@ export default function EmailGenerator() {
     };
   }, []);
 
-  // Local scheduled sending (frontend only; backend can later handle scheduled DB sends)
   useEffect(() => {
     if (!scheduledEmails.length) return;
 
@@ -310,7 +312,9 @@ export default function EmailGenerator() {
         } catch (err: any) {
           setStatus({
             type: "error",
-            message: err?.message || `Failed to send scheduled email to ${item.recipientEmail}`,
+            message:
+              err?.message ||
+              `Failed to send scheduled email to ${item.recipientEmail}`,
           });
         }
       }
@@ -320,7 +324,10 @@ export default function EmailGenerator() {
   }, [scheduledEmails, queryClient]);
 
   const addMessage = (role: ChatMessage["role"], content: string) => {
-    setMessages((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, role, content }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random()}`, role, content },
+    ]);
   };
 
   const handleSendMessage = async (userMessage: string) => {
@@ -346,7 +353,6 @@ export default function EmailGenerator() {
         "assistant",
         `I've drafted an email with the subject "${data?.subject ?? ""}". Review and edit it below, then send or schedule it.`,
       );
-      // After generate_email, backend stores generated draft → refresh stored emails
       await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
     } catch (err: any) {
       const msg = err?.message || "Unknown error";
@@ -511,7 +517,9 @@ export default function EmailGenerator() {
 
     setScheduledEmails((prev) =>
       [...prev, newScheduled].sort(
-        (a, b) => new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime(),
+        (a, b) =>
+          new Date(a.scheduledFor).getTime() -
+          new Date(b.scheduledFor).getTime(),
       ),
     );
 
@@ -539,35 +547,92 @@ export default function EmailGenerator() {
 
   const hasEmail = Boolean(subject || body);
 
-  // Gmail emails with "folderId" info removed (folders are DB-only now)
-  const inboxWithFolders = useMemo(() => {
-    return inboxEmails.map((email: FolderCapableEmail) => ({
-      ...email,
-      folderId: email.folderId ?? null,
+  const handleDeleteEmail = (emailId: string) => {
+    setDeletedEmailIds((prev) =>
+      prev.includes(emailId) ? prev : [...prev, emailId],
+    );
+
+    if (openedEmailId === emailId) {
+      closeDetailPanel();
+    }
+
+    setStatus({ type: "success", message: "Email removed from list." });
+    setTimeout(() => setStatus(null), 1600);
+  };
+
+  const handleMoveEmailToFolder = (emailId: string, folderId: string) => {
+    setEmailFolderAssignments((prev) => ({
+      ...prev,
+      [emailId]: folderId,
     }));
-  }, [inboxEmails]);
+
+    const folderName =
+      dbFolders.find((folder) => String(folder.id) === folderId)?.name ||
+      "folder";
+
+    setStatus({
+      type: "success",
+      message: `Email added to ${folderName}.`,
+    });
+    setTimeout(() => setStatus(null), 1600);
+  };
+
+  const handleMarkReadLater = (emailId: string) => {
+    setReadLaterEmailIds((prev) =>
+      prev.includes(emailId)
+        ? prev.filter((id) => id !== emailId)
+        : [...prev, emailId],
+    );
+  };
+
+  const inboxWithFolders = useMemo(() => {
+    return inboxEmails
+      .filter((email: FolderCapableEmail) => !deletedEmailIds.includes(email.id))
+      .map((email: FolderCapableEmail) => ({
+        ...email,
+        folderId:
+          emailFolderAssignments[email.id] !== undefined
+            ? emailFolderAssignments[email.id]
+            : email.folderId ?? null,
+        readLater: readLaterEmailIds.includes(email.id),
+      }));
+  }, [inboxEmails, deletedEmailIds, emailFolderAssignments, readLaterEmailIds]);
 
   const sentWithFolders = useMemo(() => {
-    return sentEmails.map((email: FolderCapableEmail) => ({
-      ...email,
-      folderId: email.folderId ?? null,
-    }));
-  }, [sentEmails]);
+    return sentEmails
+      .filter((email: FolderCapableEmail) => !deletedEmailIds.includes(email.id))
+      .map((email: FolderCapableEmail) => ({
+        ...email,
+        folderId:
+          emailFolderAssignments[email.id] !== undefined
+            ? emailFolderAssignments[email.id]
+            : email.folderId ?? null,
+        readLater: readLaterEmailIds.includes(email.id),
+      }));
+  }, [sentEmails, deletedEmailIds, emailFolderAssignments, readLaterEmailIds]);
 
-  // Sidebar folders: DB folders + count based on storedEmails only
   const computedFolders = useMemo<FolderItem[]>(() => {
     const baseFolders: FolderItem[] = dbFolders.map((f) => ({
       id: String(f.id),
       name: f.name,
     }));
 
-    return baseFolders.map((folder) => ({
-      ...folder,
-      count: storedEmails.filter(
+    const allUiEmails = [...inboxWithFolders, ...sentWithFolders];
+
+    return baseFolders.map((folder) => {
+      const dbCount = storedEmails.filter(
         (email: StoredEmail) => String(email.folder_id) === folder.id,
-      ).length,
-    }));
-  }, [dbFolders, storedEmails]);
+      ).length;
+
+      const uiCount = allUiEmails.filter((email) => email.folderId === folder.id)
+        .length;
+
+      return {
+        ...folder,
+        count: dbCount + uiCount,
+      };
+    });
+  }, [dbFolders, storedEmails, inboxWithFolders, sentWithFolders]);
 
   const panelIsLoading =
     detailPanelVisible && !!openedEmailId && (detailLoading || detailFetching);
@@ -578,10 +643,7 @@ export default function EmailGenerator() {
       : null;
 
   const panelError =
-    detailPanelVisible &&
-    !!openedEmailId &&
-    !detailLoading &&
-    detailIsError
+    detailPanelVisible && !!openedEmailId && !detailLoading && detailIsError
       ? detailErrorMessage
       : null;
 
@@ -639,9 +701,9 @@ export default function EmailGenerator() {
             onDeleteDraft={handleDeleteDraft}
             onSelectScheduled={handleSelectScheduled}
             onDeleteScheduled={handleDeleteScheduled}
-            // NEW: DB-backed emails for folder view
-            storedEmails={storedEmails}
-            storedLoading={storedLoading}
+            onDeleteEmail={handleDeleteEmail}
+            onMoveEmailToFolder={handleMoveEmailToFolder}
+            onMarkReadLater={handleMarkReadLater}
           />
         </main>
 

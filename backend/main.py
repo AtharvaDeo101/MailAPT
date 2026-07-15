@@ -50,10 +50,10 @@ def create_app():
     )
 
     # --- NEW: Database configuration (PostgreSQL) ---
-    # You can set DATABASE_URL directly or build from components.
+    # CRITICAL FIX: default host is "db" (Docker service name), not "localhost"
     db_user = os.environ.get("POSTGRES_USER", "mailapt")
     db_password = os.environ.get("POSTGRES_PASSWORD", "mailaptpassword")
-    db_host = os.environ.get("POSTGRES_HOST", "localhost")
+    db_host = os.environ.get("POSTGRES_HOST", "db")  # ← CHANGED from "localhost" to "db"
     db_port = os.environ.get("POSTGRES_PORT", "5432")
     db_name = os.environ.get("POSTGRES_DB", "mailapt")
 
@@ -83,10 +83,7 @@ def create_app():
     app.hf_client = InferenceClient(token=app.config["HF_API_TOKEN"])
 
     # --- NEW: Create tables on startup ---
-    # Base.metadata is imported from db.py; engine uses DATABASE_URL from env.
     with app.app_context():
-        # In db.py, engine should use app.config["DATABASE_URL"] or env;
-        # here we just ensure tables exist.
         Base.metadata.create_all(bind=engine)
 
     # Health check endpoint
@@ -110,4 +107,4 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=True, port=5000)

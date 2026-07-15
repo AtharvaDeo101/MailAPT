@@ -1,7 +1,11 @@
 import { GmailEmail, GmailEmailDetail } from "./types";
 import { extractEmailAddress } from "./generate-utils";
 
-export const API = "http://localhost:5000";
+// CRITICAL FIX: different URL for server vs browser
+export const API =
+  typeof window === "undefined"
+    ? process.env.INTERNAL_API_BASE_URL || "http://backend:5000"
+    : process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
 
 // ----------------- MD5 + helpers (unchanged) -----------------
 

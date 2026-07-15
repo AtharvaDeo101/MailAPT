@@ -6,6 +6,8 @@ services:
     container_name: mailapt-backend
     env_file:
       - ./backend/.env
+    environment:
+      - POSTGRES_HOST=db  # ← ADDED: ensures backend connects to db container
     depends_on:
       - db
     ports:

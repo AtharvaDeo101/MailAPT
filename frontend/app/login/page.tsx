@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
+
 export default function LoginPage() {
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:5000/login"
+    window.location.href = `${API_BASE_URL}/login`
   }
 
   return (
