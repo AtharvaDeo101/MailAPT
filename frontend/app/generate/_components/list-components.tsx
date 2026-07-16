@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import DOMPurify from "dompurify";
 import {
   BookmarkPlus,
@@ -49,6 +50,17 @@ type GmailEmailWithFolder = GmailEmail & {
   folderId?: string | null;
   readLater?: boolean;
 };
+
+function dedupeById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    result.push(item);
+  }
+  return result;
+}
 
 function SenderAvatar({
   from,
@@ -163,14 +175,26 @@ function RowActionButton({
 
 function FolderPicker({
   folders,
+  anchorRect,
   onSelectFolder,
   onClose,
 }: {
   folders: FolderItem[];
+  anchorRect: DOMRect;
   onSelectFolder: (folderId: string) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const MENU_WIDTH = 210;
+  const MARGIN = 8;
+
+  const [coords, setCoords] = useState(() =>
+    computeCoords(anchorRect, MENU_WIDTH, MARGIN),
+  );
+
+  useLayoutEffect(() => {
+    setCoords(computeCoords(anchorRect, MENU_WIDTH, MARGIN));
+  }, [anchorRect]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -179,20 +203,30 @@ function FolderPicker({
         onClose();
       }
     };
+    const onScrollOrResize = () => onClose();
 
     document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
       ref={ref}
-      className="absolute right-0 top-full z-40 min-w-[210px] overflow-hidden border bg-card"
+      className="fixed z-[999] overflow-hidden border bg-card"
       style={{
-        marginTop: 8,
+        top: coords.top,
+        left: coords.left,
+        width: MENU_WIDTH,
         borderColor: "var(--border)",
         boxShadow:
-          "0 18px 40px color-mix(in srgb, #121931 14%, transparent)",
+          "0 18px 40px color-mix(in srgb, #121931 20%, transparent)",
       }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
@@ -231,8 +265,26 @@ function FolderPicker({
           ))
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
+}
+
+function computeCoords(anchorRect: DOMRect, menuWidth: number, margin: number) {
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = anchorRect.right - menuWidth;
+  left = Math.max(margin, Math.min(left, viewportWidth - menuWidth - margin));
+
+  let top = anchorRect.bottom + margin;
+  // Flip above the trigger if there isn't enough room below
+  const estimatedMenuHeight = 260;
+  if (top + estimatedMenuHeight > viewportHeight - margin) {
+    top = Math.max(margin, anchorRect.top - estimatedMenuHeight - margin);
+  }
+
+  return { top, left };
 }
 
 function EmailCard({
@@ -258,6 +310,9 @@ function EmailCard({
   const [mounted, setMounted] = useState(false);
   const [rowHovered, setRowHovered] = useState(false);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
+  const [folderBtnHovered, setFolderBtnHovered] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const folderTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -426,16 +481,51 @@ function EmailCard({
                 />
 
                 <div className="relative">
-                  <RowActionButton
-                    label="Add in folder"
-                    icon={<Folder className="h-4 w-4" />}
-                    onClick={() => setFolderMenuOpen((prev) => !prev)}
-                    active={folderMenuOpen}
-                  />
+                  <button
+                    ref={folderTriggerRef}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!folderMenuOpen && folderTriggerRef.current) {
+                        setAnchorRect(
+                          folderTriggerRef.current.getBoundingClientRect(),
+                        );
+                      }
+                      setFolderMenuOpen((prev) => !prev);
+                    }}
+                    onMouseEnter={() => setFolderBtnHovered(true)}
+                    onMouseLeave={() => setFolderBtnHovered(false)}
+                    className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent outline-none"
+                    style={{
+                      color:
+                        folderMenuOpen || folderBtnHovered
+                          ? "#121931"
+                          : "var(--muted-foreground)",
+                      background:
+                        folderMenuOpen || folderBtnHovered
+                          ? "color-mix(in srgb, #121931 14%, transparent)"
+                          : "transparent",
+                      boxShadow:
+                        folderMenuOpen || folderBtnHovered
+                          ? "0 0 0 6px color-mix(in srgb, #121931 8%, transparent)"
+                          : "0 0 0 0px transparent",
+                      transform:
+                        folderMenuOpen || folderBtnHovered
+                          ? "scale(1.18)"
+                          : "scale(1)",
+                      transition:
+                        "transform 260ms cubic-bezier(0.22,1,0.36,1), box-shadow 260ms cubic-bezier(0.22,1,0.36,1), background 200ms ease, color 200ms ease",
+                    }}
+                    aria-label="Add in folder"
+                    title="Add in folder"
+                  >
+                    <Folder className="h-4 w-4" />
+                  </button>
 
-                  {folderMenuOpen && (
+                  {folderMenuOpen && anchorRect && (
                     <FolderPicker
                       folders={folders}
+                      anchorRect={anchorRect}
                       onClose={() => setFolderMenuOpen(false)}
                       onSelectFolder={(folderId) =>
                         onMoveToFolder(email.id, folderId)
@@ -766,13 +856,13 @@ export function EmailListView({
 
   const folderEmails = useMemo(() => {
     if (!selectedFolderId) return [];
-    const combined = [...inboxEmails, ...sentEmails];
+    const combined = dedupeById([...inboxEmails, ...sentEmails]);
     return filterEmails(combined.filter((e) => e.folderId === selectedFolderId));
   }, [inboxEmails, sentEmails, selectedFolderId, searchQuery]);
 
   const visibleEmails = useMemo(() => {
-    if (activeSection === "inbox") return filterEmails(inboxEmails);
-    if (activeSection === "sent") return filterEmails(sentEmails);
+    if (activeSection === "inbox") return filterEmails(dedupeById(inboxEmails));
+    if (activeSection === "sent") return filterEmails(dedupeById(sentEmails));
     return [];
   }, [activeSection, inboxEmails, sentEmails, searchQuery]);
 

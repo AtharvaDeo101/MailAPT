@@ -19,6 +19,37 @@ import { useTheme } from "next-themes";
 
 import { ActiveSection, FolderItem } from "../_lib/types";
 
+function NotificationBadge({
+  count,
+  isActive = false,
+}: {
+  count: number;
+  isActive?: boolean;
+}) {
+  if (!count || count <= 0) return null;
+  const display = count > 99 ? "99+" : count;
+
+  return (
+    <span
+      className="relative z-10 inline-flex items-center justify-center shrink-0 rounded-full font-semibold tabular-nums"
+      style={{
+        minWidth: 10,
+        height: 15,
+        padding: "0 4px",
+        fontSize: "0.68rem",
+        lineHeight: 1,
+        background: "#e11d2e",
+        color: "#ffffff",
+        boxShadow: isActive
+          ? "0 0 0 2px rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.25)"
+          : "0 2px 6px color-mix(in srgb, #e11d2e 55%, transparent)",
+      }}
+    >
+      {display}
+    </span>
+  );
+}
+
 function SidebarBrand() {
   const { theme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -171,18 +202,7 @@ function SidebarNavItem({
       </div>
 
       {item.count !== undefined && item.count > 0 && (
-        <span
-          className="relative z-10 text-xs tabular-nums shrink-0 transition-colors duration-200"
-          style={{
-            color: isActive
-              ? "rgba(255,255,255,0.88)"
-              : hovered
-                ? "#121931"
-                : "var(--muted-foreground)",
-          }}
-        >
-          {item.count}
-        </span>
+        <NotificationBadge count={item.count} isActive={isActive} />
       )}
 
       {isActive && (
@@ -194,6 +214,7 @@ function SidebarNavItem({
     </button>
   );
 }
+
 function SidebarFolderSection({
   folders,
   selectedFolderId,
@@ -212,102 +233,74 @@ function SidebarFolderSection({
   return (
     <div className="mt-2">
       <div className="px-2">
-        {/* Header row: Folder label + chevron + NEW plus button */}
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => setIsOpen((prev) => !prev)}
-            onMouseEnter={() => setHoveredHeader(true)}
-            onMouseLeave={() => setHoveredHeader(false)}
-            className="group relative flex w-full items-center gap-3 px-5 py-4 my-1 mx-2 rounded-none text-left select-none overflow-hidden transition-all duration-300"
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          onMouseEnter={() => setHoveredHeader(true)}
+          onMouseLeave={() => setHoveredHeader(false)}
+          className="group relative flex w-auto items-center gap-3 px-5 py-4 my-1 mx-2 rounded-none text-left select-none overflow-hidden transition-all duration-300"
+          style={{
+            background: hoveredHeader
+              ? "color-mix(in oklab, #121931 14%, white)"
+              : "transparent",
+            boxShadow: hoveredHeader
+              ? "0 12px 28px color-mix(in srgb, #121931 16%, transparent)"
+              : "none",
+            transform: hoveredHeader ? "scale(1.02)" : "scale(1)",
+            borderLeft: hoveredHeader
+              ? "2px solid color-mix(in oklab, #121931 72%, white)"
+              : "2px solid transparent",
+          }}
+        >
+          <span
+            className="absolute inset-0 pointer-events-none"
             style={{
               background: hoveredHeader
-                ? "color-mix(in oklab, #121931 14%, white)"
+                ? "linear-gradient(90deg, color-mix(in oklab, #121931 18%, white) 0%, transparent 72%)"
                 : "transparent",
-              boxShadow: hoveredHeader
-                ? "0 12px 28px color-mix(in srgb, #121931 16%, transparent)"
-                : "none",
-              transform: hoveredHeader ? "scale(1.02)" : "scale(1)",
-              borderLeft: hoveredHeader
-                ? "2px solid color-mix(in oklab, #121931 72%, white)"
-                : "2px solid transparent",
+              opacity: hoveredHeader ? 1 : 0,
+              transition: "opacity 280ms ease",
+            }}
+          />
+
+          <span
+            className="relative z-10 shrink-0 transition-colors duration-200"
+            style={{
+              color: hoveredHeader ? "#121931" : "var(--muted-foreground)",
             }}
           >
-            <span
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: hoveredHeader
-                  ? "linear-gradient(90deg, color-mix(in oklab, #121931 18%, white) 0%, transparent 72%)"
-                  : "transparent",
-                opacity: hoveredHeader ? 1 : 0,
-                transition: "opacity 280ms ease",
-              }}
-            />
+            <Folder className="h-4 w-4" />
+          </span>
 
+          <div className="relative z-10 flex-1 min-w-0 flex items-center justify-between gap-2">
             <span
-              className="relative z-10 shrink-0 transition-colors duration-200"
               style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontWeight: 500,
+                fontSize: hoveredHeader ? "1.16rem" : "0.94rem",
+                fontStyle: hoveredHeader ? "italic" : "normal",
+                letterSpacing: hoveredHeader ? "-0.03em" : "-0.01em",
                 color: hoveredHeader ? "#121931" : "var(--muted-foreground)",
+                lineHeight: 1.1,
+                transition: "color 300ms ease, font-size 300ms ease, letter-spacing 300ms ease",
               }}
             >
-              <Folder className="h-4 w-4" />
+              Folder
             </span>
 
-            <div className="relative z-10 flex-1 min-w-0 flex items-center justify-between gap-2">
-              <span
-                style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontWeight: 500,
-                  fontSize: hoveredHeader ? "1.16rem" : "0.94rem",
-                  fontStyle: hoveredHeader ? "italic" : "normal",
-                  letterSpacing: hoveredHeader ? "-0.03em" : "-0.01em",
-                  color: hoveredHeader ? "#121931" : "var(--muted-foreground)",
-                  lineHeight: 1.1,
-                  transition:
-                    "color 300ms ease, font-size 300ms ease, letter-spacing 300ms ease",
-                }}
-              >
-                Folder
-              </span>
-
-              <div className="flex items-center gap-2">
-                {isOpen ? (
-                  <ChevronDown
-                    className="h-3.5 w-3.5 shrink-0"
-                    style={{
-                      color: hoveredHeader ? "#121931" : "var(--muted-foreground)",
-                    }}
-                  />
-                ) : (
-                  <ChevronRight
-                    className="h-3.5 w-3.5 shrink-0"
-                    style={{
-                      color: hoveredHeader ? "#121931" : "var(--muted-foreground)",
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </button>
-
-          {/* NEW: plus button to add folder (does not toggle open/close) */}
-          <button
-            type="button"
-            onClick={onAddFolder}
-            className="mr-3 ml-1 inline-flex items-center justify-center rounded-full border border-border bg-card transition-all duration-200"
-            style={{
-              width: 26,
-              height: 26,
-              boxShadow:
-                "0 4px 10px color-mix(in srgb, var(--foreground) 6%, transparent)",
-            }}
-          >
-            <Plus
-              className="h-3.5 w-3.5"
-              style={{ color: "var(--muted-foreground)" }}
-            />
-          </button>
-        </div>
+            {isOpen ? (
+              <ChevronDown
+                className="h-3.5 w-3.5 shrink-0"
+                style={{ color: hoveredHeader ? "#121931" : "var(--muted-foreground)" }}
+              />
+            ) : (
+              <ChevronRight
+                className="h-3.5 w-3.5 shrink-0"
+                style={{ color: hoveredHeader ? "#121931" : "var(--muted-foreground)" }}
+              />
+            )}
+          </div>
+        </button>
       </div>
 
       {isOpen && (
@@ -386,8 +379,7 @@ function SidebarFolderSection({
                           ? "#121931"
                           : "var(--muted-foreground)",
                       lineHeight: 1.1,
-                      transition:
-                        "color 300ms ease, font-size 300ms ease, letter-spacing 300ms ease",
+                      transition: "color 300ms ease, font-size 300ms ease, letter-spacing 300ms ease",
                     }}
                   >
                     {folder.name}
@@ -395,18 +387,7 @@ function SidebarFolderSection({
                 </div>
 
                 {folder.count !== undefined && folder.count > 0 && (
-                  <span
-                    className="relative z-10 text-xs tabular-nums shrink-0 transition-colors duration-200"
-                    style={{
-                      color: isSelected
-                        ? "rgba(255,255,255,0.88)"
-                        : isHovered
-                          ? "#121931"
-                          : "var(--muted-foreground)",
-                    }}
-                  >
-                    {folder.count}
-                  </span>
+                  <NotificationBadge count={folder.count} isActive={isSelected} />
                 )}
               </button>
             );
