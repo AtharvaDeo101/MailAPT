@@ -377,14 +377,14 @@ function EmailCard({
       aria-pressed={isSelected}
       aria-label={`Open email ${email.subject || "(No Subject)"}`}
     >
-      <div className="px-5 py-4 flex items-center gap-3">
-        <SenderAvatar from={email.from} size={44} selected={isSelected} />
+      <div className="px-4 py-3 flex items-center gap-2.5">
+        <SenderAvatar from={email.from} size={38} selected={isSelected} />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2.5">
             <div className="min-w-0 flex-1">
               <p
-                className="text-xs font-semibold truncate leading-snug transition-colors duration-200"
+                className="text-[11px] font-semibold truncate leading-snug transition-colors duration-200"
                 style={{
                   color: isSelected
                     ? "#ffffff"
@@ -397,7 +397,7 @@ function EmailCard({
               </p>
 
               <p
-                className="text-base truncate leading-snug mt-1 transition-colors duration-200"
+                className="text-sm truncate leading-snug mt-0.5 transition-colors duration-200"
                 style={{
                   color: isSelected
                     ? "#ffffff"
@@ -409,10 +409,10 @@ function EmailCard({
                 {email.subject || "(No Subject)"}
               </p>
 
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex items-center gap-2 mt-1">
                 {folderName && (
                   <p
-                    className="text-[11px] truncate transition-colors duration-200"
+                    className="text-[10px] truncate transition-colors duration-200"
                     style={{
                       color: isSelected
                         ? "rgba(255,255,255,0.75)"
@@ -427,7 +427,7 @@ function EmailCard({
 
                 {email.readLater && (
                   <span
-                    className="text-[10px] px-1.5 py-0.5"
+                    className="text-[9px] px-1.5 py-0.5"
                     style={{
                       color: isSelected ? "rgba(255,255,255,0.88)" : "#9a5d00",
                       background: isSelected
@@ -441,9 +441,9 @@ function EmailCard({
               </div>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               <span
-                className="text-[11px] tabular-nums shrink-0 transition-colors duration-200"
+                className="text-[10px] tabular-nums shrink-0 transition-colors duration-200"
                 style={{
                   color: isSelected
                     ? "rgba(255,255,255,0.82)"
