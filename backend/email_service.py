@@ -555,7 +555,6 @@ def list_labels():
         return jsonify({"error": str(e)}), 500
 
 
-# ---------- LLM generate + DB store ----------
 
 @email_bp.route("/generate_email", methods=["POST"])
 def generate_email():
@@ -619,7 +618,7 @@ def generate_email():
         return jsonify({"error": str(e)}), 500
 
 
-# ---------- LLM summarize (unchanged) ----------
+
 
 @email_bp.route("/summarize_email", methods=["POST"])
 def summarize_email():
@@ -702,8 +701,6 @@ def stored_emails():
     finally:
         db.close()
 
-
-# ---------- NEW: folders CRUD in Postgres ----------
 
 @email_bp.route("/folders", methods=["GET"])
 def list_folders():
