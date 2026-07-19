@@ -278,7 +278,6 @@ function computeCoords(anchorRect: DOMRect, menuWidth: number, margin: number) {
   left = Math.max(margin, Math.min(left, viewportWidth - menuWidth - margin));
 
   let top = anchorRect.bottom + margin;
-  // Flip above the trigger if there isn't enough room below
   const estimatedMenuHeight = 260;
   if (top + estimatedMenuHeight > viewportHeight - margin) {
     top = Math.max(margin, anchorRect.top - estimatedMenuHeight - margin);
@@ -347,8 +346,7 @@ function EmailCard({
                 ? "color-mix(in oklab, #121931 18%, white)"
                 : "color-mix(in srgb, #121931 16%, transparent)"
               : "transparent",
-        borderBottom:
-          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
+        borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
         boxShadow: isSelected
           ? "inset 3px 0 0 #ffffff, 0 10px 24px color-mix(in srgb, #121931 18%, transparent)"
           : hoverOnly
@@ -356,8 +354,8 @@ function EmailCard({
               ? "inset 3px 0 0 color-mix(in oklab, #121931 72%, white), 0 8px 18px color-mix(in srgb, #121931 12%, transparent)"
               : "inset 3px 0 0 #121931, 0 8px 18px color-mix(in srgb, #121931 8%, transparent)"
             : email.readLater
-              ? "inset 3px 0 0 #FF9E20"
-              : "none",
+              ? "inset 3px 0 0 #FF9E20, 0 1px 0 rgba(0,0,0,0.05)"
+              : "0 1px 0 rgba(0,0,0,0.05)",
         transform: hoverOnly
           ? "scale(1.003) translateX(1px)"
           : "scale(1) translateX(0)",
@@ -814,7 +812,6 @@ export function EmailListView({
       : theme
     : "light";
   const isDark = activeTheme === "dark";
-  const topAccentColor = isDark ? "#FF9E20" : "#121931";
 
   const selectedFolder = useMemo(
     () => folders.find((folder) => folder.id === selectedFolderId) ?? null,
@@ -888,31 +885,31 @@ export function EmailListView({
   const sectionMeta: SectionMetaMap = {
     inbox: {
       label: "Inbox",
-      icon: <Inbox className="h-5 w-5" style={{ color: topAccentColor }} />,
+      icon: <Inbox className="h-5 w-5" style={{ color: "#ffffff" }} />,
       description: "Everything that's landed in your inbox",
     },
     sent: {
       label: "Sent",
       icon: (
-        <SendHorizontal className="h-5 w-5" style={{ color: topAccentColor }} />
+        <SendHorizontal className="h-5 w-5" style={{ color: "#ffffff" }} />
       ),
       description: "Emails you've already sent",
     },
     drafts: {
       label: "Drafts",
-      icon: <MailOpen className="h-5 w-5" style={{ color: topAccentColor }} />,
+      icon: <MailOpen className="h-5 w-5" style={{ color: "#ffffff" }} />,
       description: "Unfinished emails, ready to pick back up",
     },
     scheduled: {
       label: "Scheduled",
       icon: (
-        <CalendarClock className="h-5 w-5" style={{ color: topAccentColor }} />
+        <CalendarClock className="h-5 w-5" style={{ color: "#ffffff" }} />
       ),
       description: "Queued up to send automatically",
     },
     folder: {
       label: selectedFolder?.name || "Folder",
-      icon: <Folder className="h-5 w-5" style={{ color: topAccentColor }} />,
+      icon: <Folder className="h-5 w-5" style={{ color: "#ffffff" }} />,
       description: selectedFolder
         ? `Emails inside folder: ${selectedFolder.name}`
         : "Choose a folder from the sidebar",
@@ -925,14 +922,17 @@ export function EmailListView({
     <div className="relative h-full w-full bg-card text-foreground">
       <div className="h-full w-full overflow-y-auto bg-card">
         <div className="w-full h-full px-0 py-0">
-          <div className="flex items-start justify-between gap-4 flex-wrap px-6 md:px-8 py-5 border-b border-border bg-card">
+          <div
+            className="flex items-start justify-between gap-4 flex-wrap px-6 md:px-8 py-5 border-b border-border"
+            style={{ backgroundColor: "#121931" }}
+          >
             <div className="flex items-center gap-3 min-w-0">
               <span
-                className="flex items-center justify-center h-10 w-10 rounded-none border border-border bg-card shrink-0"
+                className="flex items-center justify-center h-10 w-10 rounded-none border shrink-0"
                 style={{
-                  color: topAccentColor,
-                  boxShadow:
-                    "0 0 0 1px color-mix(in srgb, #121931 10%, var(--border))",
+                  color: "#ffffff",
+                  borderColor: "rgba(255,255,255,0.25)",
+                  background: "rgba(255,255,255,0.08)",
                 }}
               >
                 {meta.icon}
@@ -946,14 +946,14 @@ export function EmailListView({
                     fontStyle: "italic",
                     fontSize: "1.35rem",
                     letterSpacing: "-0.02em",
-                    color: "var(--foreground)",
+                    color: "#ffffff",
                   }}
                 >
                   {meta.label}
                 </h1>
                 <p
                   className="text-xs mt-0.5 truncate"
-                  style={{ color: topAccentColor }}
+                  style={{ color: "rgba(255,255,255,0.75)" }}
                 >
                   {meta.description}
                 </p>
@@ -964,23 +964,21 @@ export function EmailListView({
               <div className="relative w-full sm:w-[360px] md:w-[420px]">
                 <Search
                   className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                  style={{ color: "#121931" }}
+                  style={{ color: "#ffffff" }}
                 />
                 <input
                   type="text"
                   placeholder={`Search ${meta.label.toLowerCase()}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-none pl-10 pr-10 py-2.5 text-sm text-foreground outline-none transition-all duration-200 border"
+                  className="w-full rounded-none pl-10 pr-10 py-2.5 text-sm outline-none transition-all duration-200 border placeholder:text-white/50"
                   style={{
-                    background: "color-mix(in srgb, #121931 14%, transparent)",
-                    borderColor:
-                      "color-mix(in srgb, #121931 30%, var(--border))",
-                    boxShadow:
-                      "0 8px 20px color-mix(in srgb, #121931 12%, transparent), inset 0 0 0 1px color-mix(in srgb, #121931 8%, white)",
+                    background: "rgba(255,255,255,0.12)",
+                    borderColor: "rgba(255,255,255,0.25)",
+                    boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
                     backdropFilter: "blur(10px)",
                     WebkitBackdropFilter: "blur(10px)",
-                    color: "var(--foreground)",
+                    color: "#ffffff",
                   }}
                 />
                 {searchQuery && (
@@ -989,7 +987,7 @@ export function EmailListView({
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-none"
                     aria-label="Clear search"
                   >
-                    <X className="h-3.5 w-3.5" style={{ color: "#121931" }} />
+                    <X className="h-3.5 w-3.5" style={{ color: "#ffffff" }} />
                   </button>
                 )}
               </div>
@@ -1006,7 +1004,7 @@ export function EmailListView({
                 >
                   <RefreshCw
                     className={cn("h-4 w-4", isLoading && "animate-spin")}
-                    style={{ color: topAccentColor }}
+                    style={{ color: "#ffffff" }}
                   />
                 </Button>
               )}

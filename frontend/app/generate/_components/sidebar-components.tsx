@@ -49,22 +49,20 @@ function NotificationBadge({
     </span>
   );
 }
-
 function SidebarBrand() {
-  const { theme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isDark = mounted && (theme === "system" ? resolvedTheme : theme) === "dark";
-  const brandColor = isDark ? "#FF9E20" : "#121931";
-
   return (
-    <div className="px-5 pt-5 pb-4 border-b border-border shrink-0">
+    <div
+      className="px-6 md:px-8 py-6.5 border-b border-border shrink-0"
+      style={{ backgroundColor: "#121931" }}
+    >
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-none bg-card shrink-0">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-none shrink-0"
+          style={{
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.2)",
+          }}
+        >
           <img src="icon.png" alt="" />
         </div>
 
@@ -72,7 +70,7 @@ function SidebarBrand() {
           <span
             className="block"
             style={{
-              color: brandColor,
+              color: "#ffffff",
               fontFamily: "'Playfair Display', Georgia, serif",
               fontSize: "1.35rem",
               fontStyle: "italic",
@@ -88,7 +86,6 @@ function SidebarBrand() {
     </div>
   );
 }
-
 function SidebarNavItem({
   item,
   isActive,
