@@ -51,11 +51,6 @@ professionals, managers, and any other individuals who require efficient email c
 </ul>
 
 
-
-
-## <span>Example Prompt</span>
-
-
 ## <span>Future Improvements</span>
 
 <ul>
