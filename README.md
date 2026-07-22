@@ -55,9 +55,6 @@ professionals, managers, and any other individuals who require efficient email c
 
 ## <span>Example Prompt</span>
 
-```html
-Write a professional follow-up email to a client after a product demo and keep the tone confident and friendly.
-```
 
 ## <span>Future Improvements</span>
 
