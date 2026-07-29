@@ -20,7 +20,7 @@
 professionals, managers, and any other individuals who require efficient email communication.
 </p>
 
-## <span>Features</span>
+## <span>Feature</span>
 
 <ul>
   <li><strong>AI Email Generation</strong> — Create polished emails from a short prompt.</li>
