@@ -51,7 +51,7 @@ professionals, managers, and any other individuals who require efficient email c
 </ul>
 
 
-## <span>Future Improvements</span>
+## <span>Future Improvement</span>
 
 <ul>
   <li>Add multiple email tone options.</li>
