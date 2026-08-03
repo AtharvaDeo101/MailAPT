@@ -1,12 +1,21 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import DOMPurify from "dompurify";
 import {
+  ArrowDownUp,
   BookmarkPlus,
   CalendarClock,
   Folder,
+  FolderInput,
   Inbox,
   Loader2,
   Mail,
@@ -19,12 +28,14 @@ import {
 import { cn } from "@/lib/utils";
 import { getGravatarUrl } from "../_lib/api";
 import {
+  decodeSnippet,
   extractEmailAddress,
   formatScheduledDateTime,
   formatTime,
   getLetterAvatarColors,
   getSenderDisplayName,
   getSenderInitial,
+  isUnread,
 } from "../_lib/generate-utils";
 import type {
   ActiveSection,
@@ -274,10 +285,266 @@ function computeCoords(anchorRect: DOMRect, menuWidth: number, margin: number) {
   return { top, left };
 }
 
+type ListFilter = "all" | "unread" | "readLater";
+
+/** Injects a self-removing ripple span at the pointer position. */
+function useRipple() {
+  return useCallback((e: React.PointerEvent<HTMLElement>) => {
+    const host = e.currentTarget;
+    if (!host) return;
+
+    const rect = host.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const span = document.createElement("span");
+
+    span.className = "ripple";
+    span.style.width = `${size}px`;
+    span.style.height = `${size}px`;
+    span.style.left = `${e.clientX - rect.left - size / 2}px`;
+    span.style.top = `${e.clientY - rect.top - size / 2}px`;
+    span.addEventListener("animationend", () => span.remove());
+
+    host.appendChild(span);
+  }, []);
+}
+
+function MailCheckbox({
+  checked,
+  indeterminate = false,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+}) {
+  const ref = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate && !checked;
+  }, [indeterminate, checked]);
+
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      className="mail-check shrink-0"
+      checked={checked}
+      onChange={(e) => onChange(e.target.checked)}
+      onClick={(e) => e.stopPropagation()}
+      aria-label={label}
+    />
+  );
+}
+
+function FilterChip({
+  label,
+  count,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="hover-lift inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[12px] border origin-center"
+      style={{
+        background: isActive ? ACCENT_TINT : "transparent",
+        borderColor: isActive ? ACCENT : "var(--border)",
+        color: isActive ? ACCENT : "var(--muted-foreground)",
+        fontWeight: isActive ? 600 : 400,
+      }}
+      aria-pressed={isActive}
+    >
+      {label}
+      {count > 0 && <span className="tabular-nums opacity-70">{count}</span>}
+    </button>
+  );
+}
+
+function BulkButton({
+  label,
+  icon,
+  onClick,
+  destructive = false,
+  innerRef,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+  innerRef?: React.Ref<HTMLButtonElement>;
+}) {
+  return (
+    <button
+      ref={innerRef}
+      type="button"
+      onClick={onClick}
+      className="hover-press inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-medium border"
+      style={{
+        borderColor: destructive
+          ? "color-mix(in srgb, #c5221f 40%, transparent)"
+          : "var(--border)",
+        color: destructive ? "#c5221f" : "var(--foreground)",
+        background: "var(--card)",
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+/** Command bar above the message list: selection, bulk actions, filters, sort. */
+function ListToolbar({
+  totalCount,
+  unreadCount,
+  readLaterCount,
+  checkedCount,
+  allChecked,
+  onToggleAll,
+  filter,
+  onFilterChange,
+  sortDesc,
+  onToggleSort,
+  folders,
+  onBulkDelete,
+  onBulkReadLater,
+  onBulkMove,
+  onClearSelection,
+}: {
+  totalCount: number;
+  unreadCount: number;
+  readLaterCount: number;
+  checkedCount: number;
+  allChecked: boolean;
+  onToggleAll: (next: boolean) => void;
+  filter: ListFilter;
+  onFilterChange: (f: ListFilter) => void;
+  sortDesc: boolean;
+  onToggleSort: () => void;
+  folders: FolderItem[];
+  onBulkDelete: () => void;
+  onBulkReadLater: () => void;
+  onBulkMove: (folderId: string) => void;
+  onClearSelection: () => void;
+}) {
+  const [moveMenuOpen, setMoveMenuOpen] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const moveTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const hasSelection = checkedCount > 0;
+
+  return (
+    <div className="shrink-0 flex items-center gap-3 px-3.5 h-11 border-b border-border bg-card">
+      <MailCheckbox
+        checked={allChecked && totalCount > 0}
+        indeterminate={hasSelection}
+        onChange={onToggleAll}
+        label="Select all messages"
+      />
+
+      {hasSelection ? (
+        <div className="slide-down flex items-center gap-2 min-w-0">
+          <span className="text-[12px] font-semibold tabular-nums shrink-0" style={{ color: ACCENT }}>
+            {checkedCount} selected
+          </span>
+
+          <BulkButton
+            label="Delete"
+            icon={<Trash2 className="h-3.5 w-3.5" />}
+            onClick={onBulkDelete}
+            destructive
+          />
+
+          <BulkButton
+            label="Read later"
+            icon={<BookmarkPlus className="h-3.5 w-3.5" />}
+            onClick={onBulkReadLater}
+          />
+
+          <div className="relative">
+            <BulkButton
+              innerRef={moveTriggerRef}
+              label="Move"
+              icon={<FolderInput className="h-3.5 w-3.5" />}
+              onClick={() => {
+                if (!moveMenuOpen && moveTriggerRef.current) {
+                  setAnchorRect(moveTriggerRef.current.getBoundingClientRect());
+                }
+                setMoveMenuOpen((prev) => !prev);
+              }}
+            />
+
+            {moveMenuOpen && anchorRect && (
+              <FolderPicker
+                folders={folders}
+                anchorRect={anchorRect}
+                onClose={() => setMoveMenuOpen(false)}
+                onSelectFolder={onBulkMove}
+              />
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onClearSelection}
+            className="hover-pop inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+            aria-label="Clear selection"
+            title="Clear selection"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto">
+          <FilterChip
+            label="All"
+            count={totalCount}
+            isActive={filter === "all"}
+            onClick={() => onFilterChange("all")}
+          />
+          <FilterChip
+            label="Unread"
+            count={unreadCount}
+            isActive={filter === "unread"}
+            onClick={() => onFilterChange("unread")}
+          />
+          <FilterChip
+            label="Read later"
+            count={readLaterCount}
+            isActive={filter === "readLater"}
+            onClick={() => onFilterChange("readLater")}
+          />
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onToggleSort}
+        className="hover-lift ml-auto shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] text-muted-foreground hover:text-foreground border border-border"
+        title="Toggle sort order"
+      >
+        <ArrowDownUp className="h-3.5 w-3.5" />
+        {sortDesc ? "Newest" : "Oldest"}
+      </button>
+    </div>
+  );
+}
+
 function EmailCard({
   email,
+  index,
   onClick,
   isSelected,
+  isChecked,
+  onToggleCheck,
   folderName,
   folders,
   onDeleteEmail,
@@ -285,8 +552,11 @@ function EmailCard({
   onReadLater,
 }: {
   email: GmailEmailWithFolder;
+  index: number;
   onClick: () => void;
   isSelected: boolean;
+  isChecked: boolean;
+  onToggleCheck: (next: boolean) => void;
   folderName?: string | null;
   folders: FolderItem[];
   onDeleteEmail: (emailId: string) => void;
@@ -297,36 +567,50 @@ function EmailCard({
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const folderTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const ripple = useRipple();
 
   const keepRowActive = rowHovered || folderMenuOpen;
-  const hoverOnly = keepRowActive && !isSelected;
+  const hoverOnly = keepRowActive && !isSelected && !isChecked;
 
   const senderName = getSenderDisplayName(email.from) || "Unknown Sender";
+  const unread = isUnread(email.labelIds);
+  const snippet = decodeSnippet(email.snippet);
+  const highlighted = isSelected || isChecked;
 
-  const background = isSelected
+  const background = highlighted
     ? ACCENT_TINT
     : email.readLater
       ? "color-mix(in srgb, #FF9E20 10%, transparent)"
       : hoverOnly
         ? HOVER_BG
-        : "transparent";
+        : unread
+          ? "transparent"
+          : "color-mix(in srgb, var(--foreground) 3%, transparent)";
 
-  const leftBar = isSelected
+  const leftBar = highlighted
     ? ACCENT
     : email.readLater
       ? "#FF9E20"
-      : "transparent";
+      : unread
+        ? ACCENT
+        : "transparent";
+
+  const textColor = highlighted ? ACCENT : "var(--foreground)";
 
   return (
     <div
       role="button"
       tabIndex={0}
-      className="group hover-row w-full cursor-pointer outline-none"
-      style={{
-        background,
-        borderBottom: "1px solid var(--border)",
-        boxShadow: `inset 3px 0 0 ${leftBar}`,
-      }}
+      className="group hover-row row-in relative overflow-hidden w-full cursor-pointer outline-none"
+      style={
+        {
+          background,
+          borderBottom: "1px solid var(--border)",
+          boxShadow: `inset 3px 0 0 ${leftBar}`,
+          "--row-i": Math.min(index, 14),
+        } as React.CSSProperties
+      }
+      onPointerDown={ripple}
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -343,27 +627,49 @@ function EmailCard({
       aria-pressed={isSelected}
       aria-label={`Open email ${email.subject || "(No Subject)"}`}
     >
-      <div className="pl-3.5 pr-3 py-2 flex items-center gap-3">
-        <SenderAvatar from={email.from} size={28} selected={isSelected} />
+      <div className="pl-3.5 pr-3 py-2 flex items-center gap-2.5">
+        <MailCheckbox
+          checked={isChecked}
+          onChange={onToggleCheck}
+          label={`Select email from ${senderName}`}
+        />
+
+        <span className="w-1.5 shrink-0 flex items-center justify-center">
+          {unread && (
+            <span
+              className="pop-in h-1.5 w-1.5 rounded-full"
+              style={{ background: ACCENT }}
+              title="Unread"
+            />
+          )}
+        </span>
+
+        <SenderAvatar from={email.from} size={28} selected={highlighted} />
 
         <span
-          className="w-36 shrink-0 truncate text-[13px] font-semibold"
-          style={{ color: isSelected ? ACCENT : "var(--foreground)" }}
+          className="w-32 md:w-40 shrink-0 truncate text-[13px]"
+          style={{ color: textColor, fontWeight: unread ? 700 : 500 }}
         >
           {senderName}
         </span>
 
         <span className="min-w-0 flex-1 flex items-center gap-2">
           <span
-            className="truncate text-[13px]"
-            style={{ color: isSelected ? ACCENT : "var(--foreground)" }}
+            className="shrink-0 max-w-[45%] truncate text-[13px]"
+            style={{ color: textColor, fontWeight: unread ? 600 : 400 }}
           >
             {email.subject || "(No Subject)"}
           </span>
 
+          {snippet && (
+            <span className="hidden sm:inline min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">
+              — {snippet}
+            </span>
+          )}
+
           {folderName && (
             <span
-              className="hidden md:inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-px text-[10px] leading-4"
+              className="hidden lg:inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-px text-[10px] leading-4"
               style={{
                 background: `color-mix(in srgb, ${ACCENT} 8%, transparent)`,
                 color: "var(--muted-foreground)",
@@ -389,7 +695,7 @@ function EmailCard({
 
         <div className="shrink-0 flex items-center justify-end w-[104px]">
           {keepRowActive ? (
-            <div className="flex items-center gap-0.5">
+            <div className="slide-down flex items-center gap-0.5">
               <RowActionButton
                 label="Delete"
                 icon={<Trash2 className="h-3.5 w-3.5" />}
@@ -451,7 +757,8 @@ function EmailCard({
             <span
               className="text-[11px] tabular-nums"
               style={{
-                color: isSelected ? ACCENT : "var(--muted-foreground)",
+                color: highlighted ? ACCENT : "var(--muted-foreground)",
+                fontWeight: unread ? 600 : 400,
               }}
             >
               {formatTime(email.date)}
@@ -621,9 +928,14 @@ export function EmailListView({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const [filter, setFilter] = useState<ListFilter>("all");
+  const [sortDesc, setSortDesc] = useState(true);
 
   useEffect(() => {
     setSearchQuery("");
+    setCheckedIds([]);
+    setFilter("all");
   }, [activeSection, selectedFolderId]);
 
   const selectedFolder = useMemo(
@@ -675,6 +987,60 @@ export function EmailListView({
     if (activeSection === "sent") return filterEmails(dedupeById(sentEmails));
     return [];
   }, [activeSection, inboxEmails, sentEmails, searchQuery]);
+
+  // emails for the active mail section, before the toolbar's filter/sort
+  const baseEmails =
+    activeSection === "folder"
+      ? folderEmails
+      : activeSection === "inbox" || activeSection === "sent"
+        ? visibleEmails
+        : [];
+
+  const unreadCount = baseEmails.filter((e) => isUnread(e.labelIds)).length;
+  const readLaterCount = baseEmails.filter((e) => e.readLater).length;
+
+  const listEmails = useMemo(() => {
+    const kept =
+      filter === "unread"
+        ? baseEmails.filter((e) => isUnread(e.labelIds))
+        : filter === "readLater"
+          ? baseEmails.filter((e) => e.readLater)
+          : baseEmails;
+
+    return [...kept].sort((a, b) => {
+      const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      return sortDesc ? diff : -diff;
+    });
+  }, [baseEmails, filter, sortDesc]);
+
+  const checkedSet = useMemo(() => new Set(checkedIds), [checkedIds]);
+
+  const toggleChecked = (emailId: string, next: boolean) =>
+    setCheckedIds((prev) =>
+      next ? [...prev, emailId] : prev.filter((id) => id !== emailId),
+    );
+
+  const runBulk = (action: (emailId: string) => void) => {
+    checkedIds.forEach(action);
+    setCheckedIds([]);
+  };
+
+  const renderEmailCard = (email: GmailEmailWithFolder, index: number) => (
+    <EmailCard
+      key={email.id}
+      email={email}
+      index={index}
+      isSelected={selectedEmailId === email.id}
+      isChecked={checkedSet.has(email.id)}
+      onToggleCheck={(next) => toggleChecked(email.id, next)}
+      onClick={() => onOpenGmailEmail(email.id)}
+      folderName={folders.find((f) => f.id === email.folderId)?.name ?? null}
+      folders={folders}
+      onDeleteEmail={onDeleteEmail}
+      onMoveToFolder={onMoveEmailToFolder}
+      onReadLater={onMarkReadLater}
+    />
+  );
 
   const filteredDrafts = useMemo(
     () => filterDrafts(drafts),
@@ -732,9 +1098,12 @@ export function EmailListView({
       ? filteredDrafts.length
       : activeSection === "scheduled"
         ? filteredScheduled.length
-        : activeSection === "folder"
-          ? folderEmails.length
-          : visibleEmails.length;
+        : listEmails.length;
+
+  const showToolbar =
+    activeSection === "inbox" ||
+    activeSection === "sent" ||
+    (activeSection === "folder" && !!selectedFolderId);
 
   return (
     <div className="relative h-full w-full bg-card text-foreground flex flex-col">
@@ -815,6 +1184,35 @@ export function EmailListView({
         </p>
       </div>
 
+      {showToolbar && (
+        <ListToolbar
+          totalCount={baseEmails.length}
+          unreadCount={unreadCount}
+          readLaterCount={readLaterCount}
+          checkedCount={checkedIds.length}
+          allChecked={
+            listEmails.length > 0 &&
+            listEmails.every((e) => checkedSet.has(e.id))
+          }
+          onToggleAll={(next) =>
+            setCheckedIds(next ? listEmails.map((e) => e.id) : [])
+          }
+          filter={filter}
+          onFilterChange={setFilter}
+          sortDesc={sortDesc}
+          onToggleSort={() => setSortDesc((prev) => !prev)}
+          folders={folders}
+          onBulkDelete={() => runBulk(onDeleteEmail)}
+          onBulkReadLater={() =>
+            onMarkReadLater && runBulk(onMarkReadLater)
+          }
+          onBulkMove={(folderId) =>
+            runBulk((id) => onMoveEmailToFolder(id, folderId))
+          }
+          onClearSelection={() => setCheckedIds([])}
+        />
+      )}
+
       <div className="flex-1 overflow-y-auto overflow-x-hidden bg-card">
         {activeSection === "inbox" &&
           (isLoading ? (
@@ -824,27 +1222,17 @@ export function EmailListView({
                 Loading inbox...
               </span>
             </div>
-          ) : visibleEmails.length === 0 ? (
+          ) : listEmails.length === 0 ? (
             <EmptyState
               icon={<Inbox className="h-9 w-9" />}
-              message={searchQuery ? "No results found" : "No inbox emails"}
+              message={
+                searchQuery || filter !== "all"
+                  ? "No results found"
+                  : "No inbox emails"
+              }
             />
           ) : (
-            visibleEmails.map((email) => (
-              <EmailCard
-                key={email.id}
-                email={email}
-                isSelected={selectedEmailId === email.id}
-                onClick={() => onOpenGmailEmail(email.id)}
-                folderName={
-                  folders.find((f) => f.id === email.folderId)?.name ?? null
-                }
-                folders={folders}
-                onDeleteEmail={onDeleteEmail}
-                onMoveToFolder={onMoveEmailToFolder}
-                onReadLater={onMarkReadLater}
-              />
-            ))
+            listEmails.map(renderEmailCard)
           ))}
 
         {activeSection === "sent" &&
@@ -855,27 +1243,17 @@ export function EmailListView({
                 Loading emails...
               </span>
             </div>
-          ) : visibleEmails.length === 0 ? (
+          ) : listEmails.length === 0 ? (
             <EmptyState
               icon={<SendHorizontal className="h-9 w-9" />}
-              message={searchQuery ? "No results found" : "No sent emails"}
+              message={
+                searchQuery || filter !== "all"
+                  ? "No results found"
+                  : "No sent emails"
+              }
             />
           ) : (
-            visibleEmails.map((email) => (
-              <EmailCard
-                key={email.id}
-                email={email}
-                isSelected={selectedEmailId === email.id}
-                onClick={() => onOpenGmailEmail(email.id)}
-                folderName={
-                  folders.find((f) => f.id === email.folderId)?.name ?? null
-                }
-                folders={folders}
-                onDeleteEmail={onDeleteEmail}
-                onMoveToFolder={onMoveEmailToFolder}
-                onReadLater={onMarkReadLater}
-              />
-            ))
+            listEmails.map(renderEmailCard)
           ))}
 
         {activeSection === "folder" &&
@@ -884,27 +1262,17 @@ export function EmailListView({
               icon={<Folder className="h-9 w-9" />}
               message="Select a folder from the sidebar"
             />
-          ) : folderEmails.length === 0 ? (
+          ) : listEmails.length === 0 ? (
             <EmptyState
               icon={<Folder className="h-9 w-9" />}
               message={
-                searchQuery ? "No results found" : "No emails in this folder"
+                searchQuery || filter !== "all"
+                  ? "No results found"
+                  : "No emails in this folder"
               }
             />
           ) : (
-            folderEmails.map((email) => (
-              <EmailCard
-                key={email.id}
-                email={email}
-                isSelected={selectedEmailId === email.id}
-                onClick={() => onOpenGmailEmail(email.id)}
-                folderName={selectedFolder?.name ?? null}
-                folders={folders}
-                onDeleteEmail={onDeleteEmail}
-                onMoveToFolder={onMoveEmailToFolder}
-                onReadLater={onMarkReadLater}
-              />
-            ))
+            listEmails.map(renderEmailCard)
           ))}
 
         {activeSection === "drafts" &&

@@ -28,6 +28,10 @@ export interface GmailEmail {
   from: string;
   date: string;
   folderId?: string | null;
+  // returned by /list_emails; used for unread state and row previews
+  snippet?: string;
+  labelIds?: string[];
+  threadId?: string;
 }
 
 export interface GmailEmailDetail {

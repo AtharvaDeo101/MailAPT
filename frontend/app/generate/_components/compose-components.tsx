@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion, useDragControls } from "framer-motion";
 import {
   CalendarClock,
   Check,
@@ -519,23 +520,35 @@ export function ComposeModal({
   isSending: boolean;
   status: StatusMessage;
 }) {
+  const dragConstraintsRef = useRef<HTMLDivElement | null>(null);
+  const dragControls = useDragControls();
+
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-end sm:p-4"
+      ref={dragConstraintsRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
     >
       <div className="absolute inset-0 bg-transparent" onClick={onClose} />
 
-      <div
-        className="relative z-10 w-full sm:w-[560px] rounded-t-lg sm:rounded-lg bg-card flex flex-col max-h-[92vh] border border-border overflow-hidden"
+      <motion.div
+        drag
+        // header-only drag handle; constrained to the viewport, no throw physics
+        dragListener={false}
+        dragControls={dragControls}
+        dragConstraints={dragConstraintsRef}
+        dragElastic={0}
+        dragMomentum={false}
+        className="relative z-10 w-full sm:w-[560px] rounded-lg bg-card flex flex-col max-h-[92vh] border border-border overflow-hidden"
         style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.26)" }}
       >
         <div
-          className="flex items-center gap-2 px-4 h-10 shrink-0"
-          style={{ backgroundColor: ACCENT_COLOR }}
+          className="flex items-center gap-2 px-4 h-10 shrink-0 cursor-move select-none"
+          style={{ backgroundColor: ACCENT_COLOR, touchAction: "none" }}
+          onPointerDown={(e) => dragControls.start(e)}
         >
           <span className="text-[13px] font-medium text-white">
             New message
@@ -544,6 +557,7 @@ export function ComposeModal({
           <button
             type="button"
             onClick={onClose}
+            onPointerDown={(e) => e.stopPropagation()}
             className="hover-pop ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
@@ -664,7 +678,7 @@ export function ComposeModal({
             </ToolbarIconButton>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

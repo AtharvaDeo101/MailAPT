@@ -66,19 +66,23 @@ function AIVisual() {
       {[0, 1, 2, 3, 4, 5].map((i) => {
         const angle = (i * 60) * (Math.PI / 180);
         const radius = 50;
+        // Math.cos/sin are implementation-defined to the last ulp, so Node and
+        // the browser can disagree; round so SSR and hydration stringify alike.
+        const x = Math.round((100 + Math.cos(angle) * radius) * 1000) / 1000;
+        const y = Math.round((80 + Math.sin(angle) * radius) * 1000) / 1000;
         return (
           <g key={i}>
             <line
               x1="100" y1="80"
-              x2={100 + Math.cos(angle) * radius}
-              y2={80 + Math.sin(angle) * radius}
+              x2={x}
+              y2={y}
               stroke="currentColor" strokeWidth="1" opacity="0.3"
             >
               <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" begin={`${i * 0.3}s`} repeatCount="indefinite" />
             </line>
             <circle
-              cx={100 + Math.cos(angle) * radius}
-              cy={80 + Math.sin(angle) * radius}
+              cx={x}
+              cy={y}
               r="6" fill="none" stroke="currentColor" strokeWidth="2"
             >
               <animate attributeName="r" values="6;8;6" dur="2s" begin={`${i * 0.3}s`} repeatCount="indefinite" />

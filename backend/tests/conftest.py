@@ -11,12 +11,15 @@ os.environ.setdefault("GOOGLE_CLIENT_SECRET", "test-client-secret")
 os.environ.setdefault("HF_API_TOKEN", "test-hf-token")
 os.environ.setdefault("FRONTEND_URL", "http://localhost:3000/")
 os.environ.setdefault("REDIRECT_URI", "http://localhost:5000/oauth2callback")
+# db.py builds its engine at import time from this; keep the suite off Postgres
+os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 
 @pytest.fixture
 def app():
-    from OAuth import app as flask_app
+    from main import create_app
 
+    flask_app = create_app()
     flask_app.config.update(
         TESTING=True,
         SESSION_TYPE="filesystem",

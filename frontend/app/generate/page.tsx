@@ -19,6 +19,7 @@ import type {
   ActiveSection,
   ChatMessage,
   DraftEmail,
+  GmailEmail,
   GmailEmailDetail,
   ScheduledEmail,
   StatusMessage,
@@ -42,14 +43,6 @@ type FolderItem = {
   id: string;
   name: string;
   count?: number;
-};
-
-type FolderCapableEmail = {
-  id: string;
-  folderId?: string | null;
-  labelIds?: string[];
-  readLater?: boolean;
-  [key: string]: any;
 };
 
 type StoredEmail = {
@@ -235,6 +228,19 @@ export default function EmailGenerator() {
     setActiveScheduledId(null);
     setOpenedEmailId(id);
     setDetailPanelVisible(true);
+
+    // /get_email clears UNREAD in Gmail; mirror it in the cached list so the
+    // row stops rendering as unread without waiting for a refetch
+    queryClient.setQueryData<GmailEmail[]>(["emails", "inbox"], (emails) =>
+      emails?.map((email) =>
+        email.id === id
+          ? {
+              ...email,
+              labelIds: email.labelIds?.filter((l) => l !== "UNREAD"),
+            }
+          : email,
+      ),
+    );
   };
 
   const handleSectionSelect = (section: SidebarSection) => {
@@ -587,8 +593,8 @@ export default function EmailGenerator() {
 
   const inboxWithFolders = useMemo(() => {
     return inboxEmails
-      .filter((email: FolderCapableEmail) => !deletedEmailIds.includes(email.id))
-      .map((email: FolderCapableEmail) => ({
+      .filter((email) => !deletedEmailIds.includes(email.id))
+      .map((email) => ({
         ...email,
         folderId:
           emailFolderAssignments[email.id] !== undefined
@@ -600,8 +606,8 @@ export default function EmailGenerator() {
 
   const sentWithFolders = useMemo(() => {
     return sentEmails
-      .filter((email: FolderCapableEmail) => !deletedEmailIds.includes(email.id))
-      .map((email: FolderCapableEmail) => ({
+      .filter((email) => !deletedEmailIds.includes(email.id))
+      .map((email) => ({
         ...email,
         folderId:
           emailFolderAssignments[email.id] !== undefined

@@ -145,18 +145,9 @@ def extract_email_body(payload):
             for sub in parts:
                 walk_parts(sub)
 
-    if payload:
-        payload_body = (payload.get("body", {}) or {}).get("data")
-        payload_mime = (payload.get("mimeType") or "").lower()
-
-        if payload_body:
-            decoded = _decode_body(payload_body)
-            if payload_mime == "text/plain" and decoded.strip():
-                plain_chunks.append(decoded)
-            elif payload_mime == "text/html" and decoded.strip():
-                html_chunks.append(decoded)
-
-        walk_parts(payload)
+    # walk_parts handles the payload node itself before recursing, so the root
+    # must not be decoded separately or single-part bodies come out doubled
+    walk_parts(payload)
 
     html_body = "\n\n".join(chunk for chunk in html_chunks if chunk.strip()).strip()
     plain_body = "\n\n".join(chunk for chunk in plain_chunks if chunk.strip()).strip()
@@ -415,6 +406,21 @@ def get_email(email_id):
             .execute()
         )
 
+        label_ids = msg.get("labelIds", []) or []
+
+        # Opening a message marks it read. A failure here must not break the
+        # read itself, so it is logged and swallowed.
+        if "UNREAD" in label_ids:
+            try:
+                service.users().messages().modify(
+                    userId="me",
+                    id=email_id,
+                    body={"removeLabelIds": ["UNREAD"]},
+                ).execute()
+                label_ids = [l for l in label_ids if l != "UNREAD"]
+            except HttpError as e:
+                current_app.logger.warning(f"Could not mark {email_id} read: {e}")
+
         payload = msg.get("payload", {}) or {}
         headers = payload.get("headers", []) or []
         bodies = extract_email_body(payload)
@@ -434,7 +440,7 @@ def get_email(email_id):
         email = {
             "id": msg.get("id", email_id),
             "threadId": msg.get("threadId", ""),
-            "labelIds": msg.get("labelIds", []),
+            "labelIds": label_ids,
             "snippet": msg.get("snippet", ""),
             "subject": subject,
             "from": from_value,

@@ -93,3 +93,24 @@ export function getLetterAvatarColors(letter: string) {
 
   return colorMap[letter] || colorMap["?"];
 }
+const ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&nbsp;": " ",
+};
+
+/** Gmail snippets arrive HTML-escaped. Decode the handful of entities they use. */
+export function decodeSnippet(snippet?: string): string {
+  if (!snippet) return "";
+  return snippet
+    .replace(/&amp;|&lt;|&gt;|&quot;|&#39;|&nbsp;/g, (m) => ENTITIES[m] ?? m)
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .trim();
+}
+
+export function isUnread(labelIds?: string[]): boolean {
+  return Array.isArray(labelIds) && labelIds.includes("UNREAD");
+}

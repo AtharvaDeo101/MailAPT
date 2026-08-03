@@ -377,3 +377,70 @@ body {
     transform: none;
   }
 }
+
+/* ---------- Generate page: motion + mail-list primitives ---------- */
+
+@keyframes mail-row-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+/* staggered entrance; --row-i is set per row, capped so long lists stay snappy */
+.mail-ui .row-in {
+  animation: mail-row-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--row-i, 0) * 20ms);
+}
+
+@keyframes mail-pop-in {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.mail-ui .pop-in { animation: mail-pop-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes mail-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+.mail-ui .slide-down { animation: mail-slide-down 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes mail-pane-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.mail-ui .pane-in { animation: mail-pane-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* click ripple — span is injected on pointerdown and removes itself */
+@keyframes mail-ripple {
+  from { opacity: 0.28; transform: scale(0); }
+  to   { opacity: 0;    transform: scale(1); }
+}
+.mail-ui .ripple {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: var(--mail-accent);
+  animation: mail-ripple 520ms ease-out forwards;
+}
+
+/* native checkbox, themed */
+.mail-ui .mail-check {
+  accent-color: var(--mail-accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mail-ui .mail-check:hover { transform: scale(1.2); }
+.mail-ui .mail-check:checked { animation: mail-pop-in 180ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mail-ui .row-in,
+  .mail-ui .pop-in,
+  .mail-ui .slide-down,
+  .mail-ui .pane-in,
+  .mail-ui .mail-check:checked {
+    animation: none;
+  }
+  .mail-ui .ripple { display: none; }
+  .mail-ui .mail-check:hover { transform: none; }
+}
