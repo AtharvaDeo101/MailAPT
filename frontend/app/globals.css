@@ -318,3 +318,62 @@ body {
   --mail-hover: rgba(255, 255, 255, 0.07);
   --mail-warn-text: #f0b45f;
 }
+
+/* Generate page: hover-expand for interactive elements.
+   Three magnitudes — small icon buttons pop, solid pills swell, wide rows barely move. */
+.mail-ui .hover-pop,
+.mail-ui .hover-press,
+.mail-ui .hover-lift,
+.mail-ui .hover-row {
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.mail-ui .hover-pop:hover:not(:disabled),
+.mail-ui .hover-pop:focus-visible {
+  transform: scale(1.18);
+}
+
+.mail-ui .hover-press:hover:not(:disabled),
+.mail-ui .hover-press:focus-visible {
+  transform: scale(1.05);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.28);
+}
+
+.mail-ui .hover-lift:hover,
+.mail-ui .hover-lift:focus-visible {
+  transform: scale(1.03);
+}
+
+/* Full-width list rows: enough to feel, not enough to reflow text */
+.mail-ui .hover-row:hover {
+  transform: scale(1.006);
+  transform-origin: left center;
+}
+
+.mail-ui .hover-pop:active:not(:disabled),
+.mail-ui .hover-press:active:not(:disabled),
+.mail-ui .hover-lift:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mail-ui .hover-pop,
+  .mail-ui .hover-press,
+  .mail-ui .hover-lift,
+  .mail-ui .hover-row {
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .mail-ui .hover-pop:hover,
+  .mail-ui .hover-press:hover,
+  .mail-ui .hover-lift:hover,
+  .mail-ui .hover-row:hover,
+  .mail-ui .hover-pop:active,
+  .mail-ui .hover-press:active,
+  .mail-ui .hover-lift:active {
+    transform: none;
+  }
+}

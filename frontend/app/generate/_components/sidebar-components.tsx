@@ -76,7 +76,7 @@ function SidebarNavItem({
     <button
       type="button"
       onClick={onClick}
-      className="group flex w-full items-center gap-3 h-8 pr-3 rounded-r-full text-left select-none transition-colors duration-150"
+      className="group hover-lift flex w-full items-center gap-3 h-8 pr-3 rounded-r-full text-left select-none origin-left"
       style={{
         paddingLeft: indented ? 36 : 20,
         background: isActive ? ACCENT_TINT : "transparent",
@@ -116,7 +116,7 @@ function SidebarFolderSection({
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className="flex flex-1 items-center gap-2 h-8 pl-4 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground hover:text-foreground transition-colors"
+          className="hover-lift flex flex-1 items-center gap-2 h-8 pl-4 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground hover:text-foreground origin-left"
         >
           {isOpen ? (
             <ChevronDown className="h-3.5 w-3.5 shrink-0" />
@@ -129,7 +129,7 @@ function SidebarFolderSection({
         <button
           type="button"
           onClick={onAddFolder}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+          className="hover-pop inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
           aria-label="Create folder"
           title="Create folder"
         >
@@ -190,7 +190,7 @@ function SidebarThemeToggle() {
         onClick={() => setTheme(isDark ? "light" : "dark")}
         aria-label="Toggle theme"
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        className="flex w-full items-center gap-2.5 h-8 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+        className="hover-lift flex w-full items-center gap-2.5 h-8 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground origin-left"
       >
         {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         {isDark ? "Light mode" : "Dark mode"}
@@ -265,7 +265,7 @@ export function LeftSidebar({
         <button
           type="button"
           onClick={onNewEmail}
-          className="flex items-center gap-2.5 h-9 pl-3.5 pr-5 rounded-full text-[13px] font-medium text-white transition-shadow duration-200"
+          className="hover-press flex items-center gap-2.5 h-9 pl-3.5 pr-5 rounded-full text-[13px] font-medium text-white"
           style={{
             backgroundColor: BRAND,
             boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
@@ -282,7 +282,7 @@ export function LeftSidebar({
         </button>
       </div>
 
-      <nav className="flex flex-col flex-1 pr-2 pb-3 overflow-y-auto">
+      <nav className="flex flex-col flex-1 pr-2 pb-3 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => (
           <SidebarNavItem
             key={item.id}

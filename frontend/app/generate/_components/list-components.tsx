@@ -141,7 +141,7 @@ function RowActionButton({
         e.stopPropagation();
         onClick();
       }}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-transparent border-0 outline-none transition-colors duration-150"
+      className="hover-pop inline-flex h-7 w-7 items-center justify-center rounded-full bg-transparent border-0 outline-none"
       style={{
         color: destructive
           ? "#c5221f"
@@ -238,7 +238,7 @@ function FolderPicker({
                 onSelectFolder(folder.id);
                 onClose();
               }}
-              className="w-full flex items-center gap-2 px-3 h-8 text-left text-[13px] transition-colors"
+              className="hover-lift w-full flex items-center gap-2 px-3 h-8 text-left text-[13px] origin-left"
               style={{ color: "var(--foreground)" }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = HOVER_BG;
@@ -321,7 +321,7 @@ function EmailCard({
     <div
       role="button"
       tabIndex={0}
-      className="group w-full cursor-pointer outline-none transition-colors duration-150"
+      className="group hover-row w-full cursor-pointer outline-none"
       style={{
         background,
         borderBottom: "1px solid var(--border)",
@@ -417,7 +417,7 @@ function EmailCard({
                     }
                     setFolderMenuOpen((prev) => !prev);
                   }}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border-0 outline-none transition-colors duration-150"
+                  className="hover-pop inline-flex h-7 w-7 items-center justify-center rounded-full border-0 outline-none"
                   style={{
                     color: folderMenuOpen ? ACCENT : "var(--muted-foreground)",
                     background: folderMenuOpen ? HOVER_BG : "transparent",
@@ -488,7 +488,7 @@ function SimpleRow({
     <div
       role="button"
       tabIndex={0}
-      className="group w-full cursor-pointer outline-none transition-colors duration-150"
+      className="group hover-row w-full cursor-pointer outline-none"
       style={{
         background: isActive
           ? ACCENT_TINT
@@ -762,7 +762,7 @@ export function EmailListView({
           </div>
 
           <div className="ml-auto flex items-center gap-2 min-w-0">
-            <div className="relative w-[220px] sm:w-[300px] md:w-[380px]">
+            <div className="relative w-[220px] sm:w-[300px] md:w-[380px] md:hover:w-[440px] md:focus-within:w-[440px] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none text-muted-foreground" />
               <input
                 type="text"
@@ -784,7 +784,7 @@ export function EmailListView({
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="hover-pop absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label="Clear search"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -795,7 +795,7 @@ export function EmailListView({
             {canRefresh && (
               <button
                 type="button"
-                className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+                className="hover-pop shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
                 onClick={
                   activeSection === "inbox" ? onRefreshInbox : onRefreshSent
                 }
@@ -815,7 +815,7 @@ export function EmailListView({
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-card">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-card">
         {activeSection === "inbox" &&
           (isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-2.5">
@@ -1008,7 +1008,7 @@ export function EmailDetailOverlayPanel({
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+            className="hover-pop ml-auto shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
             aria-label="Close"
             title="Close"
           >

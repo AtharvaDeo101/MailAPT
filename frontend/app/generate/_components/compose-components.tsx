@@ -57,7 +57,7 @@ function ToolbarIconButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+      className="hover-pop inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
     >
       {children}
     </button>
@@ -184,7 +184,7 @@ function ChatPrompt({
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-white disabled:opacity-35 disabled:cursor-not-allowed transition-opacity"
+          className="hover-pop shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-white disabled:opacity-35 disabled:cursor-not-allowed"
           aria-label="Send prompt"
           style={{ backgroundColor: ACCENT_COLOR }}
         >
@@ -266,7 +266,7 @@ function AttachmentList({
           </span>
           <button
             onClick={() => onRemove(i)}
-            className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+            className="hover-pop shrink-0 text-muted-foreground hover:text-destructive"
             type="button"
             aria-label={`Remove ${file.name}`}
           >
@@ -318,7 +318,7 @@ export function EmailPreviewModal({
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            className="hover-pop ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
             <X className="h-3.5 w-3.5" />
@@ -418,7 +418,7 @@ export function ScheduleEmailModal({
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            className="hover-pop ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
             <X className="h-3.5 w-3.5" />
@@ -448,14 +448,14 @@ export function ScheduleEmailModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="h-8 rounded-full text-[13px]"
+            className="hover-press h-8 rounded-full text-[13px]"
           >
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!scheduledFor}
-            className="h-8 rounded-full text-[13px] text-white"
+            className="hover-press h-8 rounded-full text-[13px] text-white"
             style={{ backgroundColor: ACCENT_COLOR }}
           >
             Schedule
@@ -544,7 +544,7 @@ export function ComposeModal({
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            className="hover-pop ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
             <X className="h-3.5 w-3.5" />
@@ -629,7 +629,7 @@ export function ComposeModal({
               type="button"
               onClick={onSend}
               disabled={isSending || !recipientEmail.trim() || !body.trim()}
-              className="inline-flex items-center gap-2 h-8 pl-4 pr-4 rounded-full text-[13px] font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              className="hover-press inline-flex items-center gap-2 h-8 pl-4 pr-4 rounded-full text-[13px] font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ backgroundColor: ACCENT_COLOR }}
             >
               {isSending ? (
