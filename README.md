@@ -59,3 +59,4 @@ professionals, managers, and any other individuals who require efficient email c
   <li>Enable inbox analytics and tracking.</li>
   <li>Integrate with Gmail and Outlook APIs.</li>
 </ul>
+
