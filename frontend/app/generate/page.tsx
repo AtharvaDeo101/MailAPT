@@ -656,7 +656,7 @@ export default function EmailGenerator() {
   }
 
   return (
-    <div className="h-screen bg-white flex overflow-hidden">
+    <div className="h-screen bg-card flex overflow-hidden">
       <div className="h-full self-stretch">
         <LeftSidebar
           activeSection={activeSection}
@@ -673,14 +673,8 @@ export default function EmailGenerator() {
         />
       </div>
 
-      <div className="flex-1 min-w-0 relative overflow-hidden bg-white h-full">
-        <main
-          className="h-full transition-all duration-300"
-          style={{
-            filter: "none",
-            transform: "scale(1)",
-          }}
-        >
+      <div className="flex-1 min-w-0 relative overflow-hidden bg-card h-full">
+        <main className="h-full">
           <EmailListView
             activeSection={activeSection}
             inboxEmails={inboxWithFolders}

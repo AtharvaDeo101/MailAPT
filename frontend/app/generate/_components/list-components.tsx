@@ -10,15 +10,12 @@ import {
   Inbox,
   Loader2,
   Mail,
-  MailOpen,
-  PanelRightOpen,
   RefreshCw,
   Search,
   SendHorizontal,
   Trash2,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getGravatarUrl } from "../_lib/api";
 import {
@@ -37,7 +34,10 @@ import type {
   GmailEmailDetail,
   ScheduledEmail,
 } from "../_lib/types";
-import { useTheme } from "next-themes";
+
+const ACCENT = "var(--mail-accent)";
+const ACCENT_TINT = "var(--mail-accent-tint)";
+const HOVER_BG = "var(--mail-hover)";
 
 type SidebarSection = ActiveSection | "folder";
 
@@ -64,7 +64,7 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 
 function SenderAvatar({
   from,
-  size = 32,
+  size = 28,
   selected = false,
 }: {
   from: string;
@@ -94,7 +94,7 @@ function SenderAvatar({
           width: size,
           height: size,
           border: selected
-            ? "2px solid color-mix(in srgb, #121931 34%, white 8%)"
+            ? `1px solid color-mix(in srgb, ${ACCENT} 30%, transparent)`
             : "1px solid var(--border)",
         }}
       />
@@ -110,9 +110,9 @@ function SenderAvatar({
         backgroundColor: colors.bg,
         color: colors.text,
         border: selected
-          ? "2px solid color-mix(in srgb, #121931 34%, white 8%)"
+          ? `1px solid color-mix(in srgb, ${ACCENT} 30%, transparent)`
           : "1px solid var(--border)",
-        fontSize: size >= 44 ? "16px" : size >= 32 ? "12px" : "10px",
+        fontSize: size >= 40 ? "14px" : size >= 28 ? "11px" : "10px",
       }}
       title={getSenderDisplayName(safeFrom) || "Unknown Sender"}
     >
@@ -141,29 +141,19 @@ function RowActionButton({
         e.stopPropagation();
         onClick();
       }}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-none bg-transparent border-0 shadow-none outline-none transition-all duration-200"
+      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-transparent border-0 outline-none transition-colors duration-150"
       style={{
         color: destructive
-          ? "#dc2626"
+          ? "#c5221f"
           : active
-            ? "#121931"
+            ? "#b06000"
             : "var(--muted-foreground)",
-        opacity: active ? 1 : 0.92,
-        transform: active ? "scale(1.06)" : "scale(1)",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.color = destructive ? "#dc2626" : "#121931";
-        e.currentTarget.style.opacity = "1";
-        e.currentTarget.style.transform = "scale(1.08)";
+        e.currentTarget.style.background = HOVER_BG;
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.color = destructive
-          ? "#dc2626"
-          : active
-            ? "#121931"
-            : "var(--muted-foreground)";
-        e.currentTarget.style.opacity = active ? "1" : "0.92";
-        e.currentTarget.style.transform = active ? "scale(1.06)" : "scale(1)";
+        e.currentTarget.style.background = "transparent";
       }}
       aria-label={label}
       title={label}
@@ -219,25 +209,24 @@ function FolderPicker({
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-[999] overflow-hidden border bg-card"
+      className="fixed z-[999] overflow-hidden rounded-md border bg-card"
       style={{
         top: coords.top,
         left: coords.left,
         width: MENU_WIDTH,
         borderColor: "var(--border)",
-        boxShadow:
-          "0 18px 40px color-mix(in srgb, #121931 20%, transparent)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.18)",
       }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <div className="px-3 py-2 text-[11px] uppercase tracking-[0.08em] text-muted-foreground border-b border-border">
-        Select folder
+      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground border-b border-border">
+        Move to folder
       </div>
 
-      <div className="max-h-60 overflow-y-auto">
+      <div className="max-h-60 overflow-y-auto py-1">
         {folders.length === 0 ? (
-          <div className="px-3 py-3 text-sm text-muted-foreground">
+          <div className="px-3 py-2.5 text-[12px] text-muted-foreground">
             No folders available
           </div>
         ) : (
@@ -249,17 +238,16 @@ function FolderPicker({
                 onSelectFolder(folder.id);
                 onClose();
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors"
+              className="w-full flex items-center gap-2 px-3 h-8 text-left text-[13px] transition-colors"
               style={{ color: "var(--foreground)" }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background =
-                  "color-mix(in srgb, #121931 10%, transparent)";
+                e.currentTarget.style.background = HOVER_BG;
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "transparent";
               }}
             >
-              <Folder className="h-4 w-4 shrink-0" />
+              <Folder className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{folder.name}</span>
             </button>
           ))
@@ -305,61 +293,39 @@ function EmailCard({
   onMoveToFolder: (emailId: string, folderId: string) => void;
   onReadLater?: (emailId: string) => void;
 }) {
-  const { theme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [rowHovered, setRowHovered] = useState(false);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
-  const [folderBtnHovered, setFolderBtnHovered] = useState(false);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const folderTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const activeTheme = mounted
-    ? theme === "system"
-      ? resolvedTheme
-      : theme
-    : "light";
-
-  const isDark = activeTheme === "dark";
   const keepRowActive = rowHovered || folderMenuOpen;
   const hoverOnly = keepRowActive && !isSelected;
 
   const senderName = getSenderDisplayName(email.from) || "Unknown Sender";
 
+  const background = isSelected
+    ? ACCENT_TINT
+    : email.readLater
+      ? "color-mix(in srgb, #FF9E20 10%, transparent)"
+      : hoverOnly
+        ? HOVER_BG
+        : "transparent";
+
+  const leftBar = isSelected
+    ? ACCENT
+    : email.readLater
+      ? "#FF9E20"
+      : "transparent";
+
   return (
     <div
       role="button"
       tabIndex={0}
-      className="group w-full cursor-pointer overflow-visible transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none"
+      className="group w-full cursor-pointer outline-none transition-colors duration-150"
       style={{
-        background: isSelected
-          ? "#121931"
-          : email.readLater
-            ? isDark
-              ? "color-mix(in srgb, #FF9E20 12%, transparent)"
-              : "color-mix(in srgb, #FF9E20 10%, transparent)"
-            : hoverOnly
-              ? isDark
-                ? "color-mix(in oklab, #121931 18%, white)"
-                : "color-mix(in srgb, #121931 16%, transparent)"
-              : "transparent",
-        borderBottom: "1px solid rgba(0, 0, 0, 0.08)",
-        boxShadow: isSelected
-          ? "inset 3px 0 0 #ffffff, 0 10px 24px color-mix(in srgb, #121931 18%, transparent)"
-          : hoverOnly
-            ? isDark
-              ? "inset 3px 0 0 color-mix(in oklab, #121931 72%, white), 0 8px 18px color-mix(in srgb, #121931 12%, transparent)"
-              : "inset 3px 0 0 #121931, 0 8px 18px color-mix(in srgb, #121931 8%, transparent)"
-            : email.readLater
-              ? "inset 3px 0 0 #FF9E20, 0 1px 0 rgba(0,0,0,0.05)"
-              : "0 1px 0 rgba(0,0,0,0.05)",
-        transform: hoverOnly
-          ? "scale(1.003) translateX(1px)"
-          : "scale(1) translateX(0)",
-        transformOrigin: "left center",
+        background,
+        borderBottom: "1px solid var(--border)",
+        boxShadow: `inset 3px 0 0 ${leftBar}`,
       }}
       onClick={onClick}
       onKeyDown={(e) => {
@@ -377,372 +343,231 @@ function EmailCard({
       aria-pressed={isSelected}
       aria-label={`Open email ${email.subject || "(No Subject)"}`}
     >
-      <div className="px-4 py-3 flex items-center gap-2.5">
-        <SenderAvatar from={email.from} size={38} selected={isSelected} />
+      <div className="pl-3.5 pr-3 py-2 flex items-center gap-3">
+        <SenderAvatar from={email.from} size={28} selected={isSelected} />
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2.5">
-            <div className="min-w-0 flex-1">
-              <p
-                className="text-[11px] font-semibold truncate leading-snug transition-colors duration-200"
-                style={{
-                  color: isSelected
-                    ? "#ffffff"
-                    : hoverOnly
-                      ? "#121931"
-                      : "var(--foreground)",
-                }}
-              >
-                {senderName}
-              </p>
+        <span
+          className="w-36 shrink-0 truncate text-[13px] font-semibold"
+          style={{ color: isSelected ? ACCENT : "var(--foreground)" }}
+        >
+          {senderName}
+        </span>
 
-              <p
-                className="text-sm truncate leading-snug mt-0.5 transition-colors duration-200"
-                style={{
-                  color: isSelected
-                    ? "#ffffff"
-                    : hoverOnly
-                      ? "#121931"
-                      : "var(--foreground)",
-                }}
-              >
-                {email.subject || "(No Subject)"}
-              </p>
-
-              <div className="flex items-center gap-2 mt-1">
-                {folderName && (
-                  <p
-                    className="text-[10px] truncate transition-colors duration-200"
-                    style={{
-                      color: isSelected
-                        ? "rgba(255,255,255,0.75)"
-                        : hoverOnly
-                          ? "#121931"
-                          : "var(--muted-foreground)",
-                    }}
-                  >
-                    Folder: {folderName}
-                  </p>
-                )}
-
-                {email.readLater && (
-                  <span
-                    className="text-[9px] px-1.5 py-0.5"
-                    style={{
-                      color: isSelected ? "rgba(255,255,255,0.88)" : "#9a5d00",
-                      background: isSelected
-                        ? "rgba(255,255,255,0.08)"
-                        : "color-mix(in srgb, #FF9E20 16%, transparent)",
-                    }}
-                  >
-                    Read later
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <span
-                className="text-[10px] tabular-nums shrink-0 transition-colors duration-200"
-                style={{
-                  color: isSelected
-                    ? "rgba(255,255,255,0.82)"
-                    : hoverOnly
-                      ? "#121931"
-                      : "var(--muted-foreground)",
-                }}
-              >
-                {formatTime(email.date)}
-              </span>
-
-              <div
-                className={cn(
-                  "flex items-center gap-1 transition-all duration-200",
-                  keepRowActive
-                    ? "opacity-100 translate-x-0"
-                    : "opacity-0 translate-x-2 pointer-events-none",
-                )}
-                onMouseEnter={() => setRowHovered(true)}
-              >
-                <RowActionButton
-                  label="Delete"
-                  icon={<Trash2 className="h-4 w-4" />}
-                  destructive
-                  onClick={() => onDeleteEmail(email.id)}
-                />
-
-                <RowActionButton
-                  label={email.readLater ? "Remove read later" : "Read later"}
-                  icon={<BookmarkPlus className="h-4 w-4" />}
-                  onClick={() => onReadLater?.(email.id)}
-                  active={Boolean(email.readLater)}
-                />
-
-                <div className="relative">
-                  <button
-                    ref={folderTriggerRef}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!folderMenuOpen && folderTriggerRef.current) {
-                        setAnchorRect(
-                          folderTriggerRef.current.getBoundingClientRect(),
-                        );
-                      }
-                      setFolderMenuOpen((prev) => !prev);
-                    }}
-                    onMouseEnter={() => setFolderBtnHovered(true)}
-                    onMouseLeave={() => setFolderBtnHovered(false)}
-                    className="relative inline-flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent outline-none"
-                    style={{
-                      color:
-                        folderMenuOpen || folderBtnHovered
-                          ? "#121931"
-                          : "var(--muted-foreground)",
-                      background:
-                        folderMenuOpen || folderBtnHovered
-                          ? "color-mix(in srgb, #121931 14%, transparent)"
-                          : "transparent",
-                      boxShadow:
-                        folderMenuOpen || folderBtnHovered
-                          ? "0 0 0 6px color-mix(in srgb, #121931 8%, transparent)"
-                          : "0 0 0 0px transparent",
-                      transform:
-                        folderMenuOpen || folderBtnHovered
-                          ? "scale(1.18)"
-                          : "scale(1)",
-                      transition:
-                        "transform 260ms cubic-bezier(0.22,1,0.36,1), box-shadow 260ms cubic-bezier(0.22,1,0.36,1), background 200ms ease, color 200ms ease",
-                    }}
-                    aria-label="Add in folder"
-                    title="Add in folder"
-                  >
-                    <Folder className="h-4 w-4" />
-                  </button>
-
-                  {folderMenuOpen && anchorRect && (
-                    <FolderPicker
-                      folders={folders}
-                      anchorRect={anchorRect}
-                      onClose={() => setFolderMenuOpen(false)}
-                      onSelectFolder={(folderId) =>
-                        onMoveToFolder(email.id, folderId)
-                      }
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DraftCard({
-  draft,
-  isActive,
-  onClick,
-  onDelete,
-}: {
-  draft: DraftEmail;
-  isActive: boolean;
-  onClick: () => void;
-  onDelete: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <div
-      className="group w-full cursor-pointer transition-all duration-200"
-      style={{
-        background: isActive
-          ? "color-mix(in oklab, #121931 14%, white)"
-          : hovered
-            ? "color-mix(in oklab, #121931 8%, white)"
-            : "transparent",
-        borderBottom:
-          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
-        boxShadow:
-          hovered && !isActive
-            ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
-            : isActive
-              ? "inset 3px 0 0 #121931"
-              : "none",
-      }}
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      <div className="px-5 py-4">
-        <div className="flex items-start gap-2.5">
-          <div
-            className="h-9 w-9 rounded-full shrink-0 flex items-center justify-center"
-            style={{
-              background:
-                isActive || hovered
-                  ? "color-mix(in oklab, #121931 14%, white)"
-                  : "color-mix(in srgb, var(--muted-foreground) 10%, transparent)",
-            }}
-          >
-            <MailOpen
-              className="h-4 w-4"
-              style={{
-                color:
-                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
-              }}
-            />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p
-              className="text-sm font-medium truncate leading-snug"
-              style={{
-                color: isActive || hovered ? "#121931" : "var(--foreground)",
-              }}
-            >
-              {draft.subject || "Untitled"}
-            </p>
-            <p
-              className="text-xs truncate mt-0.5"
-              style={{
-                color:
-                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
-              }}
-            >
-              {draft.recipientEmail || "No recipient"}
-            </p>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive rounded-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            aria-label="Delete draft"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1 mt-2 pl-11">
+        <span className="min-w-0 flex-1 flex items-center gap-2">
           <span
-            className="text-[10px] tabular-nums"
-            style={{
-              color:
-                isActive || hovered ? "#121931" : "var(--muted-foreground)",
-            }}
+            className="truncate text-[13px]"
+            style={{ color: isSelected ? ACCENT : "var(--foreground)" }}
           >
-            {formatTime(draft.createdAt)}
+            {email.subject || "(No Subject)"}
           </span>
+
+          {folderName && (
+            <span
+              className="hidden md:inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-px text-[10px] leading-4"
+              style={{
+                background: `color-mix(in srgb, ${ACCENT} 8%, transparent)`,
+                color: "var(--muted-foreground)",
+              }}
+            >
+              <Folder className="h-2.5 w-2.5" />
+              {folderName}
+            </span>
+          )}
+
+          {email.readLater && (
+            <span
+              className="shrink-0 rounded-sm px-1.5 py-px text-[10px] leading-4"
+              style={{
+                background: "color-mix(in srgb, #FF9E20 18%, transparent)",
+                color: "var(--mail-warn-text)",
+              }}
+            >
+              Read later
+            </span>
+          )}
+        </span>
+
+        <div className="shrink-0 flex items-center justify-end w-[104px]">
+          {keepRowActive ? (
+            <div className="flex items-center gap-0.5">
+              <RowActionButton
+                label="Delete"
+                icon={<Trash2 className="h-3.5 w-3.5" />}
+                destructive
+                onClick={() => onDeleteEmail(email.id)}
+              />
+
+              <RowActionButton
+                label={email.readLater ? "Remove read later" : "Read later"}
+                icon={<BookmarkPlus className="h-3.5 w-3.5" />}
+                onClick={() => onReadLater?.(email.id)}
+                active={Boolean(email.readLater)}
+              />
+
+              <div className="relative">
+                <button
+                  ref={folderTriggerRef}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!folderMenuOpen && folderTriggerRef.current) {
+                      setAnchorRect(
+                        folderTriggerRef.current.getBoundingClientRect(),
+                      );
+                    }
+                    setFolderMenuOpen((prev) => !prev);
+                  }}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border-0 outline-none transition-colors duration-150"
+                  style={{
+                    color: folderMenuOpen ? ACCENT : "var(--muted-foreground)",
+                    background: folderMenuOpen ? HOVER_BG : "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = HOVER_BG;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!folderMenuOpen)
+                      e.currentTarget.style.background = "transparent";
+                  }}
+                  aria-label="Move to folder"
+                  title="Move to folder"
+                >
+                  <Folder className="h-3.5 w-3.5" />
+                </button>
+
+                {folderMenuOpen && anchorRect && (
+                  <FolderPicker
+                    folders={folders}
+                    anchorRect={anchorRect}
+                    onClose={() => setFolderMenuOpen(false)}
+                    onSelectFolder={(folderId) =>
+                      onMoveToFolder(email.id, folderId)
+                    }
+                  />
+                )}
+              </div>
+            </div>
+          ) : (
+            <span
+              className="text-[11px] tabular-nums"
+              style={{
+                color: isSelected ? ACCENT : "var(--muted-foreground)",
+              }}
+            >
+              {formatTime(email.date)}
+            </span>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function ScheduledEmailCard({
-  item,
+function SimpleRow({
+  icon,
+  title,
+  subtitle,
+  meta,
   isActive,
   onClick,
   onDelete,
+  deleteLabel,
 }: {
-  item: ScheduledEmail;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  meta: string;
   isActive: boolean;
   onClick: () => void;
   onDelete: () => void;
+  deleteLabel: string;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
-      className="group w-full cursor-pointer transition-all duration-200"
+      role="button"
+      tabIndex={0}
+      className="group w-full cursor-pointer outline-none transition-colors duration-150"
       style={{
         background: isActive
-          ? "color-mix(in oklab, #121931 14%, white)"
+          ? ACCENT_TINT
           : hovered
-            ? "color-mix(in oklab, #121931 8%, white)"
+            ? HOVER_BG
             : "transparent",
-        borderBottom:
-          "1px solid color-mix(in srgb, var(--border) 60%, transparent)",
-        boxShadow:
-          hovered && !isActive
-            ? "inset 3px 0 0 color-mix(in oklab, #121931 70%, white)"
-            : isActive
-              ? "inset 3px 0 0 #121931"
-              : "none",
+        borderBottom: "1px solid var(--border)",
+        boxShadow: `inset 3px 0 0 ${isActive ? ACCENT : "transparent"}`,
       }}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className="px-5 py-4">
-        <div className="flex items-start gap-2.5">
-          <div
-            className="h-9 w-9 rounded-full shrink-0 flex items-center justify-center"
-            style={{
-              background:
-                isActive || hovered
-                  ? "color-mix(in oklab, #121931 14%, white)"
-                  : "color-mix(in srgb, var(--muted-foreground) 10%, transparent)",
-            }}
-          >
-            <CalendarClock
-              className="h-4 w-4"
-              style={{
-                color:
-                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
-              }}
+      <div className="pl-3.5 pr-3 py-2 flex items-center gap-3">
+        <span
+          className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center"
+          style={{
+            background: `color-mix(in srgb, ${ACCENT} 8%, transparent)`,
+            color: isActive ? ACCENT : "var(--muted-foreground)",
+          }}
+        >
+          {icon}
+        </span>
+
+        <span
+          className="w-36 shrink-0 truncate text-[13px] font-semibold"
+          style={{ color: isActive ? ACCENT : "var(--foreground)" }}
+        >
+          {subtitle}
+        </span>
+
+        <span
+          className="min-w-0 flex-1 truncate text-[13px]"
+          style={{ color: isActive ? ACCENT : "var(--foreground)" }}
+        >
+          {title}
+        </span>
+
+        <div className="shrink-0 flex items-center justify-end gap-1 w-[104px]">
+          {hovered ? (
+            <RowActionButton
+              label={deleteLabel}
+              icon={<Trash2 className="h-3.5 w-3.5" />}
+              destructive
+              onClick={onDelete}
             />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p
-              className="text-sm font-medium truncate leading-snug"
+          ) : (
+            <span
+              className="text-[11px] tabular-nums"
               style={{
-                color: isActive || hovered ? "#121931" : "var(--foreground)",
+                color: isActive ? ACCENT : "var(--muted-foreground)",
               }}
             >
-              {item.subject || "Untitled"}
-            </p>
-            <p
-              className="text-xs truncate mt-0.5"
-              style={{
-                color:
-                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
-              }}
-            >
-              {item.recipientEmail || "No recipient"}
-            </p>
-            <p
-              className="text-[10px] truncate mt-1"
-              style={{
-                color:
-                  isActive || hovered ? "#121931" : "var(--muted-foreground)",
-              }}
-            >
-              Scheduled {formatScheduledDateTime(item.scheduledFor)}
-            </p>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive rounded-none"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            aria-label="Delete scheduled email"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+              {meta}
+            </span>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmptyState({
+  icon,
+  message,
+}: {
+  icon: React.ReactNode;
+  message: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-2.5 text-center px-4">
+      <span className="text-muted-foreground/25">{icon}</span>
+      <p className="text-[13px] text-muted-foreground/70">{message}</p>
     </div>
   );
 }
@@ -795,23 +620,11 @@ export function EmailListView({
   onMarkReadLater?: (emailId: string) => void;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const { theme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     setSearchQuery("");
   }, [activeSection, selectedFolderId]);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const activeTheme = mounted
-    ? theme === "system"
-      ? resolvedTheme
-      : theme
-    : "light";
-  const isDark = activeTheme === "dark";
 
   const selectedFolder = useMemo(
     () => folders.find((folder) => folder.id === selectedFolderId) ?? null,
@@ -885,291 +698,258 @@ export function EmailListView({
   const sectionMeta: SectionMetaMap = {
     inbox: {
       label: "Inbox",
-      icon: <Inbox className="h-5 w-5" style={{ color: "#ffffff" }} />,
+      icon: <Inbox className="h-4 w-4" />,
       description: "Everything that's landed in your inbox",
     },
     sent: {
       label: "Sent",
-      icon: (
-        <SendHorizontal className="h-5 w-5" style={{ color: "#ffffff" }} />
-      ),
+      icon: <SendHorizontal className="h-4 w-4" />,
       description: "Emails you've already sent",
     },
     drafts: {
       label: "Drafts",
-      icon: <MailOpen className="h-5 w-5" style={{ color: "#ffffff" }} />,
+      icon: <Mail className="h-4 w-4" />,
       description: "Unfinished emails, ready to pick back up",
     },
     scheduled: {
       label: "Scheduled",
-      icon: (
-        <CalendarClock className="h-5 w-5" style={{ color: "#ffffff" }} />
-      ),
+      icon: <CalendarClock className="h-4 w-4" />,
       description: "Queued up to send automatically",
     },
     folder: {
       label: selectedFolder?.name || "Folder",
-      icon: <Folder className="h-5 w-5" style={{ color: "#ffffff" }} />,
+      icon: <Folder className="h-4 w-4" />,
       description: selectedFolder
-        ? `Emails inside folder: ${selectedFolder.name}`
+        ? `Emails inside ${selectedFolder.name}`
         : "Choose a folder from the sidebar",
     },
   };
 
   const meta = sectionMeta[activeSection];
 
+  const itemCount =
+    activeSection === "drafts"
+      ? filteredDrafts.length
+      : activeSection === "scheduled"
+        ? filteredScheduled.length
+        : activeSection === "folder"
+          ? folderEmails.length
+          : visibleEmails.length;
+
   return (
-    <div className="relative h-full w-full bg-card text-foreground">
-      <div className="h-full w-full overflow-y-auto bg-card">
-        <div className="w-full h-full px-0 py-0">
-          <div
-            className="flex items-start justify-between gap-4 flex-wrap px-6 md:px-8 py-5 border-b border-border"
-            style={{ backgroundColor: "#121931" }}
+    <div className="relative h-full w-full bg-card text-foreground flex flex-col">
+      <div className="shrink-0 border-b border-border bg-card">
+        <div className="flex items-center gap-3 px-4 h-12">
+          <span
+            className="shrink-0 flex items-center justify-center h-7 w-7 rounded-md"
+            style={{
+              background: `color-mix(in srgb, ${ACCENT} 10%, transparent)`,
+              color: ACCENT,
+            }}
           >
-            <div className="flex items-center gap-3 min-w-0">
-              <span
-                className="flex items-center justify-center h-10 w-10 rounded-none border shrink-0"
-                style={{
-                  color: "#ffffff",
-                  borderColor: "rgba(255,255,255,0.25)",
-                  background: "rgba(255,255,255,0.08)",
-                }}
-              >
-                {meta.icon}
+            {meta.icon}
+          </span>
+
+          <div className="min-w-0 flex items-baseline gap-2">
+            <h1 className="truncate text-[15px] font-semibold tracking-tight">
+              {meta.label}
+            </h1>
+            {itemCount > 0 && (
+              <span className="text-[12px] tabular-nums text-muted-foreground shrink-0">
+                {itemCount}
               </span>
+            )}
+          </div>
 
-              <div className="min-w-0">
-                <h1
-                  className="truncate"
-                  style={{
-                    fontFamily: "'Playfair Display', Georgia, serif",
-                    fontStyle: "italic",
-                    fontSize: "1.35rem",
-                    letterSpacing: "-0.02em",
-                    color: "#ffffff",
-                  }}
+          <div className="ml-auto flex items-center gap-2 min-w-0">
+            <div className="relative w-[220px] sm:w-[300px] md:w-[380px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={`Search ${meta.label.toLowerCase()}`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                className="w-full h-8 rounded-full pl-9 pr-8 text-[13px] outline-none transition-colors duration-150 border placeholder:text-muted-foreground/70"
+                style={{
+                  background: searchFocused
+                    ? "var(--card)"
+                    : "color-mix(in srgb, var(--foreground) 5%, transparent)",
+                  borderColor: searchFocused ? ACCENT : "transparent",
+                  color: "var(--foreground)",
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
                 >
-                  {meta.label}
-                </h1>
-                <p
-                  className="text-xs mt-0.5 truncate"
-                  style={{ color: "rgba(255,255,255,0.75)" }}
-                >
-                  {meta.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="ml-auto flex items-center gap-3 w-full sm:w-auto sm:min-w-[360px] justify-end">
-              <div className="relative w-full sm:w-[360px] md:w-[420px]">
-                <Search
-                  className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
-                  style={{ color: "#ffffff" }}
-                />
-                <input
-                  type="text"
-                  placeholder={`Search ${meta.label.toLowerCase()}...`}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-none pl-10 pr-10 py-2.5 text-sm outline-none transition-all duration-200 border placeholder:text-white/50"
-                  style={{
-                    background: "rgba(255,255,255,0.12)",
-                    borderColor: "rgba(255,255,255,0.25)",
-                    boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
-                    backdropFilter: "blur(10px)",
-                    WebkitBackdropFilter: "blur(10px)",
-                    color: "#ffffff",
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-none"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-3.5 w-3.5" style={{ color: "#ffffff" }} />
-                  </button>
-                )}
-              </div>
-
-              {canRefresh && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-none bg-transparent border-0 shadow-none ring-0 outline-none hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-110 shrink-0"
-                  onClick={
-                    activeSection === "inbox" ? onRefreshInbox : onRefreshSent
-                  }
-                  aria-label={`Refresh ${meta.label}`}
-                >
-                  <RefreshCw
-                    className={cn("h-4 w-4", isLoading && "animate-spin")}
-                    style={{ color: "#ffffff" }}
-                  />
-                </Button>
+                  <X className="h-3.5 w-3.5" />
+                </button>
               )}
             </div>
-          </div>
 
-          <div className="w-full bg-card">
-            {activeSection === "inbox" &&
-              (isLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
-                  <span className="text-sm text-muted-foreground/40">
-                    Loading inbox...
-                  </span>
-                </div>
-              ) : visibleEmails.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <Inbox className="h-10 w-10 text-muted-foreground/20" />
-                  <p
-                    className="text-sm text-muted-foreground/40 italic"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    {searchQuery ? "No results found" : "No inbox emails"}
-                  </p>
-                </div>
-              ) : (
-                visibleEmails.map((email) => (
-                  <EmailCard
-                    key={email.id}
-                    email={email}
-                    isSelected={selectedEmailId === email.id}
-                    onClick={() => onOpenGmailEmail(email.id)}
-                    folderName={
-                      folders.find((f) => f.id === email.folderId)?.name ?? null
-                    }
-                    folders={folders}
-                    onDeleteEmail={onDeleteEmail}
-                    onMoveToFolder={onMoveEmailToFolder}
-                    onReadLater={onMarkReadLater}
-                  />
-                ))
-              ))}
-
-            {activeSection === "sent" &&
-              (isLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
-                  <span className="text-sm text-muted-foreground/40">
-                    Loading emails...
-                  </span>
-                </div>
-              ) : visibleEmails.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <SendHorizontal className="h-10 w-10 text-muted-foreground/20" />
-                  <p
-                    className="text-sm text-muted-foreground/40 italic"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    {searchQuery ? "No results found" : "No sent emails"}
-                  </p>
-                </div>
-              ) : (
-                visibleEmails.map((email) => (
-                  <EmailCard
-                    key={email.id}
-                    email={email}
-                    isSelected={selectedEmailId === email.id}
-                    onClick={() => onOpenGmailEmail(email.id)}
-                    folderName={
-                      folders.find((f) => f.id === email.folderId)?.name ?? null
-                    }
-                    folders={folders}
-                    onDeleteEmail={onDeleteEmail}
-                    onMoveToFolder={onMoveEmailToFolder}
-                    onReadLater={onMarkReadLater}
-                  />
-                ))
-              ))}
-
-            {activeSection === "folder" &&
-              (!selectedFolderId ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <Folder className="h-10 w-10 text-muted-foreground/20" />
-                  <p
-                    className="text-sm text-muted-foreground/40 italic"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    Select a folder from the sidebar
-                  </p>
-                </div>
-              ) : folderEmails.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <Folder className="h-10 w-10 text-muted-foreground/20" />
-                  <p
-                    className="text-sm text-muted-foreground/40 italic"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    {searchQuery
-                      ? "No results found"
-                      : "No emails in this folder"}
-                  </p>
-                </div>
-              ) : (
-                folderEmails.map((email) => (
-                  <EmailCard
-                    key={email.id}
-                    email={email}
-                    isSelected={selectedEmailId === email.id}
-                    onClick={() => onOpenGmailEmail(email.id)}
-                    folderName={selectedFolder?.name ?? null}
-                    folders={folders}
-                    onDeleteEmail={onDeleteEmail}
-                    onMoveToFolder={onMoveEmailToFolder}
-                    onReadLater={onMarkReadLater}
-                  />
-                ))
-              ))}
-
-            {activeSection === "drafts" &&
-              (filteredDrafts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <MailOpen className="h-10 w-10 text-muted-foreground/20" />
-                  <p
-                    className="text-sm text-muted-foreground/40 italic"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    {searchQuery ? "No results found" : "No drafts yet"}
-                  </p>
-                </div>
-              ) : (
-                filteredDrafts.map((draft) => (
-                  <DraftCard
-                    key={draft.id}
-                    draft={draft}
-                    isActive={activeDraftId === draft.id}
-                    onClick={() => onSelectDraft(draft)}
-                    onDelete={() => onDeleteDraft(draft.id)}
-                  />
-                ))
-              ))}
-
-            {activeSection === "scheduled" &&
-              (filteredScheduled.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <CalendarClock className="h-10 w-10 text-muted-foreground/20" />
-                  <p
-                    className="text-sm text-muted-foreground/40 italic"
-                    style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-                  >
-                    {searchQuery ? "No results found" : "No scheduled emails"}
-                  </p>
-                </div>
-              ) : (
-                filteredScheduled.map((item) => (
-                  <ScheduledEmailCard
-                    key={item.id}
-                    item={item}
-                    isActive={activeScheduledId === item.id}
-                    onClick={() => onSelectScheduled(item)}
-                    onDelete={() => onDeleteScheduled(item.id)}
-                  />
-                ))
-              ))}
+            {canRefresh && (
+              <button
+                type="button"
+                className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+                onClick={
+                  activeSection === "inbox" ? onRefreshInbox : onRefreshSent
+                }
+                aria-label={`Refresh ${meta.label}`}
+                title={`Refresh ${meta.label}`}
+              >
+                <RefreshCw
+                  className={cn("h-3.5 w-3.5", isLoading && "animate-spin")}
+                />
+              </button>
+            )}
           </div>
         </div>
+
+        <p className="px-4 pb-2 text-[11px] text-muted-foreground truncate">
+          {meta.description}
+        </p>
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-card">
+        {activeSection === "inbox" &&
+          (isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-2.5">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+              <span className="text-[13px] text-muted-foreground/70">
+                Loading inbox...
+              </span>
+            </div>
+          ) : visibleEmails.length === 0 ? (
+            <EmptyState
+              icon={<Inbox className="h-9 w-9" />}
+              message={searchQuery ? "No results found" : "No inbox emails"}
+            />
+          ) : (
+            visibleEmails.map((email) => (
+              <EmailCard
+                key={email.id}
+                email={email}
+                isSelected={selectedEmailId === email.id}
+                onClick={() => onOpenGmailEmail(email.id)}
+                folderName={
+                  folders.find((f) => f.id === email.folderId)?.name ?? null
+                }
+                folders={folders}
+                onDeleteEmail={onDeleteEmail}
+                onMoveToFolder={onMoveEmailToFolder}
+                onReadLater={onMarkReadLater}
+              />
+            ))
+          ))}
+
+        {activeSection === "sent" &&
+          (isLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-2.5">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
+              <span className="text-[13px] text-muted-foreground/70">
+                Loading emails...
+              </span>
+            </div>
+          ) : visibleEmails.length === 0 ? (
+            <EmptyState
+              icon={<SendHorizontal className="h-9 w-9" />}
+              message={searchQuery ? "No results found" : "No sent emails"}
+            />
+          ) : (
+            visibleEmails.map((email) => (
+              <EmailCard
+                key={email.id}
+                email={email}
+                isSelected={selectedEmailId === email.id}
+                onClick={() => onOpenGmailEmail(email.id)}
+                folderName={
+                  folders.find((f) => f.id === email.folderId)?.name ?? null
+                }
+                folders={folders}
+                onDeleteEmail={onDeleteEmail}
+                onMoveToFolder={onMoveEmailToFolder}
+                onReadLater={onMarkReadLater}
+              />
+            ))
+          ))}
+
+        {activeSection === "folder" &&
+          (!selectedFolderId ? (
+            <EmptyState
+              icon={<Folder className="h-9 w-9" />}
+              message="Select a folder from the sidebar"
+            />
+          ) : folderEmails.length === 0 ? (
+            <EmptyState
+              icon={<Folder className="h-9 w-9" />}
+              message={
+                searchQuery ? "No results found" : "No emails in this folder"
+              }
+            />
+          ) : (
+            folderEmails.map((email) => (
+              <EmailCard
+                key={email.id}
+                email={email}
+                isSelected={selectedEmailId === email.id}
+                onClick={() => onOpenGmailEmail(email.id)}
+                folderName={selectedFolder?.name ?? null}
+                folders={folders}
+                onDeleteEmail={onDeleteEmail}
+                onMoveToFolder={onMoveEmailToFolder}
+                onReadLater={onMarkReadLater}
+              />
+            ))
+          ))}
+
+        {activeSection === "drafts" &&
+          (filteredDrafts.length === 0 ? (
+            <EmptyState
+              icon={<Mail className="h-9 w-9" />}
+              message={searchQuery ? "No results found" : "No drafts yet"}
+            />
+          ) : (
+            filteredDrafts.map((draft) => (
+              <SimpleRow
+                key={draft.id}
+                icon={<Mail className="h-3.5 w-3.5" />}
+                title={draft.subject || "(No Subject)"}
+                subtitle={draft.recipientEmail || "No recipient"}
+                meta={formatTime(draft.createdAt)}
+                isActive={activeDraftId === draft.id}
+                onClick={() => onSelectDraft(draft)}
+                onDelete={() => onDeleteDraft(draft.id)}
+                deleteLabel="Delete draft"
+              />
+            ))
+          ))}
+
+        {activeSection === "scheduled" &&
+          (filteredScheduled.length === 0 ? (
+            <EmptyState
+              icon={<CalendarClock className="h-9 w-9" />}
+              message={searchQuery ? "No results found" : "No scheduled emails"}
+            />
+          ) : (
+            filteredScheduled.map((item) => (
+              <SimpleRow
+                key={item.id}
+                icon={<CalendarClock className="h-3.5 w-3.5" />}
+                title={item.subject || "(No Subject)"}
+                subtitle={item.recipientEmail || "No recipient"}
+                meta={formatScheduledDateTime(item.scheduledFor)}
+                isActive={activeScheduledId === item.id}
+                onClick={() => onSelectScheduled(item)}
+                onDelete={() => onDeleteScheduled(item.id)}
+                deleteLabel="Delete scheduled email"
+              />
+            ))
+          ))}
       </div>
     </div>
   );
@@ -1188,21 +968,6 @@ export function EmailDetailOverlayPanel({
   errorMessage?: string | null;
   onClose: () => void;
 }) {
-  const { theme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const activeTheme = mounted
-    ? theme === "system"
-      ? resolvedTheme
-      : theme
-    : "light";
-  const isDark = activeTheme === "dark";
-  const detailAccentColor = isDark ? "#FF9E20" : "#121931";
-
   const plain = email?.plain_body || email?.body || "";
   const html = email?.html_body || "";
   const hasHtml = Boolean(html && html.trim());
@@ -1224,137 +989,92 @@ export function EmailDetailOverlayPanel({
       style={{ pointerEvents: isVisible ? "auto" : "none" }}
     >
       <div
-        className="absolute inset-0 bg-black/10 backdrop-blur-[1px] transition-opacity duration-500"
+        className="absolute inset-0 bg-black/10 transition-opacity duration-300"
         style={{ opacity: isVisible ? 1 : 0 }}
         onClick={onClose}
       />
       <aside
-        className="absolute inset-y-0 right-0 w-full h-full bg-background shadow-2xl transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col border-l border-border overflow-hidden"
+        className="absolute inset-y-0 right-0 w-full h-full bg-background transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col border-l border-border overflow-hidden"
         style={{
           transform: isVisible ? "translateX(0)" : "translateX(100%)",
-          opacity: isVisible ? 1 : 0.98,
+          boxShadow: "-2px 0 12px rgba(0,0,0,0.10)",
         }}
       >
-        <div
-          className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border bg-card"
-          style={{
-            boxShadow: "0 1px 0 color-mix(in srgb, #121931 8%, var(--border))",
-          }}
-        >
-          <div className="flex items-center gap-2 text-sm font-medium min-w-0">
-            <PanelRightOpen
-              className="h-4 w-4 shrink-0"
-              style={{ color: detailAccentColor }}
-            />
-            <span className="truncate" style={{ color: detailAccentColor }}>
-              {email?.subject || "Email details"}
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
+        <div className="flex items-center gap-2 px-4 h-12 shrink-0 border-b border-border bg-card">
+          <span className="truncate text-[14px] font-semibold">
+            {email?.subject || "Email details"}
+          </span>
+
+          <button
+            type="button"
             onClick={onClose}
-            className="rounded-none"
+            className="ml-auto shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+            aria-label="Close"
+            title="Close"
           >
             <X className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
 
         {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Loading email...</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-2.5 px-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <p className="text-[13px] text-muted-foreground">Loading email...</p>
           </div>
         ) : errorMessage ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
-            <Mail className="h-10 w-10 text-muted-foreground/30" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Unable to load email
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {errorMessage}
-              </p>
-            </div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 px-8 text-center">
+            <Mail className="h-9 w-9 text-muted-foreground/25" />
+            <p className="text-[13px] font-semibold">Unable to load email</p>
+            <p className="text-[12px] text-muted-foreground">{errorMessage}</p>
           </div>
         ) : shouldRenderEmptyState ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 px-8 text-center">
-            <Mail className="h-10 w-10 text-muted-foreground/30" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                No email selected
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Select an email to view its details.
-              </p>
-            </div>
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 px-8 text-center">
+            <Mail className="h-9 w-9 text-muted-foreground/25" />
+            <p className="text-[13px] font-semibold">No email selected</p>
+            <p className="text-[12px] text-muted-foreground">
+              Select an email to view its details.
+            </p>
           </div>
         ) : email ? (
           <>
-            <div
-              className="mx-5 mt-5 rounded-none px-4 py-4 text-sm shrink-0 border border-border bg-card"
-              style={{
-                background: isDark
-                  ? "color-mix(in oklab, #2a2b28 82%, black)"
-                  : "color-mix(in oklab, #2a2b28 8%, white)",
-                boxShadow:
-                  "0 0 0 1px color-mix(in srgb, #2a2b28 8%, var(--border)), 0 8px 22px color-mix(in srgb, #121931 8%, transparent)",
-              }}
-            >
+            <div className="px-5 py-3.5 shrink-0 border-b border-border bg-card">
               <div className="flex items-start gap-3">
-                <SenderAvatar from={email.from} size={44} />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div>
-                    <p className="font-medium break-words text-foreground">
+                <SenderAvatar from={email.from} size={40} />
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-[13px] font-semibold truncate">
                       {getSenderDisplayName(email.from) || "Unknown Sender"}
                     </p>
                     {extractEmailAddress(email.from) && (
-                      <p className="text-xs text-muted-foreground break-all">
-                        {extractEmailAddress(email.from)}
+                      <p className="text-[12px] text-muted-foreground truncate">
+                        &lt;{extractEmailAddress(email.from)}&gt;
                       </p>
                     )}
                   </div>
 
-                  <div className="flex gap-3">
-                    <span className="text-muted-foreground w-14 shrink-0">
-                      Subject
-                    </span>
-                    <span className="font-medium break-words text-foreground">
-                      {email.subject || "—"}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <span className="text-muted-foreground w-14 shrink-0">
-                      Date
-                    </span>
-                    <span className="break-words text-foreground">
-                      {email.date || "—"}
-                    </span>
-                  </div>
+                  <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
+                    {email.subject || "(No Subject)"}
+                  </p>
                 </div>
+
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {email.date || "—"}
+                </span>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-5">
-              <div
-                className="rounded-none min-h-full px-4 py-4 bg-card border border-border"
-                style={{
-                  boxShadow:
-                    "0 0 0 1px color-mix(in srgb, #121931 8%, var(--border)), 0 8px 22px color-mix(in srgb, #121931 8%, transparent)",
-                }}
-              >
-                {hasHtml ? (
-                  <div
-                    className="prose prose-sm max-w-none dark:prose-invert"
-                    dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                  />
-                ) : (
-                  <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
-                    {plain || "No body content."}
-                  </pre>
-                )}
-              </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              {hasHtml ? (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert text-[13px]"
+                  dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+                />
+              ) : (
+                <pre className="whitespace-pre-wrap text-[13px] font-sans leading-relaxed text-foreground">
+                  {plain || "No body content."}
+                </pre>
+              )}
             </div>
           </>
         ) : null}

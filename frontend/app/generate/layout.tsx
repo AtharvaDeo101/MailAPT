@@ -5,5 +5,9 @@ export default function GenerateLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <GenerateProviders>{children}</GenerateProviders>;
+  return (
+    <GenerateProviders>
+      <div className="mail-ui">{children}</div>
+    </GenerateProviders>
+  );
 }

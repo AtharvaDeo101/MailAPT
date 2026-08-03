@@ -11,38 +11,56 @@ import {
   Paperclip,
   Save,
   Send,
-  User,
+  Sparkles,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ChatMessage, StatusMessage } from "../_lib/types";
 import { formatFileSize, toDateTimeLocalValue } from "../_lib/generate-utils";
 
 const ACCENT_COLOR = "#121931";
-const AI_BUBBLE_BG = "rgba(18, 25, 49, 0.12)";
-const AI_BUBBLE_TEXT = "#121931";
+const AI_BUBBLE_BG = "var(--mail-accent-tint)";
 
-function ChatBoxBackgroundAnimation() {
+function FieldRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="absolute inset-0 overflow-hidden rounded-none pointer-events-none">
-      <div className="absolute inset-0 opacity-100" />
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(to bottom right, color-mix(in srgb, var(--background) 52%, transparent), color-mix(in srgb, var(--card) 42%, transparent))",
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        style={{
-          boxShadow: "inset 0 0 40px color-mix(in srgb, var(--background) 35%, transparent)",
-        }}
-      />
+    <div className="flex items-center gap-3 px-4 h-10 border-b border-border">
+      <span className="w-14 shrink-0 text-[12px] text-muted-foreground">
+        {label}
+      </span>
+      {children}
     </div>
+  );
+}
+
+function ToolbarIconButton({
+  label,
+  onClick,
+  children,
+  type = "button",
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  type?: "button" | "submit";
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground transition-colors"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -70,7 +88,7 @@ function ChatPrompt({
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
   }, [input]);
 
   const submitMessage = () => {
@@ -81,73 +99,62 @@ function ChatPrompt({
 
   return (
     <div
-      className="relative flex flex-col h-64 rounded-none overflow-hidden border border-border bg-card/30"
+      className="flex flex-col h-52 overflow-hidden rounded-md border border-border"
       style={{
-        boxShadow:
-          "0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent), 0 8px 22px color-mix(in srgb, var(--foreground) 6%, transparent)",
+        background: "color-mix(in srgb, var(--foreground) 3%, transparent)",
       }}
     >
-      <ChatBoxBackgroundAnimation />
+      <div className="flex items-center gap-1.5 px-3 h-8 shrink-0 border-b border-border">
+        <Sparkles className="h-3 w-3" style={{ color: ACCENT_COLOR }} />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          AI assistant
+        </span>
+      </div>
 
-      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
         {messages.length === 0 && (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm text-center px-6">
-            Describe the email that you want to generate
+          <div className="flex items-center justify-center h-full px-6 text-center text-[12px] text-muted-foreground">
+            Describe the email you want to generate
           </div>
         )}
 
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={cn("flex gap-2.5 max-w-[85%]", msg.role === "user" ? "ml-auto flex-row-reverse" : "")}
+            className={cn(
+              "max-w-[85%] px-3 py-2 rounded-lg text-[12.5px] leading-relaxed",
+              msg.role === "user" ? "ml-auto" : "",
+            )}
+            style={
+              msg.role === "user"
+                ? { backgroundColor: ACCENT_COLOR, color: "#ffffff" }
+                : {
+                    backgroundColor: AI_BUBBLE_BG,
+                    color: "var(--foreground)",
+                  }
+            }
           >
-            <div
-              className={cn(
-                "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
-                msg.role === "user" ? "text-white" : "",
-              )}
-              style={
-                msg.role === "user"
-                  ? { backgroundColor: ACCENT_COLOR }
-                  : { backgroundColor: "rgba(18, 25, 49, 0.12)" }
-              }
-            >
-            </div>
-
-            <div
-              className="rounded-none px-3.5 py-2.5 text-sm leading-relaxed"
-              style={
-                msg.role === "user"
-                  ? {
-                      backgroundColor: ACCENT_COLOR,
-                      color: "#ffffff",
-                    }
-                  : {
-                      backgroundColor: AI_BUBBLE_BG,
-                      color: AI_BUBBLE_TEXT,
-                    }
-              }
-            >
-              {msg.content}
-            </div>
+            {msg.content}
           </div>
         ))}
 
         {isLoading && (
-          <div className="flex gap-2.5">
-            <div
-              className="h-7 w-7 rounded-full flex items-center justify-center shrink-0"
-              style={{ backgroundColor: AI_BUBBLE_BG }}
-            >
-            </div>
-            <div
-              className="rounded-none px-4 py-3 flex gap-1"
-              style={{ backgroundColor: AI_BUBBLE_BG }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "300ms" }} />
-            </div>
+          <div
+            className="w-fit px-3 py-2.5 rounded-lg flex gap-1"
+            style={{ backgroundColor: AI_BUBBLE_BG }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+              style={{ animationDelay: "0ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+              style={{ animationDelay: "150ms" }}
+            />
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+              style={{ animationDelay: "300ms" }}
+            />
           </div>
         )}
       </div>
@@ -157,7 +164,7 @@ function ChatPrompt({
           e.preventDefault();
           submitMessage();
         }}
-        className="relative z-10 px-4 py-3 flex items-end gap-3 bg-transparent"
+        className="shrink-0 flex items-end gap-2 px-3 py-2 border-t border-border bg-card"
       >
         <textarea
           ref={textareaRef}
@@ -172,19 +179,16 @@ function ChatPrompt({
           placeholder="Describe the email you want to generate..."
           rows={1}
           disabled={isLoading}
-          className="flex-1 resize-none overflow-y-auto max-h-[120px] bg-transparent border-0 border-b rounded-none px-0 py-2 text-sm leading-6 text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-          style={{
-            borderBottom: "1px solid color-mix(in srgb, var(--muted-foreground) 30%, transparent)",
-          }}
+          className="flex-1 resize-none overflow-y-auto max-h-24 bg-transparent border-0 px-0 py-1.5 text-[13px] leading-5 text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
         />
         <button
           type="submit"
           disabled={!input.trim() || isLoading}
-          className="shrink-0 pb-2 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="shrink-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-white disabled:opacity-35 disabled:cursor-not-allowed transition-opacity"
           aria-label="Send prompt"
-          style={{ color: ACCENT_COLOR }}
+          style={{ backgroundColor: ACCENT_COLOR }}
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-3.5 w-3.5" />
         </button>
       </form>
     </div>
@@ -212,33 +216,26 @@ function EmailEditor({
   }, [body]);
 
   return (
-    <div
-      className="flex flex-col gap-4 rounded-none bg-card/90 p-4 border border-border"
-      style={{
-        boxShadow:
-          "0 0 0 1px color-mix(in srgb, var(--border) 70%, transparent), 0 8px 22px color-mix(in srgb, var(--foreground) 6%, transparent)",
-      }}
-    >
-      <div className="flex items-center gap-3 pb-3 border-b border-border">
-        <span className="text-xs font-medium text-muted-foreground w-14 shrink-0">Subject</span>
-        <Input
+    <div className="rounded-md border border-border overflow-hidden">
+      <div className="flex items-center gap-3 px-3 h-9 border-b border-border">
+        <span className="w-14 shrink-0 text-[12px] text-muted-foreground">
+          Subject
+        </span>
+        <input
           value={subject}
           onChange={(e) => onSubjectChange(e.target.value)}
-          placeholder="Email subject..."
-          className="border-none shadow-none focus-visible:ring-0 p-0 h-auto text-sm font-medium bg-transparent text-foreground rounded-none"
+          placeholder="Email subject"
+          className="flex-1 min-w-0 bg-transparent border-0 text-[13px] font-medium text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
         />
       </div>
 
-      <div className="flex gap-3">
-        <span className="text-xs font-medium text-muted-foreground w-14 shrink-0 pt-0.5">Body</span>
-        <Textarea
-          ref={textareaRef}
-          value={body}
-          onChange={(e) => onBodyChange(e.target.value)}
-          placeholder="Email body..."
-          className="border-none shadow-none focus-visible:ring-0 p-0 resize-none min-h-[180px] text-sm bg-transparent leading-relaxed text-foreground rounded-none"
-        />
-      </div>
+      <textarea
+        ref={textareaRef}
+        value={body}
+        onChange={(e) => onBodyChange(e.target.value)}
+        placeholder="Email body..."
+        className="w-full resize-none border-0 bg-transparent px-3 py-2.5 min-h-[160px] text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
+      />
     </div>
   );
 }
@@ -253,22 +250,25 @@ function AttachmentList({
   if (files.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2">
+    <div className="flex flex-wrap gap-1.5">
       {files.map((file, i) => (
         <div
           key={i}
-          className="group flex items-center gap-1.5 bg-accent/60 rounded-none px-2.5 py-1.5 text-xs text-foreground/80 max-w-[200px] transition-all hover:bg-accent border border-border"
+          className="group flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-foreground/80 max-w-[200px]"
           style={{
-            boxShadow: "0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent)",
+            background: "color-mix(in srgb, var(--foreground) 4%, transparent)",
           }}
         >
           <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{file.name}</span>
-          <span className="text-muted-foreground/70 tabular-nums">{formatFileSize(file.size)}</span>
+          <span className="text-muted-foreground tabular-nums">
+            {formatFileSize(file.size)}
+          </span>
           <button
             onClick={() => onRemove(i)}
-            className="shrink-0 ml-0.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+            className="shrink-0 text-muted-foreground hover:text-destructive transition-colors"
             type="button"
+            aria-label={`Remove ${file.name}`}
           >
             <X className="h-3 w-3" />
           </button>
@@ -296,37 +296,57 @@ export function EmailPreviewModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-transparent" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl rounded-none bg-card shadow-2xl flex flex-col max-h-[90vh] border border-border">
-        <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <Mail className="h-4 w-4" style={{ color: ACCENT_COLOR }} />
-            Email Preview
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-none">
-            <X className="h-4 w-4" />
-          </Button>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
+
+      <div
+        className="relative z-10 w-full max-w-2xl rounded-lg bg-card flex flex-col max-h-[90vh] border border-border overflow-hidden"
+        style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.24)" }}
+      >
+        <div
+          className="flex items-center gap-2 px-4 h-10 shrink-0"
+          style={{ backgroundColor: ACCENT_COLOR }}
+        >
+          <Mail className="h-3.5 w-3.5 text-white" />
+          <span className="text-[13px] font-medium text-white">
+            Email preview
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
 
-        <div className="px-5 py-3 space-y-2 text-sm shrink-0 bg-background/30 border-b border-border">
-          <div className="flex gap-3">
-            <span className="text-muted-foreground w-14 shrink-0">To</span>
-            <span className="font-medium text-foreground">{recipientEmail || "—"}</span>
-          </div>
-          <div className="flex gap-3">
-            <span className="text-muted-foreground w-14 shrink-0">Subject</span>
-            <span className="font-medium text-foreground">{subject || "—"}</span>
-          </div>
+        <div className="shrink-0 border-b border-border">
+          <FieldRow label="To">
+            <span className="truncate text-[13px] font-medium">
+              {recipientEmail || "—"}
+            </span>
+          </FieldRow>
+          <FieldRow label="Subject">
+            <span className="truncate text-[13px] font-medium">
+              {subject || "—"}
+            </span>
+          </FieldRow>
 
           {attachments.length > 0 && (
-            <div className="flex gap-3">
-              <span className="text-muted-foreground w-14 shrink-0">Attachments</span>
+            <div className="flex items-start gap-3 px-4 py-2.5">
+              <span className="w-14 shrink-0 text-[12px] text-muted-foreground">
+                Files
+              </span>
               <div className="flex flex-wrap gap-1.5">
                 {attachments.map((f, i) => (
                   <span
                     key={i}
-                    className="inline-flex items-center gap-1 text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-none border border-border"
+                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11.5px]"
                   >
                     <FileText className="h-3 w-3" />
                     {f.name}
@@ -337,8 +357,8 @@ export function EmailPreviewModal({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5">
-          <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed text-foreground">
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          <pre className="whitespace-pre-wrap text-[13px] font-sans leading-relaxed text-foreground">
             {body || <span className="text-muted-foreground">No body yet.</span>}
           </pre>
         </div>
@@ -362,7 +382,9 @@ export function ScheduleEmailModal({
 
   useEffect(() => {
     if (isOpen) {
-      setScheduledFor(toDateTimeLocalValue(new Date(Date.now() + 10 * 60 * 1000)));
+      setScheduledFor(
+        toDateTimeLocalValue(new Date(Date.now() + 10 * 60 * 1000)),
+      );
     }
   }, [isOpen]);
 
@@ -374,47 +396,69 @@ export function ScheduleEmailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-transparent" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-none bg-card shadow-2xl border border-border">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CalendarClock className="h-4 w-4" style={{ color: ACCENT_COLOR }} />
-            Schedule Email
-          </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-none">
-            <X className="h-4 w-4" />
-          </Button>
+    <div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
+
+      <div
+        className="relative z-10 w-full max-w-md rounded-lg bg-card border border-border overflow-hidden"
+        style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.24)" }}
+      >
+        <div
+          className="flex items-center gap-2 px-4 h-10"
+          style={{ backgroundColor: ACCENT_COLOR }}
+        >
+          <CalendarClock className="h-3.5 w-3.5 text-white" />
+          <span className="text-[13px] font-medium text-white">
+            Schedule send
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Date and time</label>
+        <div className="px-4 py-4 space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium text-foreground">
+              Date and time
+            </label>
             <Input
               type="datetime-local"
               value={scheduledFor}
               min={toDateTimeLocalValue(new Date())}
               onChange={(e) => setScheduledFor(e.target.value)}
-              className="rounded-none"
+              className="h-9 rounded-md text-[13px]"
             />
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            This UI version sends scheduled emails only while this app stays open.
+          <p className="text-[11.5px] text-muted-foreground">
+            Scheduled emails are sent only while this app stays open.
           </p>
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-border">
-          <Button variant="outline" onClick={onClose} className="rounded-none">
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="h-8 rounded-full text-[13px]"
+          >
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!scheduledFor}
-            className="rounded-none text-white"
+            className="h-8 rounded-full text-[13px] text-white"
             style={{ backgroundColor: ACCENT_COLOR }}
           >
-            Confirm Schedule
+            Schedule
           </Button>
         </div>
       </div>
@@ -478,55 +522,76 @@ export function ComposeModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-end sm:p-4"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="absolute inset-0 bg-transparent" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-2xl rounded-none bg-card shadow-2xl flex flex-col max-h-[92vh] border border-border">
-        <div className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-border">
-          <div
-            className="flex items-center gap-2 text-base font-medium text-foreground"
-            style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
-          >
-            New Email
-          </div>
+      <div
+        className="relative z-10 w-full sm:w-[560px] rounded-t-lg sm:rounded-lg bg-card flex flex-col max-h-[92vh] border border-border overflow-hidden"
+        style={{ boxShadow: "0 12px 40px rgba(0,0,0,0.26)" }}
+      >
+        <div
+          className="flex items-center gap-2 px-4 h-10 shrink-0"
+          style={{ backgroundColor: ACCENT_COLOR }}
+        >
+          <span className="text-[13px] font-medium text-white">
+            New message
+          </span>
 
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="rounded-none">
-            <X className="h-4 w-4" />
-          </Button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">To</p>
+        <div className="shrink-0">
+          <FieldRow label="To">
             <input
               type="email"
               value={recipientEmail}
               onChange={(e) => onRecipientChange(e.target.value)}
               placeholder="recipient@example.com"
-              className="w-full bg-transparent border-0 border-b border-muted-foreground/30 rounded-none px-0 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+              className="flex-1 min-w-0 bg-transparent border-0 text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
             />
-          </div>
+          </FieldRow>
+        </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Chat with AI</label>
-            <ChatPrompt messages={messages} onSendMessage={onSendMessage} isLoading={isChatLoading} />
-          </div>
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          <ChatPrompt
+            messages={messages}
+            onSendMessage={onSendMessage}
+            isLoading={isChatLoading}
+          />
 
           {hasEmail && (
-            <div className="space-y-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground">Edit Email</label>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                  Draft
+                </span>
 
-                <div className="flex items-center gap-3">
-                  <Button type="button" variant="ghost" size="sm" onClick={onCopy} className="gap-2 rounded-none">
-                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copied ? "Copied" : "Copy"}
-                  </Button>
+                <div className="flex items-center gap-0.5">
+                  <ToolbarIconButton
+                    label={copied ? "Copied" : "Copy"}
+                    onClick={onCopy}
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </ToolbarIconButton>
 
-                  <Button type="button" variant="ghost" size="sm" onClick={onPreview} className="gap-2 rounded-none">
-                    <Mail className="h-4 w-4" />
-                    Preview
-                  </Button>
+                  <ToolbarIconButton label="Preview" onClick={onPreview}>
+                    <Mail className="h-3.5 w-3.5" />
+                  </ToolbarIconButton>
                 </div>
               </div>
 
@@ -536,32 +601,16 @@ export function ComposeModal({
                 onSubjectChange={onSubjectChange}
                 onBodyChange={onBodyChange}
               />
-            </div>
-          )}
 
-          {hasEmail && (
-            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={onFileChange}
-                />
-
-                <Button type="button" variant="outline" onClick={onAddAttachmentClick} className="gap-2 rounded-none">
-                  <Paperclip className="h-4 w-4" />
-                  Add Attachment
-                </Button>
-
-                <AttachmentList files={attachments} onRemove={onRemoveAttachment} />
-              </div>
+              <AttachmentList
+                files={attachments}
+                onRemove={onRemoveAttachment}
+              />
 
               {status && (
                 <div
                   className={cn(
-                    "rounded-none px-3 py-2 text-sm border",
+                    "rounded-md px-3 py-2 text-[12.5px] border",
                     status.type === "success"
                       ? "bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400"
                       : "bg-red-500/10 text-red-700 border-red-500/20 dark:text-red-400",
@@ -575,27 +624,44 @@ export function ComposeModal({
         </div>
 
         {hasEmail && (
-          <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border shrink-0 flex-wrap">
-            <Button type="button" variant="outline" onClick={onSaveDraft} className="gap-2 rounded-none">
-              <Save className="h-4 w-4" />
-              Save Draft
-            </Button>
-
-            <Button type="button" variant="outline" onClick={onSchedule} className="gap-2 rounded-none">
-              <CalendarClock className="h-4 w-4" />
-              Schedule
-            </Button>
-
-            <Button
+          <div className="flex items-center gap-1 px-3 py-2.5 border-t border-border shrink-0">
+            <button
               type="button"
               onClick={onSend}
               disabled={isSending || !recipientEmail.trim() || !body.trim()}
-              className="gap-2 rounded-none text-white"
+              className="inline-flex items-center gap-2 h-8 pl-4 pr-4 rounded-full text-[13px] font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
               style={{ backgroundColor: ACCENT_COLOR }}
             >
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {isSending ? "Sending..." : "Send Email"}
-            </Button>
+              {isSending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              {isSending ? "Sending..." : "Send"}
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={onFileChange}
+            />
+
+            <ToolbarIconButton
+              label="Attach files"
+              onClick={onAddAttachmentClick}
+            >
+              <Paperclip className="h-4 w-4" />
+            </ToolbarIconButton>
+
+            <ToolbarIconButton label="Schedule send" onClick={onSchedule}>
+              <CalendarClock className="h-4 w-4" />
+            </ToolbarIconButton>
+
+            <ToolbarIconButton label="Save draft" onClick={onSaveDraft}>
+              <Save className="h-4 w-4" />
+            </ToolbarIconButton>
           </div>
         )}
       </div>

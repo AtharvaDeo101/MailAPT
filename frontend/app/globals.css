@@ -293,3 +293,28 @@ body {
     100% {background-position:    0% 100%,100% 100%,200% 100%}
 }
 }
+/* Generate page (mail client) shell: Gmail/Outlook-style compact system UI type */
+.mail-ui {
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+.mail-ui input,
+.mail-ui textarea,
+.mail-ui button {
+  font-family: inherit;
+}
+
+.mail-ui {
+  --mail-accent: #121931;
+  --mail-accent-tint: rgba(18, 25, 49, 0.10);
+  --mail-hover: rgba(0, 0, 0, 0.05);
+  --mail-warn-text: #8a5300;
+}
+.dark .mail-ui {
+  --mail-accent: #a8badf;
+  --mail-accent-tint: rgba(168, 186, 223, 0.14);
+  --mail-hover: rgba(255, 255, 255, 0.07);
+  --mail-warn-text: #f0b45f;
+}
