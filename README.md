@@ -20,7 +20,7 @@
 professionals, managers, and any other individuals who require efficient email communication.
 </p>
 
-## <span>Features</span>
+## <span>Feature</span>
 
 <ul>
   <li><strong>AI Email Generation</strong> — Create polished emails from a short prompt.</li>
@@ -51,15 +51,7 @@ professionals, managers, and any other individuals who require efficient email c
 </ul>
 
 
-
-
-## <span>Example Prompt</span>
-
-```html
-Write a professional follow-up email to a client after a product demo and keep the tone confident and friendly.
-```
-
-## <span>Future Improvements</span>
+## <span>Future Improvement</span>
 
 <ul>
   <li>Add multiple email tone options.</li>
@@ -67,5 +59,4 @@ Write a professional follow-up email to a client after a product demo and keep t
   <li>Enable inbox analytics and tracking.</li>
   <li>Integrate with Gmail and Outlook APIs.</li>
 </ul>
-
 
