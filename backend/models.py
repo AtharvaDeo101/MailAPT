@@ -26,6 +26,11 @@ class Email(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
     folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True)
 
+    # send_email/create_draft already write these; without the columns the
+    # insert raises TypeError and the row is silently rolled back.
+    gmail_message_id = Column(String(255), nullable=True)
+    gmail_draft_id = Column(String(255), nullable=True)
+
     folder = relationship("Folder", back_populates="emails")
     scheduled = relationship("ScheduledEmail", back_populates="email", uselist=False)
 

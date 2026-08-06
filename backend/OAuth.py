@@ -96,7 +96,7 @@ def login():
     authorization_url, state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
-        prompt="consent",
+        prompt="select_account consent",
         code_challenge=code_challenge,
         code_challenge_method="S256",
     )

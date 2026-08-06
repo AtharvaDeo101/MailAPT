@@ -8,80 +8,259 @@ import {
   Folder,
   FolderOpen,
   Inbox,
+  Loader2,
   MailOpen,
+  Menu,
   Moon,
   Pencil,
   Plus,
+  RefreshCw,
+  Search,
   SendHorizonal,
   Sun,
+  Tag,
+  UserRoundCog,
+  X,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { ActiveSection, FolderItem } from "../_lib/types";
+import { ActiveSection, FolderItem, GmailLabel } from "../_lib/types";
+import { API } from "../_lib/api";
 
 const ACCENT = "var(--mail-accent)";
 const ACCENT_TINT = "var(--mail-accent-tint)";
 const HOVER_BG = "var(--mail-hover)";
-const BRAND = "#121931";
 
-function ItemCount({
-  count,
-  isActive = false,
-}: {
-  count: number;
-  isActive?: boolean;
-}) {
-  if (!count || count <= 0) return null;
+type SectionId = ActiveSection;
 
-  return (
-    <span
-      className="ml-auto shrink-0 tabular-nums text-[11px] font-semibold"
-      style={{
-        color: isActive ? ACCENT : "var(--muted-foreground)",
-      }}
-    >
-      {count > 999 ? "999+" : count}
-    </span>
-  );
-}
+/* ------------------------------------------------------------------ */
+/* Top bar                                                             */
+/* ------------------------------------------------------------------ */
 
-function SidebarBrand() {
-  return (
-    <div
-      className="flex items-center gap-2.5 px-4 h-12 shrink-0"
-      style={{ backgroundColor: BRAND }}
-    >
-      <img src="icon.png" alt="" className="h-6 w-6 shrink-0" />
-      <span className="text-[15px] font-semibold tracking-tight text-white">
-        Mailly
-      </span>
-    </div>
-  );
-}
-
-function SidebarNavItem({
-  item,
-  isActive,
+function TopBarIconButton({
+  label,
   onClick,
-  indented = false,
-  icon,
+  children,
 }: {
-  item: { label: string; count?: number };
-  isActive: boolean;
+  label: string;
   onClick: () => void;
-  indented?: boolean;
-  icon: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group hover-lift flex w-full items-center gap-3 h-8 pr-3 rounded-r-full text-left select-none origin-left"
+      aria-label={label}
+      title={label}
+      className="hover-pop inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+      style={{ color: "var(--mail-topbar-fg)" }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TopBarThemeToggle() {
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // render the slot before mount so the bar does not reflow
+  if (!mounted) return <span className="h-8 w-8 shrink-0" />;
+
+  const isDark = (theme === "system" ? resolvedTheme : theme) === "dark";
+
+  return (
+    <TopBarIconButton
+      label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+    >
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </TopBarIconButton>
+  );
+}
+
+function TopBarAccount() {
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${API}/me`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setEmail(data?.emailAddress ?? null))
+      .catch(() => setEmail(null));
+  }, []);
+
+  // Google's own account chooser is the account list — /login sends
+  // prompt=select_account, so the old session just has to be dropped first.
+  const switchAccount = async () => {
+    try {
+      await fetch(`${API}/logout`, { method: "POST", credentials: "include" });
+    } catch {
+      // logout failed — Google's chooser still lets them pick another account
+    }
+    window.location.href = `${API}/login`;
+  };
+
+  const initial = (email?.trim()?.charAt(0) || "?").toUpperCase();
+
+  return (
+    <button
+      type="button"
+      onClick={switchAccount}
+      aria-label="Switch Google account"
+      title={email ? `Signed in as ${email} — switch account` : "Switch account"}
+      className="hover-pop flex shrink-0 items-center gap-2 h-8 pl-1 pr-2 rounded-full"
+      style={{ color: "var(--mail-topbar-fg)" }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = "rgba(255,255,255,0.12)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <span
+        className="inline-flex items-center justify-center rounded-full text-[11px] font-bold"
+        style={{
+          width: 26,
+          height: 26,
+          background: "var(--mail-accent)",
+          color: "#fff",
+        }}
+      >
+        {initial}
+      </span>
+      <span
+        className="hidden lg:block max-w-[150px] truncate text-[12px]"
+        style={{ color: "var(--mail-topbar-muted)" }}
+      >
+        {email ?? "Sign in"}
+      </span>
+      <UserRoundCog
+        className="h-3.5 w-3.5 shrink-0 lg:hidden"
+        style={{ color: "var(--mail-topbar-muted)" }}
+      />
+    </button>
+  );
+}
+
+export function MailTopBar({
+  searchQuery,
+  onSearchChange,
+  searchPlaceholder,
+  onToggleSidebar,
+  onRefresh,
+  isRefreshing,
+}: {
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  searchPlaceholder: string;
+  onToggleSidebar: () => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <header
+      className="flex h-12 shrink-0 items-center gap-2 px-2.5"
+      style={{ background: "var(--mail-topbar)" }}
+    >
+      <TopBarIconButton label="Toggle folder pane" onClick={onToggleSidebar}>
+        <Menu style={{ width: 18, height: 18 }} />
+      </TopBarIconButton>
+
+      <div className="flex shrink-0 items-center gap-2 pl-0.5 pr-2">
+        <img src="/icon.png" alt="" className="h-6 w-6 shrink-0" />
+        <span
+          className="hidden sm:block text-[15px] font-semibold tracking-tight"
+          style={{ color: "var(--mail-topbar-fg)" }}
+        >
+          Mailly
+        </span>
+      </div>
+
+      <div className="mx-auto w-full max-w-[620px] min-w-0 px-1">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
+            style={{ color: "var(--mail-topbar-muted)" }}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder={searchPlaceholder}
+            className="h-8 w-full rounded-md pl-9 pr-8 text-[13px] outline-none transition-colors duration-150"
+            style={{
+              background: focused ? "#fff" : "var(--mail-topbar-field)",
+              color: focused ? "#16283d" : "var(--mail-topbar-fg)",
+              border: `1px solid ${focused ? "var(--mail-accent)" : "transparent"}`,
+            }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              className="hover-pop absolute right-2.5 top-1/2 -translate-y-1/2"
+              style={{ color: focused ? "#5b6b7f" : "var(--mail-topbar-muted)" }}
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1">
+        <TopBarIconButton label="Refresh" onClick={onRefresh}>
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+        </TopBarIconButton>
+        <TopBarThemeToggle />
+        <TopBarAccount />
+      </div>
+    </header>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Icon rail                                                           */
+/* ------------------------------------------------------------------ */
+
+function RailButton({
+  label,
+  icon,
+  count,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  count?: number;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-pressed={isActive}
+      className="hover-pop relative inline-flex h-9 w-9 items-center justify-center rounded-md"
       style={{
-        paddingLeft: indented ? 36 : 20,
         background: isActive ? ACCENT_TINT : "transparent",
         color: isActive ? ACCENT : "var(--muted-foreground)",
-        fontWeight: isActive ? 600 : 400,
       }}
       onMouseEnter={(e) => {
         if (!isActive) e.currentTarget.style.background = HOVER_BG;
@@ -90,111 +269,114 @@ function SidebarNavItem({
         if (!isActive) e.currentTarget.style.background = "transparent";
       }}
     >
-      <span className="shrink-0">{icon}</span>
-      <span className="truncate text-[13px]">{item.label}</span>
-      <ItemCount count={item.count ?? 0} isActive={isActive} />
+      {icon}
+      {!!count && count > 0 && (
+        <span
+          className="absolute -right-0.5 -top-0.5 min-w-[15px] rounded-full px-1 text-[9px] font-bold leading-[15px] text-white"
+          style={{ background: ACCENT }}
+        >
+          {count > 99 ? "99+" : count}
+        </span>
+      )}
     </button>
   );
 }
 
-function SidebarFolderSection({
-  folders,
-  selectedFolderId,
-  onSelectFolder,
-  onAddFolder,
+/* ------------------------------------------------------------------ */
+/* Folder pane                                                         */
+/* ------------------------------------------------------------------ */
+
+function PaneNavItem({
+  label,
+  count,
+  icon,
+  isActive,
+  onClick,
+  indented = false,
 }: {
-  folders: FolderItem[];
-  selectedFolderId: string | null;
-  onSelectFolder: (folderId: string) => void;
-  onAddFolder: () => void;
+  label: string;
+  count?: number;
+  icon: React.ReactNode;
+  isActive: boolean;
+  onClick: () => void;
+  indented?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="hover-row group flex h-8 w-full items-center gap-2.5 pr-2.5 text-left select-none origin-left"
+      style={{
+        paddingLeft: indented ? 28 : 14,
+        background: isActive ? ACCENT_TINT : "transparent",
+        color: isActive ? ACCENT : "var(--foreground)",
+        fontWeight: isActive ? 600 : 400,
+        boxShadow: isActive ? `inset 3px 0 0 ${ACCENT}` : "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isActive) e.currentTarget.style.background = HOVER_BG;
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive) e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <span className="shrink-0 opacity-80">{icon}</span>
+      <span className="truncate text-[13px]">{label}</span>
+      {!!count && count > 0 && (
+        <span
+          className="ml-auto shrink-0 tabular-nums text-[11px] font-semibold"
+          style={{ color: isActive ? ACCENT : "var(--muted-foreground)" }}
+        >
+          {count > 999 ? "999+" : count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function PaneSection({
+  title,
+  onAdd,
+  addLabel,
+  children,
+}: {
+  title: string;
+  onAdd?: () => void;
+  addLabel?: string;
+  children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <div className="mt-2 pt-2 border-t border-border">
-      <div className="flex items-center pr-2">
+    <div className="mt-1.5 border-t border-border pt-1.5">
+      <div className="flex items-center pr-1.5">
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className="hover-lift flex flex-1 items-center gap-2 h-8 pl-4 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground hover:text-foreground origin-left"
+          className="hover-lift flex h-7 flex-1 items-center gap-1.5 pl-2.5 text-left text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted-foreground hover:text-foreground origin-left"
         >
           {isOpen ? (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+            <ChevronDown className="h-3 w-3 shrink-0" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+            <ChevronRight className="h-3 w-3 shrink-0" />
           )}
-          Folders
+          {title}
         </button>
 
-        <button
-          type="button"
-          onClick={onAddFolder}
-          className="hover-pop inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
-          aria-label="Create folder"
-          title="Create folder"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            className="hover-pop inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
+            aria-label={addLabel}
+            title={addLabel}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
-      {isOpen && (
-        <div className="mt-0.5">
-          {folders.length === 0 && (
-            <p className="pl-9 py-1.5 text-[12px] text-muted-foreground/70">
-              No folders yet
-            </p>
-          )}
-
-          {folders.map((folder) => {
-            const isSelected = selectedFolderId === folder.id;
-
-            return (
-              <SidebarNavItem
-                key={folder.id}
-                item={{ label: folder.name, count: folder.count }}
-                isActive={isSelected}
-                indented
-                icon={
-                  isSelected ? (
-                    <FolderOpen className="h-4 w-4" />
-                  ) : (
-                    <Folder className="h-4 w-4" />
-                  )
-                }
-                onClick={() => onSelectFolder(folder.id)}
-              />
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SidebarThemeToggle() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  const isDark = (theme === "system" ? resolvedTheme : theme) === "dark";
-
-  return (
-    <div className="shrink-0 border-t border-border px-3 py-2">
-      <button
-        type="button"
-        onClick={() => setTheme(isDark ? "light" : "dark")}
-        aria-label="Toggle theme"
-        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-        className="hover-lift flex w-full items-center gap-2.5 h-8 px-2 rounded-md text-[12px] text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground origin-left"
-      >
-        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        {isDark ? "Light mode" : "Dark mode"}
-      </button>
+      {isOpen && <div className="mt-0.5">{children}</div>}
     </div>
   );
 }
@@ -211,6 +393,11 @@ export function LeftSidebar({
   selectedFolderId = null,
   onSelectFolder,
   onAddFolder,
+  labels,
+  labelsLoading = false,
+  selectedLabelId = null,
+  onSelectLabel,
+  paneOpen = true,
 }: {
   activeSection: ActiveSection;
   onSelect: (s: ActiveSection) => void;
@@ -223,31 +410,36 @@ export function LeftSidebar({
   selectedFolderId?: string | null;
   onSelectFolder: (folderId: string) => void;
   onAddFolder: () => void;
+  labels: GmailLabel[];
+  labelsLoading?: boolean;
+  selectedLabelId?: string | null;
+  onSelectLabel: (label: GmailLabel) => void;
+  paneOpen?: boolean;
 }) {
   const navItems = useMemo(
     () => [
       {
-        id: "inbox" as ActiveSection,
+        id: "inbox" as SectionId,
         label: "Inbox",
-        icon: <Inbox className="h-4 w-4" />,
+        icon: <Inbox style={{ width: 16, height: 16 }} />,
         count: inboxCount,
       },
       {
-        id: "sent" as ActiveSection,
+        id: "sent" as SectionId,
         label: "Sent",
-        icon: <SendHorizonal className="h-4 w-4" />,
+        icon: <SendHorizonal style={{ width: 16, height: 16 }} />,
         count: sentCount,
       },
       {
-        id: "drafts" as ActiveSection,
+        id: "drafts" as SectionId,
         label: "Drafts",
-        icon: <MailOpen className="h-4 w-4" />,
+        icon: <MailOpen style={{ width: 16, height: 16 }} />,
         count: draftsCount,
       },
       {
-        id: "scheduled" as ActiveSection,
+        id: "scheduled" as SectionId,
         label: "Scheduled",
-        icon: <CalendarClock className="h-4 w-4" />,
+        icon: <CalendarClock style={{ width: 16, height: 16 }} />,
         count: scheduledCount,
       },
     ],
@@ -255,53 +447,147 @@ export function LeftSidebar({
   );
 
   return (
-    <aside
-      className="w-56 shrink-0 flex flex-col bg-card h-full z-10 relative border-r border-border"
-      aria-label="Email navigation"
-    >
-      <SidebarBrand />
-
-      <div className="px-3 py-3 shrink-0">
+    <div className="flex h-full shrink-0" aria-label="Email navigation">
+      {/* icon rail — always visible, mirrors the pane when it is collapsed */}
+      <nav
+        className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-border py-2.5"
+        style={{ background: "var(--mail-rail)" }}
+      >
         <button
           type="button"
           onClick={onNewEmail}
-          className="hover-press flex items-center gap-2.5 h-9 pl-3.5 pr-5 rounded-full text-[13px] font-medium text-white"
+          aria-label="Compose"
+          title="Compose"
+          className="hover-press mb-1.5 inline-flex h-9 w-9 items-center justify-center rounded-md text-white"
           style={{
-            backgroundColor: BRAND,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.28)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.18)";
+            background: ACCENT,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.20)",
           }}
         >
-          <Pencil className="h-4 w-4" />
-          Compose
+          <Pencil style={{ width: 16, height: 16 }} />
         </button>
-      </div>
 
-      <nav className="flex flex-col flex-1 pr-2 pb-3 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => (
-          <SidebarNavItem
+          <RailButton
             key={item.id}
-            item={{ label: item.label, count: item.count }}
+            label={item.label}
             icon={item.icon}
+            count={item.id === "inbox" ? item.count : undefined}
             isActive={activeSection === item.id}
             onClick={() => onSelect(item.id)}
           />
         ))}
 
-        <SidebarFolderSection
-          folders={folders}
-          selectedFolderId={selectedFolderId}
-          onSelectFolder={onSelectFolder}
-          onAddFolder={onAddFolder}
+        <div className="my-1 h-px w-6 bg-border" />
+
+        <RailButton
+          label="Folders"
+          icon={<Folder style={{ width: 16, height: 16 }} />}
+          isActive={activeSection === "folder"}
+          onClick={() => onSelect("folder")}
+        />
+        <RailButton
+          label="Tags"
+          icon={<Tag style={{ width: 16, height: 16 }} />}
+          isActive={activeSection === "label"}
+          onClick={() => onSelect("label")}
         />
       </nav>
 
-      <SidebarThemeToggle />
-    </aside>
+      {/* folder pane — collapsible from the top bar */}
+      <aside
+        className="flex h-full flex-col overflow-hidden border-r border-border transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        style={{
+          width: paneOpen ? 216 : 0,
+          background: "var(--mail-pane)",
+        }}
+        aria-hidden={!paneOpen}
+      >
+        <div className="w-[216px] shrink-0 px-2.5 py-2.5">
+          <button
+            type="button"
+            onClick={onNewEmail}
+            className="hover-press flex h-9 w-full items-center justify-center gap-2 rounded-md text-[13px] font-semibold text-white"
+            style={{
+              background: ACCENT,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.16)",
+            }}
+          >
+            <Pencil style={{ width: 15, height: 15 }} />
+            New Mail
+          </button>
+        </div>
+
+        <div className="w-[216px] flex-1 overflow-y-auto overflow-x-hidden pb-3">
+          {navItems.map((item) => (
+            <PaneNavItem
+              key={item.id}
+              label={item.label}
+              count={item.count}
+              icon={item.icon}
+              isActive={activeSection === item.id}
+              onClick={() => onSelect(item.id)}
+            />
+          ))}
+
+          <PaneSection title="Folders" onAdd={onAddFolder} addLabel="Create folder">
+            {folders.length === 0 ? (
+              <p className="py-1.5 pl-7 text-[12px] text-muted-foreground/70">
+                No folders yet
+              </p>
+            ) : (
+              folders.map((folder) => {
+                const isSelected =
+                  activeSection === "folder" && selectedFolderId === folder.id;
+
+                return (
+                  <PaneNavItem
+                    key={folder.id}
+                    label={folder.name}
+                    count={folder.count}
+                    indented
+                    icon={
+                      isSelected ? (
+                        <FolderOpen style={{ width: 15, height: 15 }} />
+                      ) : (
+                        <Folder style={{ width: 15, height: 15 }} />
+                      )
+                    }
+                    isActive={isSelected}
+                    onClick={() => onSelectFolder(folder.id)}
+                  />
+                );
+              })
+            )}
+          </PaneSection>
+
+          <PaneSection title="Tags">
+            {labelsLoading ? (
+              <p className="flex items-center gap-1.5 py-1.5 pl-7 text-[12px] text-muted-foreground/70">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading
+              </p>
+            ) : labels.length === 0 ? (
+              <p className="py-1.5 pl-7 text-[12px] text-muted-foreground/70">
+                No tags in Gmail
+              </p>
+            ) : (
+              labels.map((label) => (
+                <PaneNavItem
+                  key={label.id}
+                  label={label.name}
+                  indented
+                  icon={<Tag style={{ width: 14, height: 14 }} />}
+                  isActive={
+                    activeSection === "label" && selectedLabelId === label.id
+                  }
+                  onClick={() => onSelectLabel(label)}
+                />
+              ))
+            )}
+          </PaneSection>
+        </div>
+      </aside>
+    </div>
   );
 }

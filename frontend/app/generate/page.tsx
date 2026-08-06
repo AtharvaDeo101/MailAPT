@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/hooks/useAuth";
@@ -14,19 +14,35 @@ import {
   fetchStoredEmails,
   fetchFolders,
   createFolder,
+  createDraftRequest,
+  updateStoredEmail,
+  deleteStoredEmail,
+  fetchScheduledEmails,
+  createScheduledEmail,
+  deleteScheduledEmail,
+  trashEmail,
+  fetchLabels,
 } from "./_lib/api";
 import type {
   ActiveSection,
   ChatMessage,
+  DbFolder,
   DraftEmail,
+  FolderItem,
   GmailEmail,
   GmailEmailDetail,
+  GmailLabel,
   ScheduledEmail,
+  ScheduledRecord,
   StatusMessage,
+  StoredEmail,
 } from "./_lib/types";
-import { formatScheduledDateTime } from "./_lib/generate-utils";
+import {
+  formatScheduledDateTime,
+  parseServerDate,
+} from "./_lib/generate-utils";
 
-import { LeftSidebar } from "./_components/sidebar-components";
+import { LeftSidebar, MailTopBar } from "./_components/sidebar-components";
 import {
   EmailDetailOverlayPanel,
   EmailListView,
@@ -37,32 +53,33 @@ import {
   ScheduleEmailModal,
 } from "./_components/compose-components";
 
-type SidebarSection = ActiveSection | "folder";
+/** Read-later flags and folder tags apply to Gmail messages, which have no row
+ *  in our Postgres schema — localStorage is what keeps them across reloads. */
+function usePersistentState<T>(key: string, initial: T) {
+  const [value, setValue] = useState<T>(initial);
+  const [hydrated, setHydrated] = useState(false);
 
-type FolderItem = {
-  id: string;
-  name: string;
-  count?: number;
-};
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw) setValue(JSON.parse(raw) as T);
+    } catch {
+      // corrupt or unavailable storage — fall back to the initial value
+    }
+    setHydrated(true);
+  }, [key]);
 
-type StoredEmail = {
-  id: number;
-  subject: string;
-  body: string;
-  to_address: string;
-  from_address: string;
-  is_draft: boolean;
-  created_at: string | null;
-  updated_at: string | null;
-  folder_id: number | null;
-  gmail_message_id?: string | null;
-};
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // storage full or blocked — the flags simply will not persist
+    }
+  }, [key, value, hydrated]);
 
-type DbFolder = {
-  id: number;
-  name: string;
-  description?: string | null;
-};
+  return [value, setValue] as const;
+}
 
 export default function EmailGenerator() {
   const isAuthenticated = useAuth();
@@ -81,8 +98,6 @@ export default function EmailGenerator() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [status, setStatus] = useState<StatusMessage>(null);
-  const [drafts, setDrafts] = useState<DraftEmail[]>([]);
-  const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [activeScheduledId, setActiveScheduledId] = useState<string | null>(
     null,
@@ -92,18 +107,25 @@ export default function EmailGenerator() {
 
   const [detailPanelVisible, setDetailPanelVisible] = useState(false);
   const [openedEmailId, setOpenedEmailId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<SidebarSection>("inbox");
+  const [activeSection, setActiveSection] = useState<ActiveSection>("inbox");
   const detailCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState<GmailLabel | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [paneOpen, setPaneOpen] = useState(true);
 
-  const [deletedEmailIds, setDeletedEmailIds] = useState<string[]>([]);
-  const [emailFolderAssignments, setEmailFolderAssignments] = useState<
-    Record<string, string | null>
-  >({});
-  const [readLaterEmailIds, setReadLaterEmailIds] = useState<string[]>([]);
+  const [emailFolderAssignments, setEmailFolderAssignments] =
+    usePersistentState<Record<string, string | null>>(
+      "mailly-folder-assignments",
+      {},
+    );
+  const [readLaterEmailIds, setReadLaterEmailIds] = usePersistentState<string[]>(
+    "mailly-read-later",
+    [],
+  );
 
   const {
     data: inboxEmails = [],
@@ -132,6 +154,20 @@ export default function EmailGenerator() {
   });
 
   const {
+    data: labelEmails = [],
+    isFetching: labelLoading,
+    refetch: refetchLabelEmails,
+  } = useQuery({
+    queryKey: ["emails", "label", selectedLabel?.id],
+    queryFn: () => fetchEmails(`label:"${selectedLabel?.name}"`),
+    enabled:
+      isAuthenticated === true && activeSection === "label" && !!selectedLabel,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+  });
+
+  const {
     data: detailEmail,
     isLoading: detailLoading,
     isFetching: detailFetching,
@@ -154,7 +190,6 @@ export default function EmailGenerator() {
 
   const {
     data: dbFolders = [],
-    isFetching: foldersLoading,
     refetch: refetchFolders,
   } = useQuery<DbFolder[]>({
     queryKey: ["db-folders"],
@@ -165,24 +200,73 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
   });
 
-  const {
-    data: storedEmails = [],
-    isFetching: storedLoading,
-    refetch: refetchStored,
-  } = useQuery<StoredEmail[]>({
-    queryKey: ["stored-emails", selectedFolderId],
-    queryFn: () =>
-      fetchStoredEmails({
-        folder_id:
-          activeSection === "folder" && selectedFolderId
-            ? Number(selectedFolderId)
-            : undefined,
-      }),
+  const { data: gmailLabels = [], isFetching: labelsLoading } = useQuery<
+    GmailLabel[]
+  >({
+    queryKey: ["gmail-labels"],
+    queryFn: () => fetchLabels(),
+    enabled: isAuthenticated === true,
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: storedEmails = [] } = useQuery<StoredEmail[]>({
+    queryKey: ["stored-emails"],
+    queryFn: () => fetchStoredEmails(),
     enabled: isAuthenticated === true,
     staleTime: 1000 * 60 * 5,
     gcTime: 1000 * 60 * 60,
     refetchOnWindowFocus: false,
   });
+
+  const { data: scheduledRecords = [] } = useQuery<ScheduledRecord[]>({
+    queryKey: ["scheduled-emails"],
+    queryFn: () => fetchScheduledEmails(),
+    enabled: isAuthenticated === true,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
+  });
+
+  // Gmail's own folders duplicate the sidebar nav; only user tags belong there
+  const userLabels = useMemo(
+    () => gmailLabels.filter((label) => label.type === "user"),
+    [gmailLabels],
+  );
+
+  // drafts come straight from Postgres now, so they survive a reload
+  const drafts = useMemo<DraftEmail[]>(
+    () =>
+      storedEmails
+        .filter((mail) => mail.is_draft)
+        .map((mail) => ({
+          id: String(mail.id),
+          subject: mail.subject,
+          body: mail.body,
+          recipientEmail: mail.to_address,
+          createdAt: parseServerDate(mail.created_at),
+        })),
+    [storedEmails],
+  );
+
+  // attachments cannot round-trip through the DB, so a schedule restored from
+  // the server sends without them; ones queued this session keep theirs
+  const sessionAttachmentsRef = useRef<Record<string, File[]>>({});
+
+  const scheduledEmails = useMemo<ScheduledEmail[]>(
+    () =>
+      scheduledRecords.map((record) => ({
+        id: String(record.id),
+        subject: record.subject,
+        body: record.body,
+        recipientEmail: record.to_address,
+        scheduledFor: record.scheduled_for,
+        createdAt: parseServerDate(record.created_at),
+        attachments: sessionAttachmentsRef.current[String(record.id)] ?? [],
+      })),
+    [scheduledRecords],
+  );
 
   const detailErrorMessage = useMemo(() => {
     if (!detailIsError) return null;
@@ -201,6 +285,14 @@ export default function EmailGenerator() {
       });
     }
   }, [detailIsError, detailError]);
+
+  const flash = useCallback(
+    (next: StatusMessage, ms = 2000) => {
+      setStatus(next);
+      if (next) setTimeout(() => setStatus(null), ms);
+    },
+    [],
+  );
 
   const closeDetailPanel = () => {
     setDetailPanelVisible(false);
@@ -243,24 +335,35 @@ export default function EmailGenerator() {
     );
   };
 
-  const handleSectionSelect = (section: SidebarSection) => {
-    if (section === "folder") {
-      setActiveSection("folder");
-    } else {
-      setActiveSection(section);
-      setSelectedFolderId(null);
-    }
+  const handleSectionSelect = (section: ActiveSection) => {
+    setActiveSection(section);
+
+    if (section !== "folder") setSelectedFolderId(null);
+    if (section !== "label") setSelectedLabel(null);
+
+    // both are picked from inside the pane, so reaching them from the collapsed
+    // rail has to reveal it or there is nothing to click next
+    if (section === "folder" || section === "label") setPaneOpen(true);
 
     closeDetailPanel();
   };
 
   const handleSelectFolder = (folderId: string) => {
     setSelectedFolderId(folderId);
+    setSelectedLabel(null);
     setActiveSection("folder");
     setActiveDraftId(null);
     setActiveScheduledId(null);
     closeDetailPanel();
-    queryClient.invalidateQueries({ queryKey: ["stored-emails", folderId] });
+  };
+
+  const handleSelectLabel = (label: GmailLabel) => {
+    setSelectedLabel(label);
+    setSelectedFolderId(null);
+    setActiveSection("label");
+    setActiveDraftId(null);
+    setActiveScheduledId(null);
+    closeDetailPanel();
   };
 
   const handleAddFolder = async () => {
@@ -272,15 +375,33 @@ export default function EmailGenerator() {
       setStatus(null);
       await createFolder({ name });
       await refetchFolders();
-      setStatus({ type: "success", message: `Folder "${name}" created.` });
-      setTimeout(() => setStatus(null), 2000);
+      flash({ type: "success", message: `Folder "${name}" created.` });
     } catch (err: any) {
-      setStatus({
-        type: "error",
-        message: err?.message || "Failed to create folder.",
-      });
-      setTimeout(() => setStatus(null), 2200);
+      flash(
+        { type: "error", message: err?.message || "Failed to create folder." },
+        2200,
+      );
     }
+  };
+
+  const handleRefresh = () => {
+    if (activeSection === "sent") {
+      refetchSent();
+      return;
+    }
+    if (activeSection === "label") {
+      refetchLabelEmails();
+      return;
+    }
+    if (activeSection === "drafts") {
+      queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
+      return;
+    }
+    if (activeSection === "scheduled") {
+      queryClient.invalidateQueries({ queryKey: ["scheduled-emails"] });
+      return;
+    }
+    refetchInbox();
   };
 
   useEffect(() => {
@@ -289,45 +410,56 @@ export default function EmailGenerator() {
     };
   }, []);
 
+  // ponytail: due sends are drained by whichever tab is open, which is the
+  // behaviour that already existed. Move it to a backend worker if schedules
+  // must fire with the app closed.
   useEffect(() => {
-    if (!scheduledEmails.length) return;
+    if (!scheduledRecords.length) return;
 
     const interval = setInterval(async () => {
       const now = Date.now();
-      const dueEmails = scheduledEmails.filter(
-        (item) => new Date(item.scheduledFor).getTime() <= now,
+      const due = scheduledRecords.filter(
+        (item) => new Date(item.scheduled_for).getTime() <= now,
       );
 
-      for (const item of dueEmails) {
+      for (const item of due) {
         try {
           await sendEmailRequest({
-            to: item.recipientEmail,
+            to: item.to_address,
             subject: item.subject,
             body: item.body,
-            attachments: item.attachments,
+            attachments: sessionAttachmentsRef.current[String(item.id)] ?? [],
           });
 
-          setScheduledEmails((prev) => prev.filter((s) => s.id !== item.id));
-          setStatus({
+          await deleteScheduledEmail(item.id, true);
+          delete sessionAttachmentsRef.current[String(item.id)];
+
+          flash({
             type: "success",
-            message: `Scheduled email sent to ${item.recipientEmail}`,
-          });
-          setTimeout(() => setStatus(null), 2500);
+            message: `Scheduled email sent to ${item.to_address}`,
+          }, 2500);
+
           await queryClient.invalidateQueries({ queryKey: ["emails", "sent"] });
           await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
-        } catch (err: any) {
-          setStatus({
-            type: "error",
-            message:
-              err?.message ||
-              `Failed to send scheduled email to ${item.recipientEmail}`,
+          await queryClient.invalidateQueries({
+            queryKey: ["scheduled-emails"],
           });
+        } catch (err: any) {
+          flash(
+            {
+              type: "error",
+              message:
+                err?.message ||
+                `Failed to send scheduled email to ${item.to_address}`,
+            },
+            3000,
+          );
         }
       }
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [scheduledEmails, queryClient]);
+  }, [scheduledRecords, queryClient, flash]);
 
   const addMessage = (role: ChatMessage["role"], content: string) => {
     setMessages((prev) => [
@@ -386,37 +518,50 @@ export default function EmailGenerator() {
     setIsComposeOpen(true);
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     if (!subject && !body) return;
 
-    if (activeDraftId) {
-      setDrafts((prev) =>
-        prev.map((d) =>
-          d.id === activeDraftId
-            ? { ...d, subject, body, recipientEmail, createdAt: new Date() }
-            : d,
-        ),
-      );
-    } else {
-      const nd: DraftEmail = {
-        id: `${Date.now()}-${Math.random()}`,
-        subject,
-        body,
-        recipientEmail,
-        createdAt: new Date(),
-      };
-      setDrafts((prev) => [nd, ...prev]);
-      setActiveDraftId(nd.id);
-    }
-
-    setActiveScheduledId(null);
-    setStatus({ type: "success", message: "Draft saved." });
-    setTimeout(() => {
+    try {
       setStatus(null);
-      setIsComposeOpen(false);
-      setActiveSection("drafts");
-      setSelectedFolderId(null);
-    }, 900);
+
+      if (activeDraftId) {
+        // an existing row: update in place rather than piling up duplicates
+        await updateStoredEmail(Number(activeDraftId), {
+          subject,
+          body,
+          to_address: recipientEmail,
+        });
+      } else {
+        // Gmail's drafts API needs all three; fall back to a DB-only draft
+        if (recipientEmail.trim() && subject.trim() && body.trim()) {
+          await createDraftRequest({
+            to: recipientEmail,
+            subject,
+            body,
+          });
+        } else {
+          throw new Error(
+            "Add a recipient, subject and body to save this as a draft.",
+          );
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
+      flash({ type: "success", message: "Draft saved." }, 900);
+
+      setTimeout(() => {
+        setIsComposeOpen(false);
+        setActiveSection("drafts");
+        setSelectedFolderId(null);
+        setSelectedLabel(null);
+        resetComposeFields();
+      }, 900);
+    } catch (err: any) {
+      flash(
+        { type: "error", message: err?.message || "Failed to save draft." },
+        2600,
+      );
+    }
   };
 
   const handleSelectDraft = (draft: DraftEmail) => {
@@ -430,9 +575,18 @@ export default function EmailGenerator() {
     setIsComposeOpen(true);
   };
 
-  const handleDeleteDraft = (id: string) => {
-    setDrafts((prev) => prev.filter((d) => d.id !== id));
-    if (activeDraftId === id) resetComposeFields();
+  const handleDeleteDraft = async (id: string) => {
+    try {
+      await deleteStoredEmail(Number(id));
+      await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
+      if (activeDraftId === id) resetComposeFields();
+      flash({ type: "success", message: "Draft deleted." }, 1600);
+    } catch (err: any) {
+      flash(
+        { type: "error", message: err?.message || "Failed to delete draft." },
+        2600,
+      );
+    }
   };
 
   const handleSelectScheduled = (item: ScheduledEmail) => {
@@ -447,9 +601,22 @@ export default function EmailGenerator() {
     setIsComposeOpen(true);
   };
 
-  const handleDeleteScheduled = (id: string) => {
-    setScheduledEmails((prev) => prev.filter((d) => d.id !== id));
-    if (activeScheduledId === id) resetComposeFields();
+  const handleDeleteScheduled = async (id: string) => {
+    try {
+      await deleteScheduledEmail(Number(id));
+      delete sessionAttachmentsRef.current[id];
+      await queryClient.invalidateQueries({ queryKey: ["scheduled-emails"] });
+      if (activeScheduledId === id) resetComposeFields();
+      flash({ type: "success", message: "Schedule cancelled." }, 1600);
+    } catch (err: any) {
+      flash(
+        {
+          type: "error",
+          message: err?.message || "Failed to cancel schedule.",
+        },
+        2600,
+      );
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -467,6 +634,12 @@ export default function EmailGenerator() {
 
     try {
       await sendEmailRequest({ to: recipientEmail, subject, body, attachments });
+
+      // sending a draft consumes it
+      if (activeDraftId) {
+        await deleteStoredEmail(Number(activeDraftId)).catch(() => {});
+      }
+
       setStatus({ type: "success", message: `Email sent to ${recipientEmail}` });
       addMessage(
         "assistant",
@@ -484,6 +657,7 @@ export default function EmailGenerator() {
         setIsComposeOpen(false);
         setActiveSection("sent");
         setSelectedFolderId(null);
+        setSelectedLabel(null);
         resetComposeFields();
       }, 900);
     } catch (err: any) {
@@ -493,56 +667,71 @@ export default function EmailGenerator() {
     }
   };
 
-  const handleScheduleConfirm = (scheduledFor: string) => {
+  const handleScheduleConfirm = async (scheduledFor: string) => {
     if (!body.trim() || !recipientEmail.trim()) {
-      setStatus({
+      flash({
         type: "error",
         message: "Recipient and email body are required to schedule.",
-      });
+      }, 2600);
       return;
     }
 
     const when = new Date(scheduledFor);
     if (isNaN(when.getTime()) || when.getTime() <= Date.now()) {
-      setStatus({
+      flash({
         type: "error",
         message: "Please choose a future date and time.",
-      });
+      }, 2600);
       return;
     }
 
-    const newScheduled: ScheduledEmail = {
-      id: `${Date.now()}-${Math.random()}`,
-      subject,
-      body,
-      recipientEmail,
-      scheduledFor,
-      createdAt: new Date(),
-      attachments: [...attachments],
-    };
+    try {
+      const record = await createScheduledEmail({
+        to: recipientEmail,
+        subject,
+        body,
+        scheduledFor: when.toISOString(),
+      });
 
-    setScheduledEmails((prev) =>
-      [...prev, newScheduled].sort(
-        (a, b) =>
-          new Date(a.scheduledFor).getTime() -
-          new Date(b.scheduledFor).getTime(),
-      ),
-    );
+      if (attachments.length) {
+        sessionAttachmentsRef.current[String(record.id)] = [...attachments];
+      }
 
-    setActiveScheduledId(newScheduled.id);
-    setActiveDraftId(null);
-    setScheduleOpen(false);
-    setStatus({
-      type: "success",
-      message: `Email scheduled for ${formatScheduledDateTime(scheduledFor)}`,
-    });
+      // the draft this was composed from is now queued instead
+      if (activeDraftId) {
+        await deleteStoredEmail(Number(activeDraftId)).catch(() => {});
+      }
 
-    setTimeout(() => {
-      setStatus(null);
-      setIsComposeOpen(false);
-      setActiveSection("scheduled");
-      setSelectedFolderId(null);
-    }, 1200);
+      await queryClient.invalidateQueries({ queryKey: ["scheduled-emails"] });
+      await queryClient.invalidateQueries({ queryKey: ["stored-emails"] });
+
+      setActiveScheduledId(String(record.id));
+      setActiveDraftId(null);
+      setScheduleOpen(false);
+      flash(
+        {
+          type: "success",
+          message: `Email scheduled for ${formatScheduledDateTime(scheduledFor)}`,
+        },
+        1200,
+      );
+
+      setTimeout(() => {
+        setIsComposeOpen(false);
+        setActiveSection("scheduled");
+        setSelectedFolderId(null);
+        setSelectedLabel(null);
+        resetComposeFields();
+      }, 1200);
+    } catch (err: any) {
+      flash(
+        {
+          type: "error",
+          message: err?.message || "Failed to schedule this email.",
+        },
+        2600,
+      );
+    }
   };
 
   const handleCopy = () => {
@@ -553,17 +742,34 @@ export default function EmailGenerator() {
 
   const hasEmail = Boolean(subject || body);
 
-  const handleDeleteEmail = (emailId: string) => {
-    setDeletedEmailIds((prev) =>
-      prev.includes(emailId) ? prev : [...prev, emailId],
-    );
-
+  const handleDeleteEmail = async (emailId: string) => {
     if (openedEmailId === emailId) {
       closeDetailPanel();
     }
 
-    setStatus({ type: "success", message: "Email removed from list." });
-    setTimeout(() => setStatus(null), 1600);
+    try {
+      await trashEmail(emailId);
+
+      // drop the row immediately; the refetch below confirms it
+      for (const key of [
+        ["emails", "inbox"],
+        ["emails", "sent"],
+        ["emails", "label", selectedLabel?.id],
+      ]) {
+        queryClient.setQueryData<GmailEmail[]>(key, (emails) =>
+          emails?.filter((email) => email.id !== emailId),
+        );
+      }
+
+      flash({ type: "success", message: "Email moved to Trash." }, 1800);
+
+      await queryClient.invalidateQueries({ queryKey: ["emails"] });
+    } catch (err: any) {
+      flash(
+        { type: "error", message: err?.message || "Failed to delete email." },
+        2600,
+      );
+    }
   };
 
   const handleMoveEmailToFolder = (emailId: string, folderId: string) => {
@@ -576,11 +782,7 @@ export default function EmailGenerator() {
       dbFolders.find((folder) => String(folder.id) === folderId)?.name ||
       "folder";
 
-    setStatus({
-      type: "success",
-      message: `Email added to ${folderName}.`,
-    });
-    setTimeout(() => setStatus(null), 1600);
+    flash({ type: "success", message: `Email added to ${folderName}.` }, 1600);
   };
 
   const handleMarkReadLater = (emailId: string) => {
@@ -591,60 +793,68 @@ export default function EmailGenerator() {
     );
   };
 
-  const inboxWithFolders = useMemo(() => {
-    return inboxEmails
-      .filter((email) => !deletedEmailIds.includes(email.id))
-      .map((email) => ({
+  const decorate = useCallback(
+    (emails: GmailEmail[]) =>
+      emails.map((email) => ({
         ...email,
         folderId:
           emailFolderAssignments[email.id] !== undefined
             ? emailFolderAssignments[email.id]
             : email.folderId ?? null,
         readLater: readLaterEmailIds.includes(email.id),
-      }));
-  }, [inboxEmails, deletedEmailIds, emailFolderAssignments, readLaterEmailIds]);
+      })),
+    [emailFolderAssignments, readLaterEmailIds],
+  );
 
-  const sentWithFolders = useMemo(() => {
-    return sentEmails
-      .filter((email) => !deletedEmailIds.includes(email.id))
-      .map((email) => ({
-        ...email,
-        folderId:
-          emailFolderAssignments[email.id] !== undefined
-            ? emailFolderAssignments[email.id]
-            : email.folderId ?? null,
-        readLater: readLaterEmailIds.includes(email.id),
-      }));
-  }, [sentEmails, deletedEmailIds, emailFolderAssignments, readLaterEmailIds]);
+  const inboxWithFolders = useMemo(
+    () => decorate(inboxEmails),
+    [inboxEmails, decorate],
+  );
+  const sentWithFolders = useMemo(
+    () => decorate(sentEmails),
+    [sentEmails, decorate],
+  );
+  const labelWithFolders = useMemo(
+    () => decorate(labelEmails),
+    [labelEmails, decorate],
+  );
 
   const computedFolders = useMemo<FolderItem[]>(() => {
-    const baseFolders: FolderItem[] = dbFolders.map((f) => ({
-      id: String(f.id),
-      name: f.name,
-    }));
+    const allUiEmails = [
+      ...inboxWithFolders,
+      ...sentWithFolders,
+      ...labelWithFolders,
+    ];
 
-    const allUiEmails = [...inboxWithFolders, ...sentWithFolders];
+    return dbFolders.map((folder) => {
+      const id = String(folder.id);
 
-    return baseFolders.map((folder) => {
       const dbCount = storedEmails.filter(
-        (email: StoredEmail) => String(email.folder_id) === folder.id,
+        (email) => String(email.folder_id) === id,
       ).length;
 
-      const uiCount = allUiEmails.filter((email) => email.folderId === folder.id)
+      const uiCount = allUiEmails.filter((email) => email.folderId === id)
         .length;
 
-      return {
-        ...folder,
-        count: dbCount + uiCount,
-      };
+      return { id, name: folder.name, count: dbCount + uiCount };
     });
-  }, [dbFolders, storedEmails, inboxWithFolders, sentWithFolders]);
+  }, [
+    dbFolders,
+    storedEmails,
+    inboxWithFolders,
+    sentWithFolders,
+    labelWithFolders,
+  ]);
 
   const panelIsLoading =
     detailPanelVisible && !!openedEmailId && (detailLoading || detailFetching);
 
   const panelEmail =
-    detailPanelVisible && openedEmailId && !detailLoading && !detailIsError && detailEmail
+    detailPanelVisible &&
+    openedEmailId &&
+    !detailLoading &&
+    !detailIsError &&
+    detailEmail
       ? detailEmail
       : null;
 
@@ -652,6 +862,13 @@ export default function EmailGenerator() {
     detailPanelVisible && !!openedEmailId && !detailLoading && detailIsError
       ? detailErrorMessage
       : null;
+
+  const isRefreshing =
+    activeSection === "sent"
+      ? sentLoading
+      : activeSection === "label"
+        ? labelLoading
+        : inboxLoading;
 
   if (authLoading) {
     return (
@@ -662,8 +879,17 @@ export default function EmailGenerator() {
   }
 
   return (
-    <div className="h-screen bg-card flex overflow-hidden">
-      <div className="h-full self-stretch">
+    <div className="h-screen bg-card flex flex-col overflow-hidden">
+      <MailTopBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search mail"
+        onToggleSidebar={() => setPaneOpen((prev) => !prev)}
+        onRefresh={handleRefresh}
+        isRefreshing={isRefreshing}
+      />
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <LeftSidebar
           activeSection={activeSection}
           onSelect={handleSectionSelect}
@@ -676,45 +902,72 @@ export default function EmailGenerator() {
           selectedFolderId={selectedFolderId}
           onSelectFolder={handleSelectFolder}
           onAddFolder={handleAddFolder}
+          labels={userLabels}
+          labelsLoading={labelsLoading}
+          selectedLabelId={selectedLabel?.id ?? null}
+          onSelectLabel={handleSelectLabel}
+          paneOpen={paneOpen}
         />
-      </div>
 
-      <div className="flex-1 min-w-0 relative overflow-hidden bg-card h-full">
-        <main className="h-full">
-          <EmailListView
-            activeSection={activeSection}
-            inboxEmails={inboxWithFolders}
-            sentEmails={sentWithFolders}
-            drafts={drafts}
-            scheduledEmails={scheduledEmails}
-            activeDraftId={activeDraftId}
-            activeScheduledId={activeScheduledId}
-            inboxLoading={inboxLoading}
-            sentLoading={sentLoading}
-            selectedEmailId={openedEmailId}
-            selectedFolderId={selectedFolderId}
+        <div className="flex-1 min-w-0 relative overflow-hidden bg-card h-full">
+          <main className="h-full">
+            <EmailListView
+              activeSection={activeSection}
+              searchQuery={searchQuery}
+              inboxEmails={inboxWithFolders}
+              sentEmails={sentWithFolders}
+              labelEmails={labelWithFolders}
+              labelName={selectedLabel?.name ?? null}
+              labelLoading={labelLoading}
+              drafts={drafts}
+              scheduledEmails={scheduledEmails}
+              activeDraftId={activeDraftId}
+              activeScheduledId={activeScheduledId}
+              inboxLoading={inboxLoading}
+              sentLoading={sentLoading}
+              selectedEmailId={openedEmailId}
+              selectedFolderId={selectedFolderId}
+              folders={computedFolders}
+              onOpenGmailEmail={handleOpenGmailEmail}
+              onSelectDraft={handleSelectDraft}
+              onDeleteDraft={handleDeleteDraft}
+              onSelectScheduled={handleSelectScheduled}
+              onDeleteScheduled={handleDeleteScheduled}
+              onDeleteEmail={handleDeleteEmail}
+              onMoveEmailToFolder={handleMoveEmailToFolder}
+              onMarkReadLater={handleMarkReadLater}
+            />
+          </main>
+
+          <EmailDetailOverlayPanel
+            isVisible={detailPanelVisible}
+            email={panelEmail}
+            isLoading={panelIsLoading}
+            errorMessage={panelError}
+            onClose={closeDetailPanel}
             folders={computedFolders}
-            onRefreshInbox={() => refetchInbox()}
-            onRefreshSent={() => refetchSent()}
-            onOpenGmailEmail={handleOpenGmailEmail}
-            onSelectDraft={handleSelectDraft}
-            onDeleteDraft={handleDeleteDraft}
-            onSelectScheduled={handleSelectScheduled}
-            onDeleteScheduled={handleDeleteScheduled}
-            onDeleteEmail={handleDeleteEmail}
-            onMoveEmailToFolder={handleMoveEmailToFolder}
-            onMarkReadLater={handleMarkReadLater}
+            onMoveToFolder={handleMoveEmailToFolder}
+            onTrash={handleDeleteEmail}
           />
-        </main>
-
-        <EmailDetailOverlayPanel
-          isVisible={detailPanelVisible}
-          email={panelEmail}
-          isLoading={panelIsLoading}
-          errorMessage={panelError}
-          onClose={closeDetailPanel}
-        />
+        </div>
       </div>
+
+      {status && !isComposeOpen && (
+        <div
+          className="slide-down fixed bottom-4 left-1/2 z-[80] -translate-x-1/2 rounded-md border px-3.5 py-2 text-[12.5px] shadow-lg"
+          style={{
+            background: "var(--card)",
+            borderColor:
+              status.type === "success"
+                ? "color-mix(in srgb, #1a7f37 40%, transparent)"
+                : "color-mix(in srgb, #c5221f 40%, transparent)",
+            color: status.type === "success" ? "#1a7f37" : "#c5221f",
+          }}
+          role="status"
+        >
+          {status.message}
+        </div>
+      )}
 
       <ComposeModal
         isOpen={isComposeOpen}
@@ -759,6 +1012,7 @@ export default function EmailGenerator() {
         isOpen={scheduleOpen}
         onClose={() => setScheduleOpen(false)}
         onConfirm={handleScheduleConfirm}
+        hasAttachments={attachments.length > 0}
       />
     </div>
   );

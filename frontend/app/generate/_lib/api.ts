@@ -1,4 +1,11 @@
-import { GmailEmail, GmailEmailDetail } from "./types";
+import type {
+  DbFolder,
+  GmailEmail,
+  GmailEmailDetail,
+  GmailLabel,
+  ScheduledRecord,
+  StoredEmail,
+} from "./types";
 import { extractEmailAddress } from "./generate-utils";
 
 // CRITICAL FIX: different URL for server vs browser
@@ -217,9 +224,49 @@ export async function fetchEmailDetail(id: string): Promise<GmailEmailDetail> {
     from: String(email.from ?? ""),
     date: String(email.date ?? ""),
     body: String(email.body ?? email.plain_body ?? email.snippet ?? ""),
+    to: typeof email.to === "string" ? email.to : undefined,
+    cc: typeof email.cc === "string" ? email.cc : undefined,
+    snippet: typeof email.snippet === "string" ? email.snippet : undefined,
+    labelIds: Array.isArray(email.labelIds) ? email.labelIds : undefined,
     plain_body: typeof email.plain_body === "string" ? email.plain_body : undefined,
     html_body: typeof email.html_body === "string" ? email.html_body : undefined,
   };
+}
+
+// Move a Gmail message to Trash (recoverable in Gmail for 30 days)
+export async function trashEmail(id: string) {
+  const res = await fetch(`${API}/trash_email/${encodeURIComponent(id)}`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  return parseJsonResponse(res);
+}
+
+// Gmail labels, for the sidebar tag list
+export async function fetchLabels(): Promise<GmailLabel[]> {
+  const res = await fetch(`${API}/list_labels`, { credentials: "include" });
+  const data = await parseJsonResponse(res);
+
+  if (Array.isArray(data?.labels)) return data.labels;
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
+// AI summary of an email body
+export async function summarizeEmail(
+  content: string,
+  type: "brief" | "detailed" = "brief",
+): Promise<string> {
+  const res = await fetch(`${API}/summarize_email`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content, type }),
+  });
+
+  const data = await parseJsonResponse(res);
+  return String(data?.summary ?? "");
 }
 
 // Send via Gmail (and backend stores to Postgres)
@@ -249,27 +296,91 @@ export async function sendEmailRequest({
   return parseJsonResponse(res);
 }
 
-// ----------------- NEW: DB-backed emails & folders -----------------
+// ----------------- DB-backed emails, drafts, schedules & folders -----------------
 
-// Types for stored emails/folders (align with EmailModel/FolderModel JSON)
-export type StoredEmail = {
-  id: number;
+// Create a Gmail draft; the backend mirrors it into Postgres
+export async function createDraftRequest({
+  to,
+  subject,
+  body,
+}: {
+  to: string;
   subject: string;
   body: string;
-  to_address: string;
-  from_address: string;
-  is_draft: boolean;
-  created_at: string | null;
-  updated_at: string | null;
-  folder_id: number | null;
-  gmail_message_id?: string | null;
-};
+}) {
+  const res = await fetch(`${API}/create_draft`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ to, subject, body }),
+  });
 
-export type Folder = {
-  id: number;
-  name: string;
-  description?: string | null;
-};
+  return parseJsonResponse(res);
+}
+
+// Edit a stored draft, or move a stored email into a folder
+export async function updateStoredEmail(
+  id: number,
+  patch: Partial<Pick<StoredEmail, "subject" | "body" | "to_address" | "folder_id">>,
+): Promise<StoredEmail> {
+  const res = await fetch(`${API}/stored_emails/${id}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+
+  return parseJsonResponse(res);
+}
+
+export async function deleteStoredEmail(id: number) {
+  const res = await fetch(`${API}/stored_emails/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  return parseJsonResponse(res);
+}
+
+export async function fetchScheduledEmails(): Promise<ScheduledRecord[]> {
+  const res = await fetch(`${API}/scheduled_emails`, { credentials: "include" });
+  const data = await parseJsonResponse(res);
+
+  if (Array.isArray(data?.scheduled)) return data.scheduled;
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
+export async function createScheduledEmail({
+  to,
+  subject,
+  body,
+  scheduledFor,
+}: {
+  to: string;
+  subject: string;
+  body: string;
+  scheduledFor: string;
+}): Promise<ScheduledRecord> {
+  const res = await fetch(`${API}/scheduled_emails`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ to, subject, body, scheduled_for: scheduledFor }),
+  });
+
+  return parseJsonResponse(res);
+}
+
+/** `sent` marks the schedule fulfilled; otherwise it is cancelled and removed. */
+export async function deleteScheduledEmail(id: number, sent = false) {
+  const res = await fetch(
+    `${API}/scheduled_emails/${id}${sent ? "?sent=true" : ""}`,
+    { method: "DELETE", credentials: "include" },
+  );
+
+  return parseJsonResponse(res);
+}
 
 // Fetch emails stored in Postgres (generated/drafts/sent)
 export async function fetchStoredEmails(params?: {
@@ -300,7 +411,7 @@ export async function fetchStoredEmails(params?: {
 }
 
 // Fetch folders from Postgres
-export async function fetchFolders(): Promise<Folder[]> {
+export async function fetchFolders(): Promise<DbFolder[]> {
   const res = await fetch(`${API}/folders`, {
     credentials: "include",
   });
@@ -319,7 +430,7 @@ export async function createFolder({
 }: {
   name: string;
   description?: string;
-}): Promise<Folder> {
+}): Promise<DbFolder> {
   const res = await fetch(`${API}/folders`, {
     method: "POST",
     credentials: "include",

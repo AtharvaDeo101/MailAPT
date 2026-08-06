@@ -19,14 +19,13 @@ import {
   Inbox,
   Loader2,
   Mail,
-  RefreshCw,
-  Search,
   SendHorizontal,
+  Sparkles,
+  Tag,
   Trash2,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { getGravatarUrl } from "../_lib/api";
+import { getGravatarUrl, summarizeEmail } from "../_lib/api";
 import {
   decodeSnippet,
   extractEmailAddress,
@@ -50,7 +49,7 @@ const ACCENT = "var(--mail-accent)";
 const ACCENT_TINT = "var(--mail-accent-tint)";
 const HOVER_BG = "var(--mail-hover)";
 
-type SidebarSection = ActiveSection | "folder";
+type SidebarSection = ActiveSection;
 
 type SectionMetaMap = Record<
   SidebarSection,
@@ -338,7 +337,7 @@ function MailCheckbox({
   );
 }
 
-function FilterChip({
+function ViewTab({
   label,
   count,
   isActive,
@@ -352,18 +351,13 @@ function FilterChip({
   return (
     <button
       type="button"
+      role="tab"
       onClick={onClick}
-      className="hover-lift inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-[12px] border origin-center"
-      style={{
-        background: isActive ? ACCENT_TINT : "transparent",
-        borderColor: isActive ? ACCENT : "var(--border)",
-        color: isActive ? ACCENT : "var(--muted-foreground)",
-        fontWeight: isActive ? 600 : 400,
-      }}
-      aria-pressed={isActive}
+      className="zoho-tab inline-flex items-center gap-1.5 whitespace-nowrap"
+      aria-selected={isActive}
     >
       {label}
-      {count > 0 && <span className="tabular-nums opacity-70">{count}</span>}
+      {count > 0 && <span className="tabular-nums opacity-65">{count}</span>}
     </button>
   );
 }
@@ -386,7 +380,7 @@ function BulkButton({
       ref={innerRef}
       type="button"
       onClick={onClick}
-      className="hover-press inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-medium border"
+      className="hover-press inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium border"
       style={{
         borderColor: destructive
           ? "color-mix(in srgb, #c5221f 40%, transparent)"
@@ -452,7 +446,10 @@ function ListToolbar({
 
       {hasSelection ? (
         <div className="slide-down flex items-center gap-2 min-w-0">
-          <span className="text-[12px] font-semibold tabular-nums shrink-0" style={{ color: ACCENT }}>
+          <span
+            className="text-[12px] font-semibold tabular-nums shrink-0"
+            style={{ color: ACCENT }}
+          >
             {checkedCount} selected
           </span>
 
@@ -495,7 +492,7 @@ function ListToolbar({
           <button
             type="button"
             onClick={onClearSelection}
-            className="hover-pop inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+            className="hover-pop inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
             aria-label="Clear selection"
             title="Clear selection"
           >
@@ -503,20 +500,23 @@ function ListToolbar({
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto">
-          <FilterChip
+        <div
+          role="tablist"
+          className="flex items-end gap-4 min-w-0 self-stretch overflow-x-auto"
+        >
+          <ViewTab
             label="All"
             count={totalCount}
             isActive={filter === "all"}
             onClick={() => onFilterChange("all")}
           />
-          <FilterChip
+          <ViewTab
             label="Unread"
             count={unreadCount}
             isActive={filter === "unread"}
             onClick={() => onFilterChange("unread")}
           />
-          <FilterChip
+          <ViewTab
             label="Read later"
             count={readLaterCount}
             isActive={filter === "readLater"}
@@ -528,7 +528,7 @@ function ListToolbar({
       <button
         type="button"
         onClick={onToggleSort}
-        className="hover-lift ml-auto shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] text-muted-foreground hover:text-foreground border border-border"
+        className="hover-lift ml-auto shrink-0 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] text-muted-foreground hover:text-foreground border border-border"
         title="Toggle sort order"
       >
         <ArrowDownUp className="h-3.5 w-3.5" />
@@ -577,6 +577,7 @@ function EmailCard({
   const snippet = decodeSnippet(email.snippet);
   const highlighted = isSelected || isChecked;
 
+  // Zoho reads unread as the bright row and read as the recessed one
   const background = highlighted
     ? ACCENT_TINT
     : email.readLater
@@ -584,8 +585,8 @@ function EmailCard({
       : hoverOnly
         ? HOVER_BG
         : unread
-          ? "transparent"
-          : "color-mix(in srgb, var(--foreground) 3%, transparent)";
+          ? "var(--mail-unread-bg)"
+          : "var(--mail-read-bg)";
 
   const leftBar = highlighted
     ? ACCENT
@@ -873,7 +874,9 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-2.5 text-center px-4">
-      <span className="text-muted-foreground/25">{icon}</span>
+      <span className="text-muted-foreground/25 [&_svg]:h-9 [&_svg]:w-9">
+        {icon}
+      </span>
       <p className="text-[13px] text-muted-foreground/70">{message}</p>
     </div>
   );
@@ -881,8 +884,12 @@ function EmptyState({
 
 export function EmailListView({
   activeSection,
+  searchQuery,
   inboxEmails,
   sentEmails,
+  labelEmails,
+  labelName,
+  labelLoading,
   drafts,
   scheduledEmails,
   activeDraftId,
@@ -892,8 +899,6 @@ export function EmailListView({
   selectedEmailId,
   selectedFolderId,
   folders,
-  onRefreshInbox,
-  onRefreshSent,
   onOpenGmailEmail,
   onSelectDraft,
   onDeleteDraft,
@@ -904,8 +909,12 @@ export function EmailListView({
   onMarkReadLater,
 }: {
   activeSection: SidebarSection;
+  searchQuery: string;
   inboxEmails: GmailEmailWithFolder[];
   sentEmails: GmailEmailWithFolder[];
+  labelEmails: GmailEmailWithFolder[];
+  labelName?: string | null;
+  labelLoading?: boolean;
   drafts: DraftEmail[];
   scheduledEmails: ScheduledEmail[];
   activeDraftId: string | null;
@@ -915,8 +924,6 @@ export function EmailListView({
   selectedEmailId: string | null;
   selectedFolderId?: string | null;
   folders: FolderItem[];
-  onRefreshInbox: () => void;
-  onRefreshSent: () => void;
   onOpenGmailEmail: (emailId: string) => void;
   onSelectDraft: (d: DraftEmail) => void;
   onDeleteDraft: (id: string) => void;
@@ -926,14 +933,11 @@ export function EmailListView({
   onMoveEmailToFolder: (emailId: string, folderId: string) => void;
   onMarkReadLater?: (emailId: string) => void;
 }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<ListFilter>("all");
   const [sortDesc, setSortDesc] = useState(true);
 
   useEffect(() => {
-    setSearchQuery("");
     setCheckedIds([]);
     setFilter("all");
   }, [activeSection, selectedFolderId]);
@@ -978,21 +982,28 @@ export function EmailListView({
 
   const folderEmails = useMemo(() => {
     if (!selectedFolderId) return [];
-    const combined = dedupeById([...inboxEmails, ...sentEmails]);
+    const combined = dedupeById([
+      ...inboxEmails,
+      ...sentEmails,
+      ...labelEmails,
+    ]);
     return filterEmails(combined.filter((e) => e.folderId === selectedFolderId));
-  }, [inboxEmails, sentEmails, selectedFolderId, searchQuery]);
+  }, [inboxEmails, sentEmails, labelEmails, selectedFolderId, searchQuery]);
 
   const visibleEmails = useMemo(() => {
     if (activeSection === "inbox") return filterEmails(dedupeById(inboxEmails));
     if (activeSection === "sent") return filterEmails(dedupeById(sentEmails));
+    if (activeSection === "label") return filterEmails(dedupeById(labelEmails));
     return [];
-  }, [activeSection, inboxEmails, sentEmails, searchQuery]);
+  }, [activeSection, inboxEmails, sentEmails, labelEmails, searchQuery]);
 
   // emails for the active mail section, before the toolbar's filter/sort
   const baseEmails =
     activeSection === "folder"
       ? folderEmails
-      : activeSection === "inbox" || activeSection === "sent"
+      : activeSection === "inbox" ||
+          activeSection === "sent" ||
+          activeSection === "label"
         ? visibleEmails
         : [];
 
@@ -1057,9 +1068,9 @@ export function EmailListView({
       ? inboxLoading
       : activeSection === "sent"
         ? sentLoading
-        : false;
-
-  const canRefresh = activeSection === "inbox" || activeSection === "sent";
+        : activeSection === "label"
+          ? Boolean(labelLoading)
+          : false;
 
   const sectionMeta: SectionMetaMap = {
     inbox: {
@@ -1089,6 +1100,13 @@ export function EmailListView({
         ? `Emails inside ${selectedFolder.name}`
         : "Choose a folder from the sidebar",
     },
+    label: {
+      label: labelName || "Tags",
+      icon: <Tag className="h-4 w-4" />,
+      description: labelName
+        ? `Gmail messages tagged ${labelName}`
+        : "Choose a tag from the sidebar",
+    },
   };
 
   const meta = sectionMeta[activeSection];
@@ -1103,84 +1121,34 @@ export function EmailListView({
   const showToolbar =
     activeSection === "inbox" ||
     activeSection === "sent" ||
+    activeSection === "label" ||
     (activeSection === "folder" && !!selectedFolderId);
 
   return (
     <div className="relative h-full w-full bg-card text-foreground flex flex-col">
-      <div className="shrink-0 border-b border-border bg-card">
-        <div className="flex items-center gap-3 px-4 h-12">
-          <span
-            className="shrink-0 flex items-center justify-center h-7 w-7 rounded-md"
-            style={{
-              background: `color-mix(in srgb, ${ACCENT} 10%, transparent)`,
-              color: ACCENT,
-            }}
-          >
-            {meta.icon}
+      <div className="shrink-0 flex items-center gap-2.5 px-4 h-11 border-b border-border bg-card">
+        <span className="shrink-0" style={{ color: ACCENT }}>
+          {meta.icon}
+        </span>
+
+        <h1 className="truncate text-[14px] font-semibold tracking-tight">
+          {meta.label}
+        </h1>
+
+        {itemCount > 0 && (
+          <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
+            ({itemCount})
           </span>
+        )}
 
-          <div className="min-w-0 flex items-baseline gap-2">
-            <h1 className="truncate text-[15px] font-semibold tracking-tight">
-              {meta.label}
-            </h1>
-            {itemCount > 0 && (
-              <span className="text-[12px] tabular-nums text-muted-foreground shrink-0">
-                {itemCount}
-              </span>
-            )}
-          </div>
+        {isLoading && (
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+        )}
 
-          <div className="ml-auto flex items-center gap-2 min-w-0">
-            <div className="relative w-[220px] sm:w-[300px] md:w-[380px] md:hover:w-[440px] md:focus-within:w-[440px] transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none text-muted-foreground" />
-              <input
-                type="text"
-                placeholder={`Search ${meta.label.toLowerCase()}`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className="w-full h-8 rounded-full pl-9 pr-8 text-[13px] outline-none transition-colors duration-150 border placeholder:text-muted-foreground/70"
-                style={{
-                  background: searchFocused
-                    ? "var(--card)"
-                    : "color-mix(in srgb, var(--foreground) 5%, transparent)",
-                  borderColor: searchFocused ? ACCENT : "transparent",
-                  color: "var(--foreground)",
-                }}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="hover-pop absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-
-            {canRefresh && (
-              <button
-                type="button"
-                className="hover-pop shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
-                onClick={
-                  activeSection === "inbox" ? onRefreshInbox : onRefreshSent
-                }
-                aria-label={`Refresh ${meta.label}`}
-                title={`Refresh ${meta.label}`}
-              >
-                <RefreshCw
-                  className={cn("h-3.5 w-3.5", isLoading && "animate-spin")}
-                />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <p className="px-4 pb-2 text-[11px] text-muted-foreground truncate">
-          {meta.description}
+        <p className="ml-auto hidden truncate text-[11.5px] text-muted-foreground lg:block">
+          {searchQuery
+            ? `Filtering by "${searchQuery}"`
+            : meta.description}
         </p>
       </div>
 
@@ -1214,61 +1182,34 @@ export function EmailListView({
       )}
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden bg-card">
-        {activeSection === "inbox" &&
+        {(activeSection === "inbox" ||
+          activeSection === "sent" ||
+          activeSection === "label" ||
+          activeSection === "folder") &&
           (isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-2.5">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
               <span className="text-[13px] text-muted-foreground/70">
-                Loading inbox...
+                Loading {meta.label.toLowerCase()}...
               </span>
             </div>
-          ) : listEmails.length === 0 ? (
-            <EmptyState
-              icon={<Inbox className="h-9 w-9" />}
-              message={
-                searchQuery || filter !== "all"
-                  ? "No results found"
-                  : "No inbox emails"
-              }
-            />
-          ) : (
-            listEmails.map(renderEmailCard)
-          ))}
-
-        {activeSection === "sent" &&
-          (isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-2.5">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/40" />
-              <span className="text-[13px] text-muted-foreground/70">
-                Loading emails...
-              </span>
-            </div>
-          ) : listEmails.length === 0 ? (
-            <EmptyState
-              icon={<SendHorizontal className="h-9 w-9" />}
-              message={
-                searchQuery || filter !== "all"
-                  ? "No results found"
-                  : "No sent emails"
-              }
-            />
-          ) : (
-            listEmails.map(renderEmailCard)
-          ))}
-
-        {activeSection === "folder" &&
-          (!selectedFolderId ? (
+          ) : activeSection === "folder" && !selectedFolderId ? (
             <EmptyState
               icon={<Folder className="h-9 w-9" />}
               message="Select a folder from the sidebar"
             />
+          ) : activeSection === "label" && !labelName ? (
+            <EmptyState
+              icon={<Tag className="h-9 w-9" />}
+              message="Select a tag from the sidebar"
+            />
           ) : listEmails.length === 0 ? (
             <EmptyState
-              icon={<Folder className="h-9 w-9" />}
+              icon={meta.icon}
               message={
                 searchQuery || filter !== "all"
                   ? "No results found"
-                  : "No emails in this folder"
+                  : `No emails in ${meta.label}`
               }
             />
           ) : (
@@ -1323,19 +1264,174 @@ export function EmailListView({
   );
 }
 
+/** Zia-style summary card: calls /summarize_email for the open message. */
+function SummaryCard({
+  content,
+  emailId,
+}: {
+  content: string;
+  emailId: string;
+}) {
+  const [summary, setSummary] = useState("");
+  const [type, setType] = useState<"brief" | "detailed">("brief");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // a different message invalidates whatever was summarised before
+  useEffect(() => {
+    setSummary("");
+    setError(null);
+  }, [emailId]);
+
+  const run = async (next: "brief" | "detailed") => {
+    if (!content.trim()) {
+      setError("This email has no text to summarise.");
+      return;
+    }
+
+    setType(next);
+    setLoading(true);
+    setError(null);
+
+    try {
+      setSummary(await summarizeEmail(content, next));
+    } catch (err: any) {
+      setError(err?.message || "Could not summarise this email.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!summary && !loading && !error) {
+    return (
+      <button
+        type="button"
+        onClick={() => run("brief")}
+        className="hover-press mb-4 inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-[12px] font-medium"
+        style={{
+          borderColor: `color-mix(in srgb, ${ACCENT} 40%, transparent)`,
+          color: ACCENT,
+          background: ACCENT_TINT,
+        }}
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        Summarize
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className="slide-down mb-4 rounded-md border p-3"
+      style={{
+        borderColor: `color-mix(in srgb, ${ACCENT} 28%, transparent)`,
+        background: ACCENT_TINT,
+      }}
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <Sparkles className="h-3.5 w-3.5 shrink-0" style={{ color: ACCENT }} />
+        <span
+          className="text-[11px] font-bold uppercase tracking-[0.06em]"
+          style={{ color: ACCENT }}
+        >
+          Summary
+        </span>
+
+        <div className="ml-auto flex items-center gap-1">
+          {(["brief", "detailed"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => run(option)}
+              disabled={loading}
+              className="hover-lift h-6 rounded-md px-2 text-[11px] capitalize disabled:opacity-40"
+              style={{
+                background: type === option ? "var(--card)" : "transparent",
+                color: type === option ? ACCENT : "var(--muted-foreground)",
+                fontWeight: type === option ? 600 : 400,
+              }}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="flex items-center gap-2 text-[12.5px] text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Summarizing...
+        </p>
+      ) : error ? (
+        <p className="text-[12.5px]" style={{ color: "#c5221f" }}>
+          {error}
+        </p>
+      ) : (
+        <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-foreground">
+          {summary}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DetailActionButton({
+  label,
+  icon,
+  onClick,
+  destructive = false,
+  innerRef,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+  innerRef?: React.Ref<HTMLButtonElement>;
+}) {
+  return (
+    <button
+      ref={innerRef}
+      type="button"
+      onClick={onClick}
+      title={label}
+      className="hover-press inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md border text-[12px] font-medium"
+      style={{
+        borderColor: destructive
+          ? "color-mix(in srgb, #c5221f 40%, transparent)"
+          : "var(--border)",
+        color: destructive ? "#c5221f" : "var(--foreground)",
+        background: "var(--card)",
+      }}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
 export function EmailDetailOverlayPanel({
   isVisible,
   email,
   isLoading,
   errorMessage,
   onClose,
+  folders,
+  onMoveToFolder,
+  onTrash,
 }: {
   isVisible: boolean;
   email: GmailEmailDetail | null;
   isLoading: boolean;
   errorMessage?: string | null;
   onClose: () => void;
+  folders: FolderItem[];
+  onMoveToFolder: (emailId: string, folderId: string) => void;
+  onTrash: (emailId: string) => void;
 }) {
+  const [moveMenuOpen, setMoveMenuOpen] = useState(false);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const moveTriggerRef = useRef<HTMLButtonElement | null>(null);
+
   const plain = email?.plain_body || email?.body || "";
   const html = email?.html_body || "";
   const hasHtml = Boolean(html && html.trim());
@@ -1349,6 +1445,17 @@ export function EmailDetailOverlayPanel({
 
   const shouldRenderEmptyState =
     isVisible && !isLoading && !errorMessage && !email;
+
+  // the summarizer wants prose, not markup
+  const summaryText = useMemo(() => {
+    if (plain.trim()) return plain;
+    if (!sanitizedHtml || typeof window === "undefined") return "";
+
+    return (
+      new DOMParser().parseFromString(sanitizedHtml, "text/html").body
+        .textContent || ""
+    ).trim();
+  }, [plain, sanitizedHtml]);
 
   return (
     <div
@@ -1373,15 +1480,55 @@ export function EmailDetailOverlayPanel({
             {email?.subject || "Email details"}
           </span>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="hover-pop ml-auto shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
-            aria-label="Close"
-            title="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            {email && (
+              <>
+                <div className="relative">
+                  <DetailActionButton
+                    innerRef={moveTriggerRef}
+                    label="Move"
+                    icon={<FolderInput className="h-3.5 w-3.5" />}
+                    onClick={() => {
+                      if (!moveMenuOpen && moveTriggerRef.current) {
+                        setAnchorRect(
+                          moveTriggerRef.current.getBoundingClientRect(),
+                        );
+                      }
+                      setMoveMenuOpen((prev) => !prev);
+                    }}
+                  />
+
+                  {moveMenuOpen && anchorRect && (
+                    <FolderPicker
+                      folders={folders}
+                      anchorRect={anchorRect}
+                      onClose={() => setMoveMenuOpen(false)}
+                      onSelectFolder={(folderId) =>
+                        onMoveToFolder(email.id, folderId)
+                      }
+                    />
+                  )}
+                </div>
+
+                <DetailActionButton
+                  label="Delete"
+                  icon={<Trash2 className="h-3.5 w-3.5" />}
+                  destructive
+                  onClick={() => onTrash(email.id)}
+                />
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="hover-pop inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-[var(--mail-hover)] hover:text-foreground"
+              aria-label="Close"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -1422,7 +1569,7 @@ export function EmailDetailOverlayPanel({
                   </div>
 
                   <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
-                    {email.subject || "(No Subject)"}
+                    {email.to ? `To: ${email.to}` : email.subject || "(No Subject)"}
                   </p>
                 </div>
 
@@ -1433,6 +1580,8 @@ export function EmailDetailOverlayPanel({
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
+              <SummaryCard content={summaryText} emailId={email.id} />
+
               {hasHtml ? (
                 <div
                   className="prose prose-sm max-w-none dark:prose-invert text-[13px]"

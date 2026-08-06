@@ -15,6 +15,14 @@ export function formatTime(dateStr: string | Date): string {
   return date.toLocaleDateString();
 }
 
+/** Backend timestamps are naive UTC; without a zone JS would read them as local. */
+export function parseServerDate(value?: string | null): Date {
+  if (!value) return new Date();
+
+  const hasZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(value);
+  return new Date(hasZone ? value : `${value}Z`);
+}
+
 export function formatScheduledDateTime(dateStr: string): string {
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;

@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { ChatMessage, StatusMessage } from "../_lib/types";
 import { formatFileSize, toDateTimeLocalValue } from "../_lib/generate-utils";
 
-const ACCENT_COLOR = "#121931";
+const ACCENT_COLOR = "var(--mail-accent)";
 const AI_BUBBLE_BG = "var(--mail-accent-tint)";
 
 function FieldRow({
@@ -372,10 +372,12 @@ export function ScheduleEmailModal({
   isOpen,
   onClose,
   onConfirm,
+  hasAttachments = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: (scheduledFor: string) => void;
+  hasAttachments?: boolean;
 }) {
   const [scheduledFor, setScheduledFor] = useState(
     toDateTimeLocalValue(new Date(Date.now() + 10 * 60 * 1000)),
@@ -441,8 +443,23 @@ export function ScheduleEmailModal({
           </div>
 
           <p className="text-[11.5px] text-muted-foreground">
-            Scheduled emails are sent only while this app stays open.
+            The schedule is saved to your account, but the send itself runs in
+            this app — leave a tab open at the scheduled time.
           </p>
+
+          {hasAttachments && (
+            <p
+              className="rounded-md border px-2.5 py-1.5 text-[11.5px]"
+              style={{
+                borderColor: "color-mix(in srgb, #FF9E20 45%, transparent)",
+                background: "color-mix(in srgb, #FF9E20 12%, transparent)",
+                color: "var(--mail-warn-text)",
+              }}
+            >
+              Attachments are kept in this browser tab only. If you reload
+              before it sends, the email goes out without them.
+            </p>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 px-4 py-3 border-t border-border">
@@ -584,66 +601,60 @@ export function ComposeModal({
             isLoading={isChatLoading}
           />
 
-          {hasEmail && (
-            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                  Draft
-                </span>
+          <div className="space-y-2 animate-in fade-in slide-in-from-bottom-1 duration-200">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                {hasEmail ? "Draft" : "Message"}
+              </span>
 
-                <div className="flex items-center gap-0.5">
-                  <ToolbarIconButton
-                    label={copied ? "Copied" : "Copy"}
-                    onClick={onCopy}
-                  >
-                    {copied ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </ToolbarIconButton>
-
-                  <ToolbarIconButton label="Preview" onClick={onPreview}>
-                    <Mail className="h-3.5 w-3.5" />
-                  </ToolbarIconButton>
-                </div>
-              </div>
-
-              <EmailEditor
-                subject={subject}
-                body={body}
-                onSubjectChange={onSubjectChange}
-                onBodyChange={onBodyChange}
-              />
-
-              <AttachmentList
-                files={attachments}
-                onRemove={onRemoveAttachment}
-              />
-
-              {status && (
-                <div
-                  className={cn(
-                    "rounded-md px-3 py-2 text-[12.5px] border",
-                    status.type === "success"
-                      ? "bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400"
-                      : "bg-red-500/10 text-red-700 border-red-500/20 dark:text-red-400",
-                  )}
+              <div className="flex items-center gap-0.5">
+                <ToolbarIconButton
+                  label={copied ? "Copied" : "Copy"}
+                  onClick={onCopy}
                 >
-                  {status.message}
-                </div>
-              )}
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </ToolbarIconButton>
+
+                <ToolbarIconButton label="Preview" onClick={onPreview}>
+                  <Mail className="h-3.5 w-3.5" />
+                </ToolbarIconButton>
+              </div>
             </div>
-          )}
+
+            <EmailEditor
+              subject={subject}
+              body={body}
+              onSubjectChange={onSubjectChange}
+              onBodyChange={onBodyChange}
+            />
+
+            <AttachmentList files={attachments} onRemove={onRemoveAttachment} />
+
+            {status && (
+              <div
+                className={cn(
+                  "rounded-md px-3 py-2 text-[12.5px] border",
+                  status.type === "success"
+                    ? "bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400"
+                    : "bg-red-500/10 text-red-700 border-red-500/20 dark:text-red-400",
+                )}
+              >
+                {status.message}
+              </div>
+            )}
+          </div>
         </div>
 
-        {hasEmail && (
-          <div className="flex items-center gap-1 px-3 py-2.5 border-t border-border shrink-0">
+        <div className="flex items-center gap-1 px-3 py-2.5 border-t border-border shrink-0">
             <button
               type="button"
               onClick={onSend}
               disabled={isSending || !recipientEmail.trim() || !body.trim()}
-              className="hover-press inline-flex items-center gap-2 h-8 pl-4 pr-4 rounded-full text-[13px] font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              className="hover-press inline-flex items-center gap-2 h-8 pl-4 pr-4 rounded-md text-[13px] font-medium text-white disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ backgroundColor: ACCENT_COLOR }}
             >
               {isSending ? (
@@ -677,7 +688,6 @@ export function ComposeModal({
               <Save className="h-4 w-4" />
             </ToolbarIconButton>
           </div>
-        )}
       </motion.div>
     </div>
   );

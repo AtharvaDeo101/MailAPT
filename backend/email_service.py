@@ -1,6 +1,6 @@
 import base64
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -313,27 +313,12 @@ def list_emails():
             )
 
         email_map = {}
+        failed_ids = []
 
-        def batch_callback(request_id, response, exception):
-            if exception is not None:
-                current_app.logger.warning(
-                    f"Batch get failed for message {request_id}: {exception}"
-                )
-                email_map[request_id] = {
-                    "id": request_id,
-                    "subject": "",
-                    "from": "",
-                    "date": "",
-                    "snippet": "",
-                    "threadId": "",
-                    "labelIds": [],
-                }
-                return
-
+        def _to_email(msg_id, response):
             headers = response.get("payload", {}).get("headers", [])
-
-            email_map[request_id] = {
-                "id": response.get("id", request_id),
+            return {
+                "id": response.get("id", msg_id),
                 "subject": _get_header(headers, "Subject"),
                 "from": _get_header(headers, "From"),
                 "date": _get_header(headers, "Date"),
@@ -341,6 +326,16 @@ def list_emails():
                 "threadId": response.get("threadId", ""),
                 "labelIds": response.get("labelIds", []),
             }
+
+        def batch_callback(request_id, response, exception):
+            if exception is not None:
+                current_app.logger.warning(
+                    f"Batch get failed for message {request_id}: {exception}"
+                )
+                failed_ids.append(request_id)
+                return
+
+            email_map[request_id] = _to_email(request_id, response)
 
         batch = service.new_batch_http_request()
 
@@ -359,6 +354,23 @@ def list_emails():
             )
 
         batch.execute()
+
+        # ponytail: serial retry of failed sub-requests; batch fails a few per call
+        # under load. Move to a second batch if the failure count ever gets large.
+        for msg_id in failed_ids:
+            try:
+                response = service.users().messages().get(
+                    userId="me",
+                    id=msg_id,
+                    format="metadata",
+                    metadataHeaders=["Subject", "From", "Date"],
+                    fields="id,threadId,labelIds,snippet,payload/headers",
+                ).execute()
+                email_map[msg_id] = _to_email(msg_id, response)
+            except Exception as e:
+                current_app.logger.warning(f"Retry get failed for {msg_id}: {e}")
+                # still list it, so the email isn't silently missing from the inbox
+                email_map[msg_id] = _to_email(msg_id, {})
 
         email_list = [email_map[m["id"]] for m in messages if m["id"] in email_map]
 
@@ -595,6 +607,10 @@ def generate_email():
         if not body:
             body = text.strip()
 
+        # subject column is String(255); an overlong model subject would blow up
+        # the insert below and get swallowed by the rollback handler
+        subject = subject[:255]
+
         # --- NEW: store generated email as draft in Postgres ---
         db = get_db_session()
         try:
@@ -664,6 +680,9 @@ def stored_emails():
       - is_draft=true/false
       - folder_id=<int>
     """
+    if "credentials" not in session:
+        return jsonify({"error": "not_authenticated"}), 401
+
     is_draft_param = request.args.get("is_draft")
     folder_id = request.args.get("folder_id", type=int)
 
@@ -680,28 +699,297 @@ def stored_emails():
         if folder_id is not None:
             query = query.filter(EmailModel.folder_id == folder_id)
 
+        # A pending send parks its payload in `emails` as a draft; that row
+        # belongs to the Scheduled view, not Drafts. Once it has gone out the
+        # schedule is no longer pending and the row becomes ordinary sent mail.
+        scheduled_ids = {
+            row.email_id
+            for row in db.query(ScheduledEmailModel.email_id)
+            .filter(ScheduledEmailModel.status == "pending")
+            .all()
+        }
+
         emails = query.order_by(EmailModel.created_at.desc()).all()
 
         result = [
-            {
-                "id": e.id,
-                "subject": e.subject,
-                "body": e.body,
-                "to_address": e.to_address,
-                "from_address": e.from_address,
-                "is_draft": e.is_draft,
-                "created_at": e.created_at.isoformat() if e.created_at else None,
-                "updated_at": e.updated_at.isoformat() if e.updated_at else None,
-                "folder_id": e.folder_id,
-                "gmail_message_id": getattr(e, "gmail_message_id", None),
-            }
+            _serialize_stored_email(e)
             for e in emails
+            if e.id not in scheduled_ids
         ]
 
         return jsonify({"emails": result})
 
     except Exception as e:
         current_app.logger.error(f"stored_emails error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()
+
+
+def _serialize_stored_email(e):
+    return {
+        "id": e.id,
+        "subject": e.subject,
+        "body": e.body,
+        "to_address": e.to_address,
+        "from_address": e.from_address,
+        "is_draft": e.is_draft,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+        "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+        "folder_id": e.folder_id,
+        "gmail_message_id": e.gmail_message_id,
+        "gmail_draft_id": e.gmail_draft_id,
+    }
+
+
+@email_bp.route("/stored_emails/<int:email_id>", methods=["PATCH"])
+def update_stored_email(email_id):
+    """Edit a stored draft, or move any stored email into a folder."""
+    if "credentials" not in session:
+        return jsonify({"error": "not_authenticated"}), 401
+
+    data = request.get_json() or {}
+
+    db = get_db_session()
+    try:
+        row = db.query(EmailModel).filter(EmailModel.id == email_id).first()
+        if row is None:
+            return jsonify({"error": "email not found"}), 404
+
+        if "subject" in data:
+            row.subject = (data.get("subject") or "")[:255]
+        if "body" in data:
+            row.body = data.get("body") or ""
+        if "to_address" in data:
+            row.to_address = (data.get("to_address") or "")[:255]
+        if "folder_id" in data:
+            folder_id = data.get("folder_id")
+            row.folder_id = int(folder_id) if folder_id is not None else None
+
+        row.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(row)
+
+        return jsonify(_serialize_stored_email(row))
+
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f"update_stored_email error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()
+
+
+@email_bp.route("/stored_emails/<int:email_id>", methods=["DELETE"])
+def delete_stored_email(email_id):
+    if "credentials" not in session:
+        return jsonify({"error": "not_authenticated"}), 401
+
+    db = get_db_session()
+    try:
+        row = db.query(EmailModel).filter(EmailModel.id == email_id).first()
+        if row is None:
+            return jsonify({"error": "email not found"}), 404
+
+        # scheduled_emails.email_id is NOT NULL, so its rows must go first
+        db.query(ScheduledEmailModel).filter(
+            ScheduledEmailModel.email_id == email_id
+        ).delete()
+
+        db.delete(row)
+        db.commit()
+
+        return jsonify({"message": "deleted", "id": email_id})
+
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f"delete_stored_email error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()
+
+
+# ---------- Gmail trash ----------
+
+@email_bp.route("/trash_email/<string:email_id>", methods=["POST"])
+def trash_email(email_id):
+    """Move a Gmail message to Trash (recoverable for 30 days)."""
+    service = get_gmail_service()
+    if service is None:
+        return jsonify({"error": "not_authenticated"}), 401
+
+    if not email_id or not email_id.strip():
+        return jsonify({"error": "email_id is required"}), 400
+
+    try:
+        service.users().messages().trash(userId="me", id=email_id).execute()
+        return jsonify({"message": "trashed", "id": email_id})
+
+    except HttpError as e:
+        current_app.logger.error(f"trash_email HttpError: {e}", exc_info=True)
+        status_code, reason = _parse_http_error(e)
+        return jsonify({"error": reason, "status": status_code}), status_code
+
+    except Exception as e:
+        current_app.logger.error(f"trash_email error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+# ---------- scheduled sends ----------
+# ponytail: the queue is persisted here but drained by the open frontend tab,
+# which is the behaviour that already existed. Move the drain into a worker
+# (celery beat / cron hitting a /run_due endpoint) if sends must survive the
+# tab being closed.
+
+@email_bp.route("/scheduled_emails", methods=["GET"])
+def list_scheduled_emails():
+    if "credentials" not in session:
+        return jsonify({"error": "not_authenticated"}), 401
+
+    db = get_db_session()
+    try:
+        rows = (
+            db.query(ScheduledEmailModel, EmailModel)
+            .join(EmailModel, ScheduledEmailModel.email_id == EmailModel.id)
+            .filter(ScheduledEmailModel.status == "pending")
+            .order_by(ScheduledEmailModel.scheduled_for.asc())
+            .all()
+        )
+
+        result = [
+            {
+                "id": sched.id,
+                "email_id": mail.id,
+                "subject": mail.subject,
+                "body": mail.body,
+                "to_address": mail.to_address,
+                "scheduled_for": sched.scheduled_for.isoformat() + "Z",
+                "status": sched.status,
+                "created_at": mail.created_at.isoformat() if mail.created_at else None,
+            }
+            for sched, mail in rows
+        ]
+
+        return jsonify({"scheduled": result})
+
+    except Exception as e:
+        current_app.logger.error(f"list_scheduled_emails error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()
+
+
+@email_bp.route("/scheduled_emails", methods=["POST"])
+def create_scheduled_email():
+    if "credentials" not in session:
+        return jsonify({"error": "not_authenticated"}), 401
+
+    data = request.get_json() or {}
+    to = (data.get("to") or "").strip()
+    subject = data.get("subject") or ""
+    body = data.get("body") or ""
+    scheduled_for = data.get("scheduled_for")
+
+    if not to or not body:
+        return jsonify({"error": "to and body are required"}), 400
+    if not scheduled_for:
+        return jsonify({"error": "scheduled_for is required"}), 400
+
+    try:
+        # accept ISO-8601 with or without a trailing Z; store naive UTC to match
+        # the datetime.utcnow() used for every other timestamp in this module
+        when = datetime.fromisoformat(str(scheduled_for).replace("Z", "+00:00"))
+        if when.tzinfo is not None:
+            when = when.astimezone(timezone.utc).replace(tzinfo=None)
+    except ValueError:
+        return jsonify({"error": "scheduled_for must be an ISO-8601 datetime"}), 400
+
+    db = get_db_session()
+    try:
+        mail = EmailModel(
+            subject=subject[:255],
+            body=body,
+            to_address=to[:255],
+            from_address="me",
+            is_draft=True,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+            folder_id=data.get("folder_id"),
+        )
+        db.add(mail)
+        db.flush()
+
+        sched = ScheduledEmailModel(
+            email_id=mail.id,
+            scheduled_for=when,
+            status="pending",
+        )
+        db.add(sched)
+        db.commit()
+        db.refresh(sched)
+
+        return jsonify(
+            {
+                "id": sched.id,
+                "email_id": mail.id,
+                "subject": mail.subject,
+                "body": mail.body,
+                "to_address": mail.to_address,
+                "scheduled_for": sched.scheduled_for.isoformat() + "Z",
+                "status": sched.status,
+            }
+        )
+
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f"create_scheduled_email error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()
+
+
+@email_bp.route("/scheduled_emails/<int:scheduled_id>", methods=["DELETE"])
+def delete_scheduled_email(scheduled_id):
+    """Cancel a pending schedule, or clear it once the send has gone out."""
+    if "credentials" not in session:
+        return jsonify({"error": "not_authenticated"}), 401
+
+    sent = request.args.get("sent", "").lower() in ("true", "1", "yes")
+
+    db = get_db_session()
+    try:
+        sched = (
+            db.query(ScheduledEmailModel)
+            .filter(ScheduledEmailModel.id == scheduled_id)
+            .first()
+        )
+        if sched is None:
+            return jsonify({"error": "schedule not found"}), 404
+
+        email_id = sched.email_id
+
+        if sent:
+            # keep the mail row as a record of what went out
+            sched.status = "sent"
+            mail = db.query(EmailModel).filter(EmailModel.id == email_id).first()
+            if mail is not None:
+                mail.is_draft = False
+                mail.updated_at = datetime.utcnow()
+        else:
+            db.delete(sched)
+            db.query(EmailModel).filter(EmailModel.id == email_id).delete()
+
+        db.commit()
+        return jsonify({"message": "sent" if sent else "cancelled", "id": scheduled_id})
+
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f"delete_scheduled_email error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
     finally:
