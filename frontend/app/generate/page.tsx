@@ -241,6 +241,9 @@ export default function EmailGenerator() {
     refetchOnWindowFocus: false,
     // the alert needs fresh inbox data to fire on; without it nothing polls
     refetchInterval: settings.notifications.enabled ? 60_000 : false,
+    // keep polling while the tab sits in the background — the alert is for
+    // mail that lands while you are looking at something else
+    refetchIntervalInBackground: true,
   });
 
   // Ring once per batch of arrivals. The first load only seeds the baseline.

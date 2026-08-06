@@ -11,7 +11,7 @@ export type Settings = {
   leftPanelColor: string;
   notifications: {
     enabled: boolean;
-    sound: "chime" | "ding" | "pop" | "none";
+    sound: (typeof SOUNDS)[number]["id"];
     volume: number;
     silent: boolean;
     silentFrom: string;
@@ -74,6 +74,12 @@ export const SOUNDS = [
   { id: "chime", label: "Chime" },
   { id: "ding", label: "Ding" },
   { id: "pop", label: "Pop" },
+  { id: "bell", label: "Bell" },
+  { id: "tritone", label: "Tri-tone" },
+  { id: "marimba", label: "Marimba" },
+  { id: "bloop", label: "Bloop" },
+  { id: "knock", label: "Knock" },
+  { id: "pulse", label: "Pulse" },
   { id: "none", label: "Silent" },
 ] as const;
 
@@ -132,11 +138,47 @@ export function inSilentHours(
     : current >= from || current < to;
 }
 
-// Synthesised so no audio files ship with the app.
-const TONES: Record<string, number[]> = {
-  chime: [880, 1318.51],
-  ding: [1046.5],
-  pop: [523.25],
+// Synthesised so no audio files ship with the app: each sound is a short
+// sequence of notes — frequency, waveform, start offset and how long it rings.
+type Tone = {
+  freq: number;
+  type: OscillatorType;
+  at: number;
+  dur: number;
+};
+
+const TONES: Record<string, Tone[]> = {
+  chime: [
+    { freq: 880, type: "sine", at: 0, dur: 0.35 },
+    { freq: 1318.51, type: "sine", at: 0.14, dur: 0.35 },
+  ],
+  ding: [{ freq: 1046.5, type: "sine", at: 0, dur: 0.4 }],
+  pop: [{ freq: 523.25, type: "triangle", at: 0, dur: 0.16 }],
+  bell: [
+    { freq: 1567.98, type: "sine", at: 0, dur: 0.9 },
+    { freq: 2349.32, type: "sine", at: 0, dur: 0.5 },
+  ],
+  tritone: [
+    { freq: 659.25, type: "sine", at: 0, dur: 0.2 },
+    { freq: 830.61, type: "sine", at: 0.11, dur: 0.2 },
+    { freq: 987.77, type: "sine", at: 0.22, dur: 0.32 },
+  ],
+  marimba: [
+    { freq: 783.99, type: "triangle", at: 0, dur: 0.24 },
+    { freq: 1174.66, type: "triangle", at: 0.12, dur: 0.3 },
+  ],
+  bloop: [
+    { freq: 392, type: "sine", at: 0, dur: 0.14 },
+    { freq: 587.33, type: "sine", at: 0.09, dur: 0.22 },
+  ],
+  knock: [
+    { freq: 180, type: "square", at: 0, dur: 0.09 },
+    { freq: 140, type: "square", at: 0.16, dur: 0.11 },
+  ],
+  pulse: [
+    { freq: 440, type: "sine", at: 0, dur: 0.12 },
+    { freq: 440, type: "sine", at: 0.2, dur: 0.12 },
+  ],
 };
 
 /** Plays the configured alert. `force` is the settings page's Test button,
@@ -152,25 +194,33 @@ export function playNotificationSound(settings: Settings, force = false) {
       .webkitAudioContext;
   if (!AudioCtx) return;
 
-  const ctx = new AudioCtx();
-  const level = Math.min(1, Math.max(0.0001, volume));
+  const tones = TONES[sound];
+  if (!tones) return;
 
-  TONES[sound].forEach((frequency, i) => {
+  const ctx = new AudioCtx();
+  // browsers hand back a suspended context until the page has been interacted
+  // with; resuming is what makes the alert audible on a backgrounded tab
+  void ctx.resume();
+
+  const level = Math.min(1, Math.max(0.0001, volume));
+  const end = Math.max(...tones.map((tone) => tone.at + tone.dur));
+
+  tones.forEach((tone) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    const start = ctx.currentTime + i * 0.14;
+    const start = ctx.currentTime + tone.at;
 
-    osc.type = sound === "pop" ? "triangle" : "sine";
-    osc.frequency.value = frequency;
+    osc.type = tone.type;
+    osc.frequency.value = tone.freq;
 
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(level, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + tone.dur);
 
     osc.connect(gain).connect(ctx.destination);
     osc.start(start);
-    osc.stop(start + 0.4);
+    osc.stop(start + tone.dur + 0.05);
   });
 
-  window.setTimeout(() => void ctx.close(), 1200);
+  window.setTimeout(() => void ctx.close(), (end + 0.5) * 1000);
 }

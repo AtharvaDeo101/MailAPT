@@ -1085,7 +1085,18 @@ _SETTING_CHOICES = {
     "fontSize": {"browser", "small", "medium", "large"},
     "appearance": {"light", "dark"},
 }
-_SOUND_CHOICES = {"chime", "ding", "pop", "none"}
+_SOUND_CHOICES = {
+    "chime",
+    "ding",
+    "pop",
+    "bell",
+    "tritone",
+    "marimba",
+    "bloop",
+    "knock",
+    "pulse",
+    "none",
+}
 _HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
