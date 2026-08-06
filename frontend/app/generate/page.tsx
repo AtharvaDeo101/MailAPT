@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "next-themes";
 
 import { useAuth } from "@/hooks/useAuth";
 import { LoadingSpinner } from "@/components/landing/loading-spinner";
@@ -22,7 +23,15 @@ import {
   deleteScheduledEmail,
   trashEmail,
   fetchLabels,
+  fetchSettings,
+  saveSettings,
 } from "./_lib/api";
+import {
+  DEFAULT_SETTINGS,
+  playNotificationSound,
+  settingsStyle,
+  type Settings,
+} from "./_lib/settings";
 import type {
   ActiveSection,
   ChatMessage,
@@ -41,8 +50,22 @@ import {
   formatScheduledDateTime,
   parseServerDate,
 } from "./_lib/generate-utils";
+import { usePersistentState } from "./_lib/use-persistent-state";
 
-import { LeftSidebar, MailTopBar } from "./_components/sidebar-components";
+import {
+  LeftSidebar,
+  MailTopBar,
+  useAccountEmail,
+  type RailTab,
+} from "./_components/sidebar-components";
+import { SettingsView } from "./_components/settings-view";
+import {
+  PinnedTodos,
+  TodoBoard,
+  TodoEditorModal,
+  useTodoLists,
+  type TodoList,
+} from "./_components/todo-components";
 import {
   EmailDetailOverlayPanel,
   EmailListView,
@@ -52,34 +75,6 @@ import {
   EmailPreviewModal,
   ScheduleEmailModal,
 } from "./_components/compose-components";
-
-/** Read-later flags and folder tags apply to Gmail messages, which have no row
- *  in our Postgres schema — localStorage is what keeps them across reloads. */
-function usePersistentState<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(initial);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(key);
-      if (raw) setValue(JSON.parse(raw) as T);
-    } catch {
-      // corrupt or unavailable storage — fall back to the initial value
-    }
-    setHydrated(true);
-  }, [key]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // storage full or blocked — the flags simply will not persist
-    }
-  }, [key, value, hydrated]);
-
-  return [value, setValue] as const;
-}
 
 export default function EmailGenerator() {
   const isAuthenticated = useAuth();
@@ -116,6 +111,39 @@ export default function EmailGenerator() {
   const [selectedLabel, setSelectedLabel] = useState<GmailLabel | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [paneOpen, setPaneOpen] = useState(true);
+  const [railTab, setRailTab] = useState<RailTab>("mail");
+
+  // ---------- to-do lists (local to the browser) ----------
+
+  const [todoLists, setTodoLists] = useTodoLists();
+  const [todoEditorOpen, setTodoEditorOpen] = useState(false);
+  const [editingTodoList, setEditingTodoList] = useState<TodoList | null>(null);
+
+  const patchTodoList = (id: string, patch: Partial<TodoList>) =>
+    setTodoLists((prev) =>
+      prev.map((list) => (list.id === id ? { ...list, ...patch } : list)),
+    );
+
+  const toggleTodoBlock = (listId: string, blockId: string) =>
+    setTodoLists((prev) =>
+      prev.map((list) =>
+        list.id === listId
+          ? {
+              ...list,
+              blocks: list.blocks.map((block) =>
+                block.id === blockId ? { ...block, done: !block.done } : block,
+              ),
+            }
+          : list,
+      ),
+    );
+
+  const saveTodoList = (list: TodoList) =>
+    setTodoLists((prev) =>
+      prev.some((existing) => existing.id === list.id)
+        ? prev.map((existing) => (existing.id === list.id ? list : existing))
+        : [...prev, list],
+    );
 
   const [emailFolderAssignments, setEmailFolderAssignments] =
     usePersistentState<Record<string, string | null>>(
@@ -126,6 +154,62 @@ export default function EmailGenerator() {
     "mailly-read-later",
     [],
   );
+
+  // ---------- user settings (display, theme, notifications) ----------
+
+  const { setTheme } = useTheme();
+  const accountEmail = useAccountEmail();
+
+  const { data: settings = DEFAULT_SETTINGS } = useQuery<Settings>({
+    queryKey: ["settings"],
+    queryFn: fetchSettings,
+    enabled: isAuthenticated === true,
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
+
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const settingsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Applies the change locally at once, then persists it (debounced, so
+   *  dragging the volume slider is a single request). */
+  const handleSettingsChange = useCallback(
+    (patch: Partial<Settings>) => {
+      const next: Settings = {
+        ...settings,
+        ...patch,
+        notifications: {
+          ...settings.notifications,
+          ...(patch.notifications ?? {}),
+        },
+      };
+
+      queryClient.setQueryData(["settings"], next);
+      setIsSavingSettings(true);
+
+      if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current);
+      settingsSaveTimer.current = setTimeout(() => {
+        saveSettings(next)
+          .catch(() =>
+            setStatus({
+              type: "error",
+              message: "Could not save settings. Check your connection.",
+            }),
+          )
+          .finally(() => setIsSavingSettings(false));
+      }, 400);
+    },
+    [queryClient, settings],
+  );
+
+  useEffect(() => {
+    setTheme(settings.appearance);
+  }, [setTheme, settings.appearance]);
+
+  useEffect(() => {
+    document.documentElement.lang = settings.language;
+  }, [settings.language]);
 
   const {
     data: inboxEmails = [],
@@ -138,7 +222,30 @@ export default function EmailGenerator() {
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
+    // the alert needs fresh inbox data to fire on; without it nothing polls
+    refetchInterval: settings.notifications.enabled ? 60_000 : false,
   });
+
+  // Ring once per batch of arrivals. The first load only seeds the baseline.
+  const seenInboxIds = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (inboxEmails.length === 0) return;
+
+    const ids = new Set(inboxEmails.map((email) => email.id));
+
+    if (seenInboxIds.current === null) {
+      seenInboxIds.current = ids;
+      return;
+    }
+
+    const hasNew = inboxEmails.some(
+      (email) => !seenInboxIds.current?.has(email.id),
+    );
+    seenInboxIds.current = ids;
+
+    if (hasNew) playNotificationSound(settings);
+  }, [inboxEmails, settings]);
 
   const {
     data: sentEmails = [],
@@ -879,7 +986,10 @@ export default function EmailGenerator() {
   }
 
   return (
-    <div className="h-screen bg-card flex flex-col overflow-hidden">
+    <div
+      className="h-screen bg-card flex flex-col overflow-hidden"
+      style={settingsStyle(settings)}
+    >
       <MailTopBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -887,6 +997,10 @@ export default function EmailGenerator() {
         onToggleSidebar={() => setPaneOpen((prev) => !prev)}
         onRefresh={handleRefresh}
         isRefreshing={isRefreshing}
+        appearance={settings.appearance}
+        onAppearanceChange={(appearance) =>
+          handleSettingsChange({ appearance })
+        }
       />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -907,10 +1021,44 @@ export default function EmailGenerator() {
           selectedLabelId={selectedLabel?.id ?? null}
           onSelectLabel={handleSelectLabel}
           paneOpen={paneOpen}
+          onOpenPane={() => setPaneOpen(true)}
+          railTab={railTab}
+          onRailTabChange={setRailTab}
         />
 
         <div className="flex-1 min-w-0 relative overflow-hidden bg-card h-full">
           <main className="h-full">
+            {railTab === "settings" ? (
+              <SettingsView
+                settings={settings}
+                accountEmail={accountEmail}
+                onChange={handleSettingsChange}
+                isSaving={isSavingSettings}
+              />
+            ) : railTab === "todos" ? (
+              <TodoBoard
+                lists={todoLists}
+                onCreate={() => {
+                  setEditingTodoList(null);
+                  setTodoEditorOpen(true);
+                }}
+                onEdit={(list) => {
+                  setEditingTodoList(list);
+                  setTodoEditorOpen(true);
+                }}
+                onDelete={(id) =>
+                  setTodoLists((prev) => prev.filter((list) => list.id !== id))
+                }
+                onTogglePin={(id) =>
+                  setTodoLists((prev) =>
+                    prev.map((list) =>
+                      list.id === id ? { ...list, pinned: !list.pinned } : list,
+                    ),
+                  )
+                }
+                onToggleBlock={toggleTodoBlock}
+              />
+            ) : (
             <EmailListView
               activeSection={activeSection}
               searchQuery={searchQuery}
@@ -937,6 +1085,7 @@ export default function EmailGenerator() {
               onMoveEmailToFolder={handleMoveEmailToFolder}
               onMarkReadLater={handleMarkReadLater}
             />
+            )}
           </main>
 
           <EmailDetailOverlayPanel
@@ -951,6 +1100,30 @@ export default function EmailGenerator() {
           />
         </div>
       </div>
+
+      {/* stuck lists stay put whatever tab is open, so they can be worked
+          alongside the inbox */}
+      <PinnedTodos
+        lists={todoLists}
+        style={settingsStyle(settings)}
+        onMove={(id, x, y) => patchTodoList(id, { x, y })}
+        onToggleBlock={toggleTodoBlock}
+        onToggleCollapse={(id) =>
+          setTodoLists((prev) =>
+            prev.map((list) =>
+              list.id === id ? { ...list, collapsed: !list.collapsed } : list,
+            ),
+          )
+        }
+        onUnpin={(id) => patchTodoList(id, { pinned: false })}
+      />
+
+      <TodoEditorModal
+        isOpen={todoEditorOpen}
+        initial={editingTodoList}
+        onClose={() => setTodoEditorOpen(false)}
+        onSave={saveTodoList}
+      />
 
       {status && !isComposeOpen && (
         <div

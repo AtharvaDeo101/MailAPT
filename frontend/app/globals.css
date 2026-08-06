@@ -390,10 +390,19 @@ body {
   transform: scale(1.03);
 }
 
-/* Full-width list rows: enough to feel, not enough to reflow text */
-.mail-ui .hover-row:hover {
-  transform: scale(1.006);
+/* Full-width list rows (mail rows, drafts/scheduled rows, folder-pane items):
+   expand from the left edge and lift above their neighbours. */
+.mail-ui .hover-row {
+  position: relative;
   transform-origin: left center;
+}
+
+.mail-ui .hover-row:hover,
+.mail-ui .hover-row:focus-visible {
+  /* 1.01 keeps the grown right edge inside the row's own pr-3 padding */
+  transform: scale(1.01);
+  z-index: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12));
 }
 
 .mail-ui .hover-pop:active:not(:disabled),
@@ -417,6 +426,7 @@ body {
   .mail-ui .hover-press:active,
   .mail-ui .hover-lift:active {
     transform: none;
+    filter: none;
   }
 }
 

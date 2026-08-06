@@ -8,7 +8,9 @@ import {
   Folder,
   FolderOpen,
   Inbox,
+  ListTodo,
   Loader2,
+  Mail,
   MailOpen,
   Menu,
   Moon,
@@ -17,15 +19,17 @@ import {
   RefreshCw,
   Search,
   SendHorizonal,
+  Settings,
+  StickyNote,
   Sun,
   Tag,
   UserRoundCog,
   X,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 
 import { ActiveSection, FolderItem, GmailLabel } from "../_lib/types";
 import { API } from "../_lib/api";
+import { usePersistentState } from "../_lib/use-persistent-state";
 
 const ACCENT = "var(--mail-accent)";
 const ACCENT_TINT = "var(--mail-accent-tint)";
@@ -66,8 +70,15 @@ function TopBarIconButton({
   );
 }
 
-function TopBarThemeToggle() {
-  const { theme, resolvedTheme, setTheme } = useTheme();
+/** Writes through to the stored appearance setting so the settings page and the
+ *  top bar never disagree about which theme is on. */
+function TopBarThemeToggle({
+  appearance,
+  onAppearanceChange,
+}: {
+  appearance: "light" | "dark";
+  onAppearanceChange: (next: "light" | "dark") => void;
+}) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -77,19 +88,19 @@ function TopBarThemeToggle() {
   // render the slot before mount so the bar does not reflow
   if (!mounted) return <span className="h-8 w-8 shrink-0" />;
 
-  const isDark = (theme === "system" ? resolvedTheme : theme) === "dark";
+  const isDark = appearance === "dark";
 
   return (
     <TopBarIconButton
       label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={() => onAppearanceChange(isDark ? "light" : "dark")}
     >
       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
     </TopBarIconButton>
   );
 }
 
-function TopBarAccount() {
+export function useAccountEmail() {
   const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,17 +110,22 @@ function TopBarAccount() {
       .catch(() => setEmail(null));
   }, []);
 
-  // Google's own account chooser is the account list — /login sends
-  // prompt=select_account, so the old session just has to be dropped first.
-  const switchAccount = async () => {
-    try {
-      await fetch(`${API}/logout`, { method: "POST", credentials: "include" });
-    } catch {
-      // logout failed — Google's chooser still lets them pick another account
-    }
-    window.location.href = `${API}/login`;
-  };
+  return email;
+}
 
+// Google's own account chooser is the account list — /login sends
+// prompt=select_account, so the old session just has to be dropped first.
+async function switchAccount() {
+  try {
+    await fetch(`${API}/logout`, { method: "POST", credentials: "include" });
+  } catch {
+    // logout failed — Google's chooser still lets them pick another account
+  }
+  window.location.href = `${API}/login`;
+}
+
+function TopBarAccount() {
+  const email = useAccountEmail();
   const initial = (email?.trim()?.charAt(0) || "?").toUpperCase();
 
   return (
@@ -159,6 +175,8 @@ export function MailTopBar({
   onToggleSidebar,
   onRefresh,
   isRefreshing,
+  appearance,
+  onAppearanceChange,
 }: {
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -166,6 +184,8 @@ export function MailTopBar({
   onToggleSidebar: () => void;
   onRefresh: () => void;
   isRefreshing: boolean;
+  appearance: "light" | "dark";
+  onAppearanceChange: (next: "light" | "dark") => void;
 }) {
   const [focused, setFocused] = useState(false);
 
@@ -226,7 +246,10 @@ export function MailTopBar({
         <TopBarIconButton label="Refresh" onClick={onRefresh}>
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
         </TopBarIconButton>
-        <TopBarThemeToggle />
+        <TopBarThemeToggle
+          appearance={appearance}
+          onAppearanceChange={onAppearanceChange}
+        />
         <TopBarAccount />
       </div>
     </header>
@@ -279,6 +302,38 @@ function RailButton({
         </span>
       )}
     </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Rail tools: settings / to-do / notes                                */
+/* ------------------------------------------------------------------ */
+
+export type RailTab = "mail" | "settings" | "todos" | "notes";
+
+function PanelHeading({ title }: { title: string }) {
+  return (
+    <div className="flex h-9 shrink-0 items-center border-b border-border px-3 text-[11px] font-bold uppercase tracking-[0.07em] text-muted-foreground">
+      {title}
+    </div>
+  );
+}
+
+function NotesPanel() {
+  const [notes, setNotes] = usePersistentState<string>("mailly-notes", "");
+
+  return (
+    <>
+      <PanelHeading title="Notes" />
+
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Jot something down…"
+        aria-label="Notes"
+        className="m-2.5 flex-1 resize-none rounded-md border border-border bg-card p-2.5 text-[12.5px] leading-relaxed outline-none focus:border-[var(--mail-accent)]"
+      />
+    </>
   );
 }
 
@@ -398,6 +453,9 @@ export function LeftSidebar({
   selectedLabelId = null,
   onSelectLabel,
   paneOpen = true,
+  onOpenPane,
+  railTab,
+  onRailTabChange,
 }: {
   activeSection: ActiveSection;
   onSelect: (s: ActiveSection) => void;
@@ -415,7 +473,37 @@ export function LeftSidebar({
   selectedLabelId?: string | null;
   onSelectLabel: (label: GmailLabel) => void;
   paneOpen?: boolean;
+  onOpenPane?: () => void;
+  railTab: RailTab;
+  onRailTabChange: (tab: RailTab) => void;
 }) {
+  const railTabs = useMemo(
+    () =>
+      [
+        {
+          id: "mail" as RailTab,
+          label: "Mail",
+          icon: <Mail style={{ width: 16, height: 16 }} />,
+        },
+        {
+          id: "settings" as RailTab,
+          label: "Settings",
+          icon: <Settings style={{ width: 16, height: 16 }} />,
+        },
+        {
+          id: "todos" as RailTab,
+          label: "To-do",
+          icon: <ListTodo style={{ width: 16, height: 16 }} />,
+        },
+        {
+          id: "notes" as RailTab,
+          label: "Notes",
+          icon: <StickyNote style={{ width: 16, height: 16 }} />,
+        },
+      ] as const,
+    [],
+  );
+
   const navItems = useMemo(
     () => [
       {
@@ -448,50 +536,24 @@ export function LeftSidebar({
 
   return (
     <div className="flex h-full shrink-0" aria-label="Email navigation">
-      {/* icon rail — always visible, mirrors the pane when it is collapsed */}
+      {/* icon rail — switches what the pane holds: mail nav, or a side tool */}
       <nav
         className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-border py-2.5"
         style={{ background: "var(--mail-rail)" }}
       >
-        <button
-          type="button"
-          onClick={onNewEmail}
-          aria-label="Compose"
-          title="Compose"
-          className="hover-press mb-1.5 inline-flex h-9 w-9 items-center justify-center rounded-md text-white"
-          style={{
-            background: ACCENT,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.20)",
-          }}
-        >
-          <Pencil style={{ width: 16, height: 16 }} />
-        </button>
-
-        {navItems.map((item) => (
+        {railTabs.map((tab) => (
           <RailButton
-            key={item.id}
-            label={item.label}
-            icon={item.icon}
-            count={item.id === "inbox" ? item.count : undefined}
-            isActive={activeSection === item.id}
-            onClick={() => onSelect(item.id)}
+            key={tab.id}
+            label={tab.label}
+            icon={tab.icon}
+            count={tab.id === "mail" ? inboxCount : undefined}
+            isActive={railTab === tab.id}
+            onClick={() => {
+              onRailTabChange(tab.id);
+              onOpenPane?.();
+            }}
           />
         ))}
-
-        <div className="my-1 h-px w-6 bg-border" />
-
-        <RailButton
-          label="Folders"
-          icon={<Folder style={{ width: 16, height: 16 }} />}
-          isActive={activeSection === "folder"}
-          onClick={() => onSelect("folder")}
-        />
-        <RailButton
-          label="Tags"
-          icon={<Tag style={{ width: 16, height: 16 }} />}
-          isActive={activeSection === "label"}
-          onClick={() => onSelect("label")}
-        />
       </nav>
 
       {/* folder pane — collapsible from the top bar */}
@@ -503,6 +565,14 @@ export function LeftSidebar({
         }}
         aria-hidden={!paneOpen}
       >
+        {/* settings and to-do have their own views in the middle panel, so the
+            pane keeps the mail navigation for those tabs */}
+        {railTab === "notes" ? (
+          <div className="flex min-h-0 w-[216px] flex-1 flex-col">
+            <NotesPanel />
+          </div>
+        ) : (
+          <>
         <div className="w-[216px] shrink-0 px-2.5 py-2.5">
           <button
             type="button"
@@ -587,6 +657,8 @@ export function LeftSidebar({
             )}
           </PaneSection>
         </div>
+          </>
+        )}
       </aside>
     </div>
   );

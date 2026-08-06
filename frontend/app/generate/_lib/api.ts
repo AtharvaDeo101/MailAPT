@@ -7,6 +7,7 @@ import type {
   StoredEmail,
 } from "./types";
 import { extractEmailAddress } from "./generate-utils";
+import { DEFAULT_SETTINGS, type Settings } from "./settings";
 
 // CRITICAL FIX: different URL for server vs browser
 export const API =
@@ -241,6 +242,26 @@ export async function trashEmail(id: string) {
   });
 
   return parseJsonResponse(res);
+}
+
+// Per-account preferences (display, theme, notifications)
+export async function fetchSettings(): Promise<Settings> {
+  const res = await fetch(`${API}/settings`, { credentials: "include" });
+  const data = await parseJsonResponse(res);
+
+  return { ...DEFAULT_SETTINGS, ...data?.settings } as Settings;
+}
+
+export async function saveSettings(settings: Settings): Promise<Settings> {
+  const res = await fetch(`${API}/settings`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+
+  const data = await parseJsonResponse(res);
+  return { ...DEFAULT_SETTINGS, ...data?.settings } as Settings;
 }
 
 // Gmail labels, for the sidebar tag list

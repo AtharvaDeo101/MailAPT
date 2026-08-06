@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 from datetime import datetime, timezone
 from email import encoders
 from email.mime.base import MIMEBase
@@ -15,7 +16,12 @@ from OAuth import get_gmail_service
 
 # NEW: import DB session and models
 from db import SessionLocal
-from models import Email as EmailModel, Folder as FolderModel, ScheduledEmail as ScheduledEmailModel
+from models import (
+    Email as EmailModel,
+    Folder as FolderModel,
+    ScheduledEmail as ScheduledEmailModel,
+    UserSettings as UserSettingsModel,
+)
 
 email_bp = Blueprint("email_bp", __name__)
 
@@ -1049,6 +1055,174 @@ def create_folder():
     except Exception as e:
         db.rollback()
         current_app.logger.error(f"create_folder error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db.close()
+
+# ---------- User settings ----------
+
+DEFAULT_SETTINGS = {
+    "language": "en",
+    "fontFamily": "system",
+    "fontSize": "browser",
+    "appearance": "light",
+    "themeColor": "#1a73c7",
+    "leftPanelColor": "#f7f9fb",
+    "notifications": {
+        "enabled": True,
+        "sound": "chime",
+        "volume": 0.6,
+        "silent": False,
+        "silentFrom": "22:00",
+        "silentTo": "07:00",
+    },
+}
+
+_SETTING_CHOICES = {
+    "language": {"en"},
+    "fontFamily": {"system", "lato", "roboto", "georgia"},
+    "fontSize": {"browser", "small", "medium", "large"},
+    "appearance": {"light", "dark"},
+}
+_SOUND_CHOICES = {"chime", "ding", "pop", "none"}
+_HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def _clean_settings(raw):
+    """Keep only known keys with valid values — anything else is dropped."""
+    if not isinstance(raw, dict):
+        return {}
+
+    clean = {}
+
+    for key, choices in _SETTING_CHOICES.items():
+        if raw.get(key) in choices:
+            clean[key] = raw[key]
+
+    for key in ("themeColor", "leftPanelColor"):
+        value = raw.get(key)
+        if isinstance(value, str) and _HEX_RE.match(value):
+            clean[key] = value
+
+    notifications = raw.get("notifications")
+    if isinstance(notifications, dict):
+        clean_notifications = {}
+
+        for key in ("enabled", "silent"):
+            if isinstance(notifications.get(key), bool):
+                clean_notifications[key] = notifications[key]
+
+        if notifications.get("sound") in _SOUND_CHOICES:
+            clean_notifications["sound"] = notifications["sound"]
+
+        volume = notifications.get("volume")
+        if isinstance(volume, (int, float)) and not isinstance(volume, bool):
+            clean_notifications["volume"] = min(1.0, max(0.0, float(volume)))
+
+        for key in ("silentFrom", "silentTo"):
+            value = notifications.get(key)
+            if isinstance(value, str) and _TIME_RE.match(value):
+                clean_notifications[key] = value
+
+        if clean_notifications:
+            clean["notifications"] = clean_notifications
+
+    return clean
+
+
+def _merged_settings(stored):
+    merged = dict(DEFAULT_SETTINGS)
+    merged["notifications"] = dict(DEFAULT_SETTINGS["notifications"])
+
+    if isinstance(stored, dict):
+        for key, value in stored.items():
+            if key == "notifications" and isinstance(value, dict):
+                merged["notifications"].update(value)
+            elif key in DEFAULT_SETTINGS:
+                merged[key] = value
+
+    return merged
+
+
+def _current_email_address():
+    """Gmail address of the signed-in user; cached in the session."""
+    cached = session.get("email_address")
+    if cached:
+        return cached
+
+    service = get_gmail_service()
+    if service is None:
+        return None
+
+    address = service.users().getProfile(userId="me").execute().get("emailAddress")
+    if address:
+        session["email_address"] = address
+        session.modified = True
+
+    return address
+
+
+@email_bp.route("/settings", methods=["GET"])
+def get_settings():
+    address = _current_email_address()
+    if not address:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    db = get_db_session()
+    try:
+        row = (
+            db.query(UserSettingsModel)
+            .filter(UserSettingsModel.email_address == address)
+            .first()
+        )
+        return jsonify({"settings": _merged_settings(row.data if row else None)})
+    except Exception as e:
+        current_app.logger.error(f"get_settings error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@email_bp.route("/settings", methods=["PUT"])
+def update_settings():
+    address = _current_email_address()
+    if not address:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    incoming = _clean_settings(request.get_json(silent=True))
+    if not incoming:
+        return jsonify({"error": "No valid settings supplied"}), 400
+
+    db = get_db_session()
+    try:
+        row = (
+            db.query(UserSettingsModel)
+            .filter(UserSettingsModel.email_address == address)
+            .first()
+        )
+
+        if row is None:
+            row = UserSettingsModel(email_address=address, data={})
+            db.add(row)
+
+        # partial update: merge over what is already stored
+        merged = _merged_settings(row.data)
+        for key, value in incoming.items():
+            if key == "notifications":
+                merged["notifications"].update(value)
+            else:
+                merged[key] = value
+
+        row.data = merged
+        db.commit()
+
+        return jsonify({"settings": merged})
+
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f"update_settings error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
     finally:

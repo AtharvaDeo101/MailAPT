@@ -1,5 +1,5 @@
 # backend/models.py
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
+from sqlalchemy import JSON, Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from db import Base
 from datetime import datetime
@@ -33,6 +33,20 @@ class Email(Base):
 
     folder = relationship("Folder", back_populates="emails")
     scheduled = relationship("ScheduledEmail", back_populates="email", uselist=False)
+
+class UserSettings(Base):
+    """Per-Gmail-account preferences (display, theme, notifications).
+
+    Stored as one JSON blob: the settings page owns the shape, so adding a
+    preference never needs a migration.
+    """
+    __tablename__ = "user_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email_address = Column(String(255), unique=True, nullable=False, index=True)
+    data = Column(JSON, nullable=False, default=dict)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 
 class ScheduledEmail(Base):
     __tablename__ = "scheduled_emails"
