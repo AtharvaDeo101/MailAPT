@@ -67,6 +67,12 @@ import {
   type TodoList,
 } from "./_components/todo-components";
 import {
+  NoteEditorModal,
+  NotesView,
+  useNotes,
+  type Note,
+} from "./_components/notes-components";
+import {
   EmailDetailOverlayPanel,
   EmailListView,
 } from "./_components/list-components";
@@ -136,6 +142,17 @@ export default function EmailGenerator() {
             }
           : list,
       ),
+    );
+
+  const [notes, setNotes] = useNotes();
+  const [noteEditorOpen, setNoteEditorOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+
+  const saveNote = (note: Note) =>
+    setNotes((prev) =>
+      prev.some((existing) => existing.id === note.id)
+        ? prev.map((existing) => (existing.id === note.id ? note : existing))
+        : [note, ...prev],
     );
 
   const saveTodoList = (list: TodoList) =>
@@ -1058,6 +1075,21 @@ export default function EmailGenerator() {
                 }
                 onToggleBlock={toggleTodoBlock}
               />
+            ) : railTab === "notes" ? (
+              <NotesView
+                notes={notes}
+                onCreate={() => {
+                  setEditingNote(null);
+                  setNoteEditorOpen(true);
+                }}
+                onEdit={(note) => {
+                  setEditingNote(note);
+                  setNoteEditorOpen(true);
+                }}
+                onDelete={(id) =>
+                  setNotes((prev) => prev.filter((note) => note.id !== id))
+                }
+              />
             ) : (
             <EmailListView
               activeSection={activeSection}
@@ -1123,6 +1155,13 @@ export default function EmailGenerator() {
         initial={editingTodoList}
         onClose={() => setTodoEditorOpen(false)}
         onSave={saveTodoList}
+      />
+
+      <NoteEditorModal
+        isOpen={noteEditorOpen}
+        initial={editingNote}
+        onClose={() => setNoteEditorOpen(false)}
+        onSave={saveNote}
       />
 
       {status && !isComposeOpen && (

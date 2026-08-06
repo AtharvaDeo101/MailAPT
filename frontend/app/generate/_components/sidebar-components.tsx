@@ -29,7 +29,6 @@ import {
 
 import { ActiveSection, FolderItem, GmailLabel } from "../_lib/types";
 import { API } from "../_lib/api";
-import { usePersistentState } from "../_lib/use-persistent-state";
 
 const ACCENT = "var(--mail-accent)";
 const ACCENT_TINT = "var(--mail-accent-tint)";
@@ -311,32 +310,6 @@ function RailButton({
 
 export type RailTab = "mail" | "settings" | "todos" | "notes";
 
-function PanelHeading({ title }: { title: string }) {
-  return (
-    <div className="flex h-9 shrink-0 items-center border-b border-border px-3 text-[11px] font-bold uppercase tracking-[0.07em] text-muted-foreground">
-      {title}
-    </div>
-  );
-}
-
-function NotesPanel() {
-  const [notes, setNotes] = usePersistentState<string>("mailly-notes", "");
-
-  return (
-    <>
-      <PanelHeading title="Notes" />
-
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Jot something down…"
-        aria-label="Notes"
-        className="m-2.5 flex-1 resize-none rounded-md border border-border bg-card p-2.5 text-[12.5px] leading-relaxed outline-none focus:border-[var(--mail-accent)]"
-      />
-    </>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /* Folder pane                                                         */
 /* ------------------------------------------------------------------ */
@@ -556,23 +529,16 @@ export function LeftSidebar({
         ))}
       </nav>
 
-      {/* folder pane — collapsible from the top bar */}
+      {/* folder pane — mail navigation only, so the other rail tabs get the
+          full width for their own view */}
       <aside
         className="flex h-full flex-col overflow-hidden border-r border-border transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
-          width: paneOpen ? 216 : 0,
+          width: paneOpen && railTab === "mail" ? 216 : 0,
           background: "var(--mail-pane)",
         }}
-        aria-hidden={!paneOpen}
+        aria-hidden={!paneOpen || railTab !== "mail"}
       >
-        {/* settings and to-do have their own views in the middle panel, so the
-            pane keeps the mail navigation for those tabs */}
-        {railTab === "notes" ? (
-          <div className="flex min-h-0 w-[216px] flex-1 flex-col">
-            <NotesPanel />
-          </div>
-        ) : (
-          <>
         <div className="w-[216px] shrink-0 px-2.5 py-2.5">
           <button
             type="button"
@@ -657,8 +623,6 @@ export function LeftSidebar({
             )}
           </PaneSection>
         </div>
-          </>
-        )}
       </aside>
     </div>
   );
