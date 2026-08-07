@@ -203,7 +203,7 @@ export function MailTopBar({
           className="hidden sm:block text-[15px] font-semibold tracking-tight"
           style={{ color: "var(--mail-topbar-fg)" }}
         >
-          Mailly
+          Dispatch
         </span>
       </div>
 

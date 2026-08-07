@@ -39,10 +39,10 @@ export default function LoginPage() {
                   Secure access
                 </p>
                 <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                  Welcome back to Mailly
+                  Welcome back to Dispatch
                 </h1>
                 <p className="mt-4 max-w-sm text-sm leading-6 text-white/65">
-                  Sign in with your Google account to continue to Mailly and manage your email workflow with clarity.
+                  Sign in with your Google account to continue to Dispatch and manage your email workflow with clarity.
                 </p>
               </div>
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
               </Button>
 
               <p className="mt-6 text-center text-xs leading-5 text-white/40">
-                By continuing, you allow Mailly to access Gmail for reading and sending emails on your behalf.
+                By continuing, you allow Dispatch to access Gmail for reading and sending emails on your behalf.
               </p>
             </div>
           </div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
             <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
               <Image
                 src="/icon.png"
-                alt="Mailly Logo"
+                alt="Dispatch Logo"
                 width={220}
                 height={220}
                 className="mx-auto"

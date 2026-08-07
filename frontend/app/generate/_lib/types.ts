@@ -26,6 +26,7 @@ export interface GmailEmail {
   id: string;
   subject: string;
   from: string;
+  to?: string;
   date: string;
   folderId?: string | null;
   // returned by /list_emails; used for unread state and row previews

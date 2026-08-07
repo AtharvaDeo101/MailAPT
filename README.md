@@ -1,15 +1,15 @@
-# MailAPT
+# Dispatch
 
 <p align="center">
 <img
   src="https://github.com/AtharvaDeo101/MailAPT/blob/main/frontend/public/icon.png"
-  alt="MailAPT"
+  alt="Dispatch"
   width="100"
   height="100"></p>
 
 ## Overview
 
-**MailAPT** (shipped as **Mailly**) is an AI-assisted Gmail client. It signs in with your Google
+**Dispatch** is an AI-assisted Gmail client. It signs in with your Google
 account, reads and sends real mail through the Gmail API, and adds the things a plain inbox is
 missing: AI drafting, one-click summaries, scheduled sends, folders, and a side panel of to-do
 lists and notes you can keep on screen while you work.

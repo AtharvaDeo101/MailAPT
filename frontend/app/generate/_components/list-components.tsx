@@ -954,7 +954,8 @@ export function EmailListView({
     return emails.filter(
       (e) =>
         e.subject?.toLowerCase().includes(q) ||
-        e.from?.toLowerCase().includes(q),
+        e.from?.toLowerCase().includes(q) ||
+        e.to?.toLowerCase().includes(q),
     );
   };
 

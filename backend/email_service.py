@@ -1,6 +1,7 @@
 import base64
 import json
 import re
+import time
 from datetime import datetime, timezone
 from email import encoders
 from email.mime.base import MIMEBase
@@ -283,6 +284,9 @@ def send_email():
 
 # ---------- Gmail list (unchanged, still from Gmail) ----------
 
+BATCH_CHUNK = 10
+
+
 @email_bp.route("/list_emails", methods=["GET"])
 def list_emails():
     service = get_gmail_service()
@@ -327,11 +331,21 @@ def list_emails():
                 "id": response.get("id", msg_id),
                 "subject": _get_header(headers, "Subject"),
                 "from": _get_header(headers, "From"),
+                "to": _get_header(headers, "To"),
                 "date": _get_header(headers, "Date"),
                 "snippet": response.get("snippet", ""),
                 "threadId": response.get("threadId", ""),
                 "labelIds": response.get("labelIds", []),
             }
+
+        def _get_meta(msg_id):
+            return service.users().messages().get(
+                userId="me",
+                id=msg_id,
+                format="metadata",
+                metadataHeaders=["Subject", "From", "To", "Date"],
+                fields="id,threadId,labelIds,snippet,payload/headers",
+            )
 
         def batch_callback(request_id, response, exception):
             if exception is not None:
@@ -343,40 +357,31 @@ def list_emails():
 
             email_map[request_id] = _to_email(request_id, response)
 
-        batch = service.new_batch_http_request()
+        # ponytail: 10 per batch. Gmail counts each sub-request against the
+        # per-user concurrency limit, so a single 50-wide batch 429s most of
+        # itself. Raise the chunk size only if Gmail stops complaining.
+        for i in range(0, len(messages), BATCH_CHUNK):
+            batch = service.new_batch_http_request()
+            for m in messages[i:i + BATCH_CHUNK]:
+                batch.add(
+                    _get_meta(m["id"]), request_id=m["id"], callback=batch_callback
+                )
+            batch.execute()
 
-        for m in messages:
-            msg_id = m["id"]
-            batch.add(
-                service.users().messages().get(
-                    userId="me",
-                    id=msg_id,
-                    format="metadata",
-                    metadataHeaders=["Subject", "From", "Date"],
-                    fields="id,threadId,labelIds,snippet,payload/headers",
-                ),
-                request_id=msg_id,
-                callback=batch_callback,
-            )
-
-        batch.execute()
-
-        # ponytail: serial retry of failed sub-requests; batch fails a few per call
-        # under load. Move to a second batch if the failure count ever gets large.
+        # ponytail: serial retry with backoff for the few that still 429.
+        # Move to a second batch if the failure count ever gets large.
         for msg_id in failed_ids:
-            try:
-                response = service.users().messages().get(
-                    userId="me",
-                    id=msg_id,
-                    format="metadata",
-                    metadataHeaders=["Subject", "From", "Date"],
-                    fields="id,threadId,labelIds,snippet,payload/headers",
-                ).execute()
-                email_map[msg_id] = _to_email(msg_id, response)
-            except Exception as e:
-                current_app.logger.warning(f"Retry get failed for {msg_id}: {e}")
-                # still list it, so the email isn't silently missing from the inbox
-                email_map[msg_id] = _to_email(msg_id, {})
+            for attempt in range(3):
+                try:
+                    email_map[msg_id] = _to_email(msg_id, _get_meta(msg_id).execute())
+                    break
+                except Exception as e:
+                    if attempt == 2:
+                        current_app.logger.warning(f"Retry get failed for {msg_id}: {e}")
+                        # still list it, so the email isn't silently missing
+                        email_map[msg_id] = _to_email(msg_id, {})
+                    else:
+                        time.sleep(0.5 * 2 ** attempt)
 
         email_list = [email_map[m["id"]] for m in messages if m["id"] in email_map]
 
@@ -987,7 +992,12 @@ def delete_scheduled_email(scheduled_id):
                 mail.is_draft = False
                 mail.updated_at = datetime.utcnow()
         else:
-            db.delete(sched)
+            # bulk delete, not db.delete(sched): the session is autoflush=False,
+            # so an ORM delete stays pending and the emails DELETE below hits
+            # the FK from the still-present schedule row
+            db.query(ScheduledEmailModel).filter(
+                ScheduledEmailModel.id == scheduled_id
+            ).delete()
             db.query(EmailModel).filter(EmailModel.id == email_id).delete()
 
         db.commit()

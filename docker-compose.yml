@@ -4,14 +4,19 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: mailapt-backend
+    restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
       - POSTGRES_HOST=db  # ← ADDED: ensures backend connects to db container
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "5000:5000"
+    volumes:
+      # without this every rebuild wipes the session files and logs you out
+      - sessions:/app/flask_session
     networks:
       - mailapt-net
 
@@ -20,6 +25,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: mailapt-frontend
+    restart: unless-stopped
     env_file:
       - ./frontend/.env.local
     depends_on:
@@ -32,10 +38,16 @@ services:
   db:
     image: postgres:16
     container_name: mailapt-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: mailapt
-      POSTGRES_PASSWORD: mailaptpassword
-      POSTGRES_DB: mailapt
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     ports:
       - "5432:5432"
     volumes:
@@ -48,3 +60,4 @@ networks:
 
 volumes:
   pgdata:
+  sessions:

@@ -24,7 +24,7 @@ function FloatingPaths({ position }: { position: number }) {
                 viewBox="0 0 696 316"
                 fill="none"
             >
-                <title>MailAPT</title>
+                <title>Dispatch</title>
                 {paths.map((path) => (
                     <motion.path
                         key={path.id}

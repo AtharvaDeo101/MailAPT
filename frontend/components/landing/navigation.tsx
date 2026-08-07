@@ -98,7 +98,7 @@ export function Navigation() {
               textDecoration: "none",
             }}
           >
-            Mailly
+            Dispatch
           </a>
 
 

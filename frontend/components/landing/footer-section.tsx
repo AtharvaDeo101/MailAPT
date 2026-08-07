@@ -3,10 +3,20 @@
 import { ArrowUpRight } from "lucide-react";
 
 
+
+
 const footerLinks = {
   Links: [
     { name: "Generate", href: "/generate" },
     // { name: "Summarize", href: "/summarize" },
+  ],
+  Company: [
+    { name: "About", href: "/about" },
+    { name: "Contact", href: "/contact" },
+  ],
+  Legal: [
+    { name: "Terms of Service", href: "/terms" },
+    { name: "Privacy Policy", href: "/privacy" },
   ],
 };
 
@@ -42,7 +52,7 @@ export function FooterSection() {
                     lineHeight: 1,
                   }}
                 >
-                  Mailly
+                  Dispatch
                 </span>
               </a>
 
@@ -149,7 +159,7 @@ export function FooterSection() {
               letterSpacing: "0.02em",
             }}
           >
-            2026 Mailly
+            2026 Dispatch
           </p>
         </div>
       </div>
