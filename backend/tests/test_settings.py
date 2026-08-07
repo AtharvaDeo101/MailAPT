@@ -52,7 +52,8 @@ class TestSettingsRoutes:
         assert client.get("/settings").status_code == 401
         assert client.put("/settings", json={"appearance": "dark"}).status_code == 401
 
-    def test_round_trip(self, client):
+    def test_round_trip(self, client, login):
+        login(client)
         with client.session_transaction() as sess:
             sess["email_address"] = "someone@example.com"
 
@@ -68,17 +69,20 @@ class TestSettingsRoutes:
         # untouched keys keep their defaults
         assert stored["fontFamily"] == DEFAULT_SETTINGS["fontFamily"]
 
-    def test_rejects_payload_with_nothing_valid(self, client):
+    def test_rejects_payload_with_nothing_valid(self, client, login):
+        login(client)
         with client.session_transaction() as sess:
             sess["email_address"] = "someone@example.com"
 
         assert client.put("/settings", json={"appearance": "neon"}).status_code == 400
 
-    def test_falls_back_to_gmail_profile_for_the_address(self, client):
+    def test_falls_back_to_gmail_profile_for_the_address(self, client, login):
         service = MagicMock()
         service.users.return_value.getProfile.return_value.execute.return_value = {
             "emailAddress": "profile@example.com"
         }
+
+        login(client)
 
         with patch("email_service.get_gmail_service", return_value=service):
             response = client.get("/settings")

@@ -10,6 +10,7 @@ from huggingface_hub import InferenceClient
 from db import Base, engine
 
 from email_service import email_bp
+from gateway import install_gateway
 from OAuth import oauth_bp
 
 load_dotenv()
@@ -96,6 +97,9 @@ def create_app():
                 "database_url": app.config.get("DATABASE_URL"),
             }
         )
+
+    # Auth gate, rate limits, response cache and security headers for every route
+    install_gateway(app)
 
     # Register blueprints
     app.register_blueprint(oauth_bp)

@@ -33,3 +33,21 @@ def app():
 @pytest.fixture
 def client(app):
     return app.test_client()
+
+
+@pytest.fixture
+def login():
+    """Give a client the session the gateway requires: login(client)."""
+
+    def _login(client):
+        with client.session_transaction() as sess:
+            sess["credentials"] = {
+                "token": "t",
+                "refresh_token": "r",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "client_id": "c",
+                "client_secret": "s",
+                "scopes": [],
+            }
+
+    return _login

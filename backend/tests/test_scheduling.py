@@ -3,24 +3,12 @@
 from datetime import datetime, timedelta, timezone
 
 
-def login(client):
-    with client.session_transaction() as sess:
-        sess["credentials"] = {
-            "token": "t",
-            "refresh_token": "r",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "client_id": "c",
-            "client_secret": "s",
-            "scopes": [],
-        }
-
-
 class TestScheduledEmails:
     def test_requires_auth(self, client):
         assert client.get("/scheduled_emails").status_code == 401
         assert client.post("/scheduled_emails", json={}).status_code == 401
 
-    def test_rejects_incomplete_payloads(self, client):
+    def test_rejects_incomplete_payloads(self, client, login):
         login(client)
 
         assert client.post("/scheduled_emails", json={"to": "a@b.com"}).status_code == 400
@@ -39,7 +27,7 @@ class TestScheduledEmails:
             == 400
         )
 
-    def test_schedule_round_trip(self, client):
+    def test_schedule_round_trip(self, client, login):
         login(client)
 
         when = datetime.now(timezone.utc) + timedelta(hours=2)
@@ -68,7 +56,7 @@ class TestScheduledEmails:
         remaining = client.get("/scheduled_emails").get_json()["scheduled"]
         assert sched_id not in [s["id"] for s in remaining]
 
-    def test_marking_sent_keeps_the_record_out_of_pending(self, client):
+    def test_marking_sent_keeps_the_record_out_of_pending(self, client, login):
         login(client)
 
         when = datetime.now(timezone.utc) + timedelta(minutes=5)
@@ -90,7 +78,7 @@ class TestScheduledEmails:
         sent = client.get("/stored_emails?is_draft=false").get_json()["emails"]
         assert any(m["subject"] == "Later" for m in sent)
 
-    def test_naive_datetime_is_accepted_as_utc(self, client):
+    def test_naive_datetime_is_accepted_as_utc(self, client, login):
         login(client)
 
         when = datetime.utcnow() + timedelta(hours=1)
@@ -108,7 +96,7 @@ class TestScheduledEmails:
 
 
 class TestStoredEmailMutations:
-    def test_patch_updates_fields(self, client):
+    def test_patch_updates_fields(self, client, login):
         login(client)
         when = datetime.now(timezone.utc) + timedelta(hours=1)
         email_id = client.post(
@@ -125,11 +113,11 @@ class TestStoredEmailMutations:
         assert res.status_code == 200
         assert res.get_json()["subject"] == "After"
 
-    def test_patch_missing_row_is_404(self, client):
+    def test_patch_missing_row_is_404(self, client, login):
         login(client)
         assert client.patch("/stored_emails/999999", json={}).status_code == 404
 
-    def test_delete_clears_dependent_schedule(self, client):
+    def test_delete_clears_dependent_schedule(self, client, login):
         login(client)
         when = datetime.now(timezone.utc) + timedelta(hours=1)
         created = client.post(
