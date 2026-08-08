@@ -17,6 +17,10 @@ export type Settings = {
     silentFrom: string;
     silentTo: string;
   };
+  /** Learned from the mail you send, used to fill in generated drafts. */
+  profile: { name: string };
+  /** Recipient address -> their name. */
+  contacts: Record<string, string>;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -34,6 +38,8 @@ export const DEFAULT_SETTINGS: Settings = {
     silentFrom: "22:00",
     silentTo: "07:00",
   },
+  profile: { name: "" },
+  contacts: {},
 };
 
 export const LANGUAGES = [{ id: "en", label: "English" }] as const;

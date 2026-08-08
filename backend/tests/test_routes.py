@@ -129,6 +129,86 @@ class TestGenerateEmailRoute:
         assert client.post("/generate_email", json={"prompt": "hi"}).status_code == 500
 
 
+class TestRemembersNames:
+    """Sending an email teaches the generator the names it should reuse."""
+
+    @patch("OAuth.build")
+    @patch("OAuth.Credentials")
+    def test_names_from_a_sent_email_land_in_the_next_draft(
+        self, mock_creds, mock_build, client, login
+    ):
+        mock_service = MagicMock()
+        mock_service.users().messages().send().execute.return_value = {"id": "m-1"}
+        mock_build.return_value = mock_service
+        # a MagicMock's .expired is truthy, which makes get_gmail_service write
+        # unpicklable mock credentials back into the session
+        mock_creds.return_value.expired = False
+
+        login(client)
+        with client.session_transaction() as sess:
+            sess["email_address"] = "learner@example.com"
+
+        sent = client.post(
+            "/send_email",
+            json={
+                "to": "Priya Sharma <priya@example.com>",
+                "subject": "Report",
+                "body": "Dear Priya,\n\nThe report is attached.\n\nRegards,\nAtharva",
+            },
+        )
+        assert sent.status_code == 200
+
+        settings = json.loads(client.get("/settings").data)["settings"]
+        assert settings["profile"]["name"] == "Atharva"
+        assert settings["contacts"]["priya@example.com"] == "Priya"
+
+        with patch("email_service.generate_with_api") as mock_gen:
+            mock_gen.return_value = (
+                "Subject: Follow-up\n\nDear [Recipient Name],\n\nAny update?"
+                "\n\nRegards,\n[Your Name]"
+            )
+            response = client.post(
+                "/generate_email",
+                json={"prompt": "follow up", "to": "priya@example.com"},
+            )
+
+        assert response.status_code == 200
+        body = json.loads(response.data)["body"]
+        assert "Dear Priya," in body
+        assert body.endswith("Atharva")
+        # the names are handed to the model too, not just patched in afterwards
+        assert mock_gen.call_args.args == ("follow up", "Atharva", "Priya")
+
+    @patch("OAuth.build")
+    @patch("OAuth.Credentials")
+    def test_a_generic_greeting_is_not_learned_as_a_name(
+        self, mock_creds, mock_build, client, login
+    ):
+        mock_service = MagicMock()
+        mock_service.users().messages().send().execute.return_value = {"id": "m-2"}
+        mock_build.return_value = mock_service
+        # a MagicMock's .expired is truthy, which makes get_gmail_service write
+        # unpicklable mock credentials back into the session
+        mock_creds.return_value.expired = False
+
+        login(client)
+        with client.session_transaction() as sess:
+            sess["email_address"] = "generic@example.com"
+
+        client.post(
+            "/send_email",
+            json={
+                "to": "team@example.com",
+                "subject": "Notice",
+                "body": "Dear Team,\n\nStandup moves to 10am.\n\nBest regards,",
+            },
+        )
+
+        settings = json.loads(client.get("/settings").data)["settings"]
+        assert settings["profile"]["name"] == ""
+        assert settings["contacts"] == {}
+
+
 class TestSummarizeEmailRoute:
     def test_summarize_unauthenticated(self, client):
         assert client.post("/summarize_email", json={"content": "text"}).status_code == 401

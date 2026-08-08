@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Bell, Check, Palette, Settings as SettingsIcon, Type, Volume2 } from "lucide-react";
+import { Bell, Check, Palette, Settings as SettingsIcon, Type, User, Volume2 } from "lucide-react";
 
 import {
   FONT_FAMILIES,
@@ -86,6 +86,28 @@ function Select<T extends string>({
   );
 }
 
+function TextInput({
+  value,
+  onChange,
+  placeholder,
+  label,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  placeholder?: string;
+  label: string;
+}) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      aria-label={label}
+      className="h-8 min-w-[150px] rounded-md border border-border bg-card px-2 text-[12.5px] outline-none focus:border-[var(--mail-accent)]"
+    />
+  );
+}
+
 function Swatches({
   colors,
   value,
@@ -164,10 +186,14 @@ export function SettingsView({
   onChange: (patch: Partial<Settings>) => void;
   isSaving: boolean;
 }) {
-  const { notifications } = settings;
+  const { notifications, profile, contacts } = settings;
   const patchNotifications = (
     patch: Partial<Settings["notifications"]>,
   ) => onChange({ notifications: { ...notifications, ...patch } });
+
+  const contactList = Object.entries(contacts).sort(([a], [b]) =>
+    a.localeCompare(b),
+  );
 
   return (
     <div className="h-full w-full overflow-y-auto bg-background">
@@ -185,6 +211,44 @@ export function SettingsView({
             {accountEmail ?? "there"}
           </span>
         </p>
+
+        <Section icon={<User className="h-4 w-4" />} title="Names">
+          <Row label="Your name" hint="Signs off the emails drafted for you">
+            <TextInput
+              label="Your name"
+              value={profile.name}
+              placeholder="Not learned yet"
+              onChange={(name) => onChange({ profile: { ...profile, name } })}
+            />
+          </Row>
+
+          {contactList.length === 0 ? (
+            <Row
+              label="People you write to"
+              hint="Picked up from the greeting you write — send an email and the name shows up here"
+            >
+              <span className="text-[12px] text-muted-foreground">
+                Nothing learned yet
+              </span>
+            </Row>
+          ) : (
+            contactList.map(([address, name]) => (
+              <Row
+                key={address}
+                label={address}
+                hint="Used when you draft an email to this address"
+              >
+                <TextInput
+                  label={`Name for ${address}`}
+                  value={name}
+                  onChange={(next) =>
+                    onChange({ contacts: { ...contacts, [address]: next } })
+                  }
+                />
+              </Row>
+            ))
+          )}
+        </Section>
 
         <Section icon={<Type className="h-4 w-4" />} title="Display">
           <Row label="Display language" hint="Interface language">

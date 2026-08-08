@@ -200,6 +200,8 @@ export default function EmailGenerator() {
           ...settings.notifications,
           ...(patch.notifications ?? {}),
         },
+        profile: { ...settings.profile, ...(patch.profile ?? {}) },
+        contacts: { ...settings.contacts, ...(patch.contacts ?? {}) },
       };
 
       queryClient.setQueryData(["settings"], next);
@@ -605,7 +607,8 @@ export default function EmailGenerator() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: userMessage }),
+        // the recipient lets the backend look up their remembered name
+        body: JSON.stringify({ prompt: userMessage, to: recipientEmail }),
       });
 
       const data = await res.json().catch(() => null);

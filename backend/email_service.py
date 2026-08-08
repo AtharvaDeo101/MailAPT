@@ -7,6 +7,7 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import getaddresses
 from html import unescape
 
 from bs4 import BeautifulSoup
@@ -14,6 +15,12 @@ from flask import Blueprint, current_app, jsonify, request, session
 from googleapiclient.errors import HttpError
 
 from OAuth import get_gmail_service
+from known_names import (
+    clean_name,
+    fill_placeholders,
+    greeting_name,
+    signature_name,
+)
 
 # NEW: import DB session and models
 from db import SessionLocal
@@ -29,7 +36,18 @@ email_bp = Blueprint("email_bp", __name__)
 
 # ---------- LLM helpers ----------
 
-def generate_with_api(prompt: str) -> str:
+def generate_with_api(prompt: str, sender: str = None, recipient: str = None) -> str:
+    known = []
+    if sender:
+        known.append(f"The sender, who signs the email, is {sender}.")
+    if recipient:
+        known.append(f"The recipient is {recipient}.")
+    if known:
+        known.append(
+            "Use these names directly and never write a bracketed placeholder "
+            "for a name you have been given."
+        )
+
     messages = [
         {
             "role": "system",
@@ -40,6 +58,7 @@ def generate_with_api(prompt: str) -> str:
                 "Subject: <subject line>\n\n"
                 "<email body starting with Dear...>\n\n"
                 "Do not include any explanation outside the email itself."
+                + ("\n" + " ".join(known) if known else "")
             ),
         },
         {"role": "user", "content": f"Write a professional email about: {prompt}"},
@@ -263,6 +282,12 @@ def send_email():
             current_app.logger.error(f"DB error storing sent email: {db_exc}", exc_info=True)
         finally:
             db.close()
+
+        # a sent email is the only place we see the names the user actually
+        # wanted; remember them so the next generated draft fills itself in
+        account = _current_email_address()
+        if account:
+            _remember_names(account, _sole_address(to), body)
 
         return jsonify(
             {
@@ -593,12 +618,22 @@ def generate_email():
     data = request.get_json() or {}
     prompt = data.get("prompt")
     folder_id = data.get("folder_id")  # optional folder for generated drafts
+    to_address = _sole_address(data.get("to"))
 
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
 
     try:
-        text = generate_with_api(prompt)
+        account = _current_email_address()
+        settings = _load_settings(account) if account else _merged_settings(None)
+        sender = settings["profile"].get("name") or None
+        recipient = settings["contacts"].get(to_address) if to_address else None
+
+        text = generate_with_api(prompt, sender, recipient)
+        # the model emits placeholders even when told not to; this is the
+        # part that actually guarantees the names land
+        text = fill_placeholders(text, sender, recipient)
+
         lines = text.strip().splitlines()
         subject, body_lines = "", []
 
@@ -628,7 +663,7 @@ def generate_email():
             email_row = EmailModel(
                 subject=subject,
                 body=body,
-                to_address="",  # unknown until user sets receiver
+                to_address=to_address or "",  # empty until the user picks one
                 from_address="me",
                 is_draft=True,
                 created_at=datetime.utcnow(),
@@ -1087,7 +1122,15 @@ DEFAULT_SETTINGS = {
         "silentFrom": "22:00",
         "silentTo": "07:00",
     },
+    # who you are, and who you write to (address -> name). Learned from the
+    # mail you send, so generated drafts stop asking for "[Your Name]".
+    "profile": {"name": ""},
+    "contacts": {},
 }
+
+# settings whose value is a dict: a partial update merges into it instead of
+# replacing it, so saving one key never drops the others
+_DICT_SETTINGS = ("notifications", "profile", "contacts")
 
 _SETTING_CHOICES = {
     "language": {"en"},
@@ -1150,17 +1193,34 @@ def _clean_settings(raw):
         if clean_notifications:
             clean["notifications"] = clean_notifications
 
+    profile = raw.get("profile")
+    if isinstance(profile, dict):
+        name = clean_name(profile.get("name"))
+        if name:
+            clean["profile"] = {"name": name}
+
+    contacts = raw.get("contacts")
+    if isinstance(contacts, dict):
+        clean_contacts = {}
+        for address, name in contacts.items():
+            name = clean_name(name)
+            if name and isinstance(address, str) and "@" in address:
+                clean_contacts[address.strip().lower()] = name
+        if clean_contacts:
+            clean["contacts"] = clean_contacts
+
     return clean
 
 
 def _merged_settings(stored):
     merged = dict(DEFAULT_SETTINGS)
-    merged["notifications"] = dict(DEFAULT_SETTINGS["notifications"])
+    for key in _DICT_SETTINGS:
+        merged[key] = dict(DEFAULT_SETTINGS[key])
 
     if isinstance(stored, dict):
         for key, value in stored.items():
-            if key == "notifications" and isinstance(value, dict):
-                merged["notifications"].update(value)
+            if key in _DICT_SETTINGS and isinstance(value, dict):
+                merged[key].update(value)
             elif key in DEFAULT_SETTINGS:
                 merged[key] = value
 
@@ -1177,12 +1237,91 @@ def _current_email_address():
     if service is None:
         return None
 
-    address = service.users().getProfile(userId="me").execute().get("emailAddress")
+    # every caller treats "no address" as "not signed in"; a failed profile
+    # lookup must not turn into a 500 halfway through an unrelated request
+    try:
+        address = service.users().getProfile(userId="me").execute().get("emailAddress")
+    except Exception as e:
+        current_app.logger.warning(f"_current_email_address failed: {e}")
+        return None
+
     if address:
         session["email_address"] = address
         session.modified = True
 
     return address
+
+
+# ---------- remembered names ----------
+
+def _sole_address(value):
+    """The one recipient address in `value`, or None if absent or ambiguous."""
+    parsed = [addr.strip().lower() for _, addr in getaddresses([value or ""]) if "@" in addr]
+    return parsed[0] if len(parsed) == 1 else None
+
+
+def _load_settings(address):
+    """Stored settings for `address` with defaults merged in."""
+    db = get_db_session()
+    try:
+        row = (
+            db.query(UserSettingsModel)
+            .filter(UserSettingsModel.email_address == address)
+            .first()
+        )
+        return _merged_settings(row.data if row else None)
+    finally:
+        db.close()
+
+
+def _remember_names(address, to_address, body):
+    """Learn the sender's and recipient's names from an email being sent.
+
+    Every finished email carries them in fixed places — "Dear X," at the top
+    and the signature at the bottom — so there is no need to diff the
+    generated draft against what the user edited. Best effort: a failure here
+    must never fail the send that just succeeded.
+
+    ponytail: greeting/signature heuristic, learns nothing from mail that
+    doesn't open with "Dear X," — diff the generated draft against the sent
+    body if that turns out to miss too much.
+    """
+    sender = signature_name(body)
+    recipient = greeting_name(body) if to_address else None
+    if not sender and not recipient:
+        return
+
+    db = get_db_session()
+    try:
+        row = (
+            db.query(UserSettingsModel)
+            .filter(UserSettingsModel.email_address == address)
+            .first()
+        )
+        if row is None:
+            row = UserSettingsModel(email_address=address, data={})
+            db.add(row)
+
+        merged = _merged_settings(row.data)
+
+        # your own name is learned once — later mail may be signed off by a
+        # team name or an alias, and overwriting would be a regression
+        if sender and not merged["profile"].get("name"):
+            merged["profile"]["name"] = sender
+
+        # contacts do change (people get renamed, addresses change hands)
+        if recipient:
+            merged["contacts"][to_address] = recipient
+
+        row.data = merged
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        current_app.logger.error(f"_remember_names error: {e}", exc_info=True)
+
+    finally:
+        db.close()
 
 
 @email_bp.route("/settings", methods=["GET"])
@@ -1231,8 +1370,8 @@ def update_settings():
         # partial update: merge over what is already stored
         merged = _merged_settings(row.data)
         for key, value in incoming.items():
-            if key == "notifications":
-                merged["notifications"].update(value)
+            if key in _DICT_SETTINGS:
+                merged[key].update(value)
             else:
                 merged[key] = value
 
